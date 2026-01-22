@@ -37,6 +37,61 @@ Aframp/
 
 ---
 
+## 🧩 Components
+
+### TransactionStatusCard
+
+A reusable React component for displaying transaction states across the AFRAMP application.
+
+#### Props
+
+```typescript
+interface TransactionStatusCardProps {
+  type: 'onramp' | 'offramp' | 'payment' | 'swap';
+  status: 'pending' | 'confirming' | 'completed' | 'failed';
+  amount: string;
+  asset: string;
+  timestamp: Date;
+  txHash?: string;
+  chain?: 'stellar' | 'ethereum' | 'polygon' | 'base';
+  confirmations?: number;
+  errorMessage?: string;
+  onRetry?: () => void;
+}
+```
+
+#### Usage
+
+```tsx
+import { TransactionStatusCard } from '@/components/TransactionStatusCard';
+
+<TransactionStatusCard
+  type="swap"
+  status="confirming"
+  amount="1,500"
+  asset="cNGN → 2.5 USDC"
+  timestamp={new Date()}
+  txHash="example-tx-hash"
+  chain="stellar"
+  confirmations={8}
+/>
+```
+
+#### Features
+
+- **Status Visualization**: Color-coded badges with icons for pending (yellow), confirming (blue), completed (green), failed (red)
+- **Transaction Types**: Icons for onramp (⬇️), offramp (⬆️), payment (💳), swap (🔄)
+- **Blockchain Links**: Direct links to explorers for Stellar, Ethereum, Polygon, and Base networks
+- **Responsive Design**: Mobile-first design that works on all screen sizes
+- **Accessibility**: Proper ARIA labels and keyboard navigation
+- **Error Handling**: Displays error messages and retry buttons for failed transactions
+
+#### Demo
+
+View examples of all transaction states at `/examples/transaction-status`.
+
+---
+
 ## 🚀 Development Setup
 
 Follow these instructions to get a local copy of the AFRAMP frontend up and running.
