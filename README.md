@@ -73,6 +73,33 @@ Ensure you have the following installed on your system:
 
 ---
 
+## 💳 Onramp Page (Wallet-Connected Flow)
+
+The onramp page lives at `/onramp` and assumes a connected Stellar wallet address is already stored in `localStorage`.
+
+### Run Locally
+1. Start the dev server (see setup above).
+2. Visit `http://localhost:3000/onramp`.
+3. Ensure `localStorage.walletAddress` is set to a valid Stellar address (56 characters, starts with `G`).
+
+### Environment Variables
+No additional environment variables are required for the onramp page. Exchange rates are fetched from CoinGecko on the client.
+
+### Supported Currencies & Assets
+- Fiat: NGN, KES, GHS, ZAR, UGX
+- Crypto: cNGN, cKES, cGHS, USDC, XLM
+
+### Payment Methods & Fees
+- Bank Transfer: 0% processing fee
+- Card Payment: 1.5% processing fee
+- Mobile Money: 0.5% processing fee
+
+### Known Limitations
+- Wallet switching is a client-only selector and does not yet integrate with Freighter accounts.
+- Exchange rates are best-effort with cached fallbacks on API failure.
+
+---
+
 ## 🧪 Testing & Quality
 
 *   **Run Unit Tests:** Execute `npm test` to launch the test runner.

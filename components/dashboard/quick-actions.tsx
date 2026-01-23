@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion"
 import { ArrowLeftRight, ArrowUp, ArrowDown, Zap, Coins, CreditCard } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 
 interface QuickActionsProps {
@@ -11,15 +12,17 @@ interface QuickActionsProps {
 }
 
 const actions = [
-  { icon: ArrowLeftRight, label: "Swap", onClick: (onSwap: () => void) => onSwap(), color: "text-blue-500" },
-  { icon: ArrowUp, label: "Send", onClick: (onSend: () => void) => onSend(), color: "text-green-500" },
-  { icon: ArrowDown, label: "Receive", onClick: (onReceive: () => void) => onReceive(), color: "text-purple-500" },
-  { icon: Zap, label: "Lightning", onClick: () => {}, color: "text-yellow-500" },
-  { icon: Coins, label: "Buy Crypto", onClick: () => {}, color: "text-orange-500" },
-  { icon: CreditCard, label: "Pay Bills", onClick: () => {}, color: "text-pink-500" },
-]
+  { icon: ArrowLeftRight, label: "Swap", action: "swap", color: "text-blue-500" },
+  { icon: ArrowUp, label: "Send", action: "send", color: "text-green-500" },
+  { icon: ArrowDown, label: "Receive", action: "receive", color: "text-purple-500" },
+  { icon: Zap, label: "Lightning", action: "lightning", color: "text-yellow-500" },
+  { icon: Coins, label: "Onramp", action: "onramp", color: "text-orange-500" },
+  { icon: CreditCard, label: "Pay Bills", action: "bills", color: "text-pink-500" },
+] as const
 
 export function QuickActions({ onSwap, onSend, onReceive }: QuickActionsProps) {
+  const router = useRouter()
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -37,10 +40,11 @@ export function QuickActions({ onSwap, onSend, onReceive }: QuickActionsProps) {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => {
-              if (action.label === "Swap") action.onClick(onSwap)
-              else if (action.label === "Send") action.onClick(onSend)
-              else if (action.label === "Receive") action.onClick(onReceive)
-              else action.onClick()
+              if (action.action === "swap") onSwap()
+              else if (action.action === "send") onSend()
+              else if (action.action === "receive") onReceive()
+              else if (action.action === "onramp") router.push("/onramp")
+              else if (action.action === "bills") console.info("Pay Bills coming soon")
             }}
             className="flex flex-col items-center gap-2 p-4 rounded-xl bg-muted hover:bg-muted/80 transition-colors"
           >
@@ -52,4 +56,3 @@ export function QuickActions({ onSwap, onSend, onReceive }: QuickActionsProps) {
     </motion.div>
   )
 }
-
