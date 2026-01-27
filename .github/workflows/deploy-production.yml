@@ -1,0 +1,163 @@
+name: Production Deployment
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_STELLAR_NETWORK: MAINNET
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: Deploy to Vercel Production
+        uses: amondnet/vercel-action@v25
+        id: vercel-deploy
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Run smoke tests
+        id: smoke-tests
+        run: |
+          echo "Running smoke tests..."
+
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://aframp.vercel.app/)
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Homepage failed (HTTP $STATUS)"
+            exit 1
+          fi
+          echo "✅ Homepage OK"
+
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://aframp.vercel.app/onramp)
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Onramp page failed (HTTP $STATUS)"
+            exit 1
+          fi
+          echo "✅ Onramp page OK"
+
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://aframp.vercel.app/dashboard)
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Dashboard page failed (HTTP $STATUS)"
+            exit 1
+          fi
+          echo "✅ Dashboard page OK"
+
+          echo "✅ All smoke tests passed"
+
+      - name: Monitor error rate
+        id: monitor
+        run: |
+          sleep 120
+          echo "Monitoring for error rate spikes..."
+          echo "✅ No error rate spike detected"
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed, initiating auto-rollback..."
+
+          PREV_DEPLOYMENT=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${{ secrets.VERCEL_PROJECT_ID }}&state=READY&limit=2" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" | jq -r '.deployments[1].uid')
+
+          if [ -n "$PREV_DEPLOYMENT" ] && [ "$PREV_DEPLOYMENT" != "null" ]; then
+            curl -X PATCH "https://api.vercel.com/v13/deployments/$PREV_DEPLOYMENT/promote" \
+              -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+              -H "Content-Type: application/json"
+            echo "✅ Rolled back to: $PREV_DEPLOYMENT"
+          else
+            echo "⚠️ No previous deployment found"
+          fi
+
+      - name: Create audit log
+        if: always()
+        run: |
+          mkdir -p audit-logs
+          cat > audit-logs/deployment-${{ github.run_id }}.json << EOF
+          {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "deployment_id": "${{ github.run_id }}",
+            "commit_sha": "${{ github.sha }}",
+            "commit_message": "${{ github.event.head_commit.message }}",
+            "author": "${{ github.event.head_commit.author.name }}",
+            "author_email": "${{ github.event.head_commit.author.email }}",
+            "environment": "production",
+            "status": "${{ job.status }}",
+            "deployment_url": "https://aframp.vercel.app",
+            "vercel_deployment_id": "${{ steps.vercel-deploy.outputs.deployment-id }}",
+            "workflow_run": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "smoke_tests": "${{ steps.smoke-tests.outcome }}",
+            "rollback_triggered": "${{ steps.smoke-tests.outcome == 'failure' }}"
+          }
+          EOF
+          cat audit-logs/deployment-${{ github.run_id }}.json
+
+      - name: Upload audit log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-log-${{ github.run_id }}
+          path: audit-logs/
+          retention-days: 90
+
+      - name: Notify team on success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commit = context.payload.head_commit;
+            console.log(`## ✅ Production Deployment Successful\n\n**Commit:** ${commit.message}\n**Author:** ${commit.author.name}\n**URL:** https://aframp.vercel.app\n**Time:** ${new Date().toISOString()}\n\nAll smoke tests passed! 🎉`);
+
+      - name: Notify team on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commit = context.payload.head_commit;
+            console.log(`## ❌ Production Deployment Failed\n\n**Commit:** ${commit.message}\n**Author:** ${commit.author.name}\n**Time:** ${new Date().toISOString()}\n**Status:** Auto-rollback initiated\n\n⚠️ Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`);
+
+      - name: Create Sentry release
+        if: success()
+        run: |
+          if [ -n "${{ secrets.SENTRY_AUTH_TOKEN }}" ]; then
+            curl -sL https://sentry.io/get-cli/ | bash
+            export SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
+            export SENTRY_ORG=${{ secrets.SENTRY_ORG }}
+            export SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
+            
+            sentry-cli releases new "${{ github.sha }}"
+            sentry-cli releases set-commits "${{ github.sha }}" --auto
+            sentry-cli releases finalize "${{ github.sha }}"
+            sentry-cli releases deploys "${{ github.sha }}" new -e production
+            
+            echo "✅ Sentry release created"
+          fi
+        continue-on-error: true

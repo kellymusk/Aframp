@@ -1,0 +1,54 @@
+name: Preview Deployment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+jobs:
+  deploy-preview:
+    name: Deploy Preview to Unique URL
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        id: vercel-deploy
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+
+      - name: Comment preview link on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 Preview Deployment Ready!\n\n**Preview URL:** ${{ steps.vercel-deploy.outputs.preview-url }}\n\n✅ Build successful\n📱 Test on mobile and desktop\n🔍 Verify all functionality\n\n*This preview will be automatically deleted when the PR is closed.*`
+            });
+
+  cleanup-preview:
+    name: Auto-delete Preview
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed'
+    steps:
+      - name: Delete Vercel Preview
+        run: |
+          curl -X DELETE "https://api.vercel.com/v13/deployments/${{ github.event.pull_request.head.sha }}" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Comment cleanup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🧹 Preview deployment deleted.'
+            });

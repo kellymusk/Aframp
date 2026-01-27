@@ -1,0 +1,27 @@
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "outputDirectory": ".next",
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "develop": true
+    }
+  },
+  "github": {
+    "enabled": true,
+    "autoAlias": true,
+    "silent": false,
+    "autoJobCancelation": true
+  },
+  "env": {
+    "NEXT_PUBLIC_STELLAR_NETWORK": "MAINNET"
+  },
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_STELLAR_NETWORK": "MAINNET"
+    }
+  }
+}
