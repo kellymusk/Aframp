@@ -17,7 +17,7 @@ import { RecentTransactions } from "@/components/onramp/recent-transactions"
 import { useExchangeRate } from "@/hooks/use-exchange-rate"
 import { useOnrampForm } from "@/hooks/use-onramp-form"
 import { useWalletConnection } from "@/hooks/use-wallet-connection"
-import { formatCurrency, truncateAddress } from "@/lib/onramp/formatters"
+import { OnrampTestUtils } from "@/components/onramp/onramp-test-utils"
 import type { CryptoAsset, FiatCurrency } from "@/types/onramp"
 import { isValidStellarAddress } from "@/lib/onramp/validation"
 import type { OnrampOrder } from "@/types/onramp"
@@ -83,6 +83,7 @@ export function OnrampPageClient() {
       cryptoAmount: form.cryptoAmount,
       fees: form.fees,
       walletAddress: address,
+      status: "created",
     }
 
     localStorage.setItem(ORDER_KEY, JSON.stringify(order))
@@ -267,6 +268,9 @@ export function OnrampPageClient() {
               Disconnect
             </Button>
           </div>
+          
+          {/* Test Utils - Remove in production */}
+          <OnrampTestUtils />
         </DialogContent>
       </Dialog>
     </div>
