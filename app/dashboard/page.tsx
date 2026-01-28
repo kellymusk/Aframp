@@ -2,14 +2,14 @@ import { Suspense } from "react"
 import { DashboardPageClient } from "@/components/dashboard/dashboard-page-client"
 
 interface DashboardPageProps {
-  searchParams: {
+  searchParams: Promise<{
     wallet?: string
     address?: string
-  }
+  }>
 }
 
-export default function DashboardPage({ searchParams }: DashboardPageProps) {
-  const { wallet, address } = searchParams
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+  const { wallet, address } = await searchParams
 
   return (
     <Suspense
@@ -26,4 +26,3 @@ export default function DashboardPage({ searchParams }: DashboardPageProps) {
     </Suspense>
   )
 }
-

@@ -4,8 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { CryptoAsset, ExchangeRateResult, ExchangeRateState, FiatCurrency } from "@/types/onramp"
 import { formatRate } from "@/lib/onramp/formatters"
 
-const API_URL =
-  "https://api.coingecko.com/api/v3/simple/price?ids=usd-coin,stellar&vs_currencies=ngn,kes,ghs,zar,ugx"
+const API_URL = "/api/exchange-rate"
 
 const STORAGE_KEY = "onramp:rates"
 const COUNTDOWN_START = 30
