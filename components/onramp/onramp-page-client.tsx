@@ -19,6 +19,7 @@ import { useOnrampForm } from "@/hooks/use-onramp-form"
 import { useWalletConnection } from "@/hooks/use-wallet-connection"
 import { OnrampTestUtils } from "@/components/onramp/onramp-test-utils"
 import type { CryptoAsset, FiatCurrency } from "@/types/onramp"
+import { formatCurrency, truncateAddress } from "@/lib/onramp/formatters"
 import { isValidStellarAddress } from "@/lib/onramp/validation"
 import type { OnrampOrder } from "@/types/onramp"
 
@@ -27,11 +28,12 @@ const ORDER_KEY = "onramp:latest-order"
 export function OnrampPageClient() {
   const router = useRouter()
   const { address, addresses, connected, loading, updateAddress, disconnect } = useWalletConnection()
+  const walletConnected = Boolean(address) || connected
   const [walletModalOpen, setWalletModalOpen] = useState(false)
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false)
   const [rateOverride, setRateOverride] = useState(0)
 
-  const form = useOnrampForm(rateOverride, connected)
+  const form = useOnrampForm(rateOverride, walletConnected)
   const { data, countdown, warning, error, isLoading, displayRate, refresh } = useExchangeRate(
     form.state.fiatCurrency,
     form.state.cryptoAsset
@@ -50,10 +52,10 @@ export function OnrampPageClient() {
   }, [router])
 
   useEffect(() => {
-    if (!loading && !connected) {
+    if (!loading && !walletConnected) {
       setWalletModalOpen(true)
     }
-  }, [loading, connected])
+  }, [loading, walletConnected])
 
   const handleCopy = async () => {
     try {
@@ -131,16 +133,16 @@ export function OnrampPageClient() {
             <Link href="/onramp" className="rounded-full px-3 py-2 bg-muted text-foreground">
               Onramp
             </Link>
-            <button type="button" className="rounded-full px-3 py-2 hover:text-foreground">
+            <Link href="/offramp" className="rounded-full px-3 py-2 hover:text-foreground">
               Offramp
-            </button>
+            </Link>
             <button type="button" className="rounded-full px-3 py-2 hover:text-foreground">
               Pay Bills
             </button>
           </nav>
 
           <div className="flex items-center gap-3">
-            {connected ? (
+            {walletConnected ? (
               <div
                 className="flex items-center gap-2 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-foreground"
                 title={address}

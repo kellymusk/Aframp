@@ -1,14 +1,14 @@
-"use client"
+'use client'
 
-import { Info, Loader2 } from "lucide-react"
-import { AmountInput } from "@/components/onramp/amount-input"
-import { CurrencySelector } from "@/components/onramp/currency-selector"
-import { ExchangeRateDisplay } from "@/components/onramp/exchange-rate-display"
-import { PaymentMethodCard } from "@/components/onramp/payment-method-card"
-import { WalletDisplay } from "@/components/onramp/wallet-display"
-import { Button } from "@/components/ui/button"
-import { formatCurrency, formatNumber } from "@/lib/onramp/formatters"
-import type { CryptoAsset, FiatCurrency, PaymentMethod } from "@/types/onramp"
+import { Info, Loader2 } from 'lucide-react'
+import { AmountInput } from '@/components/onramp/amount-input'
+import { CurrencySelector } from '@/components/onramp/currency-selector'
+import { ExchangeRateDisplay } from '@/components/onramp/exchange-rate-display'
+import { PaymentMethodCard } from '@/components/onramp/payment-method-card'
+import { WalletDisplay } from '@/components/onramp/wallet-display'
+import { Button } from '@/components/ui/button'
+import { formatCurrency, formatNumber } from '@/lib/onramp/formatters'
+import type { CryptoAsset, FiatCurrency, PaymentMethod } from '@/types/onramp'
 
 interface OnrampCalculatorProps {
   amountInput: string
@@ -22,8 +22,8 @@ interface OnrampCalculatorProps {
   exchangeLoading?: boolean
   onRefreshRate: () => void
   onAmountChange: (value: string) => void
-  onFiatChange: (value: FiatCurrency | CryptoAsset) => void
-  onCryptoChange: (value: FiatCurrency | CryptoAsset) => void
+  onFiatChange: (value: FiatCurrency) => void
+  onCryptoChange: (value: CryptoAsset) => void
   onPaymentChange: (value: PaymentMethod) => void
   onSubmit: () => void
   onCopyWallet: () => void
@@ -45,11 +45,17 @@ interface OnrampCalculatorProps {
   }
 }
 
-const paymentOptions: { value: PaymentMethod; icon: string; title: string; description: string }[] = [
-  { value: "bank_transfer", icon: "🏦", title: "Bank Transfer", description: "Free, 5-30 mins" },
-  { value: "card", icon: "💳", title: "Card Payment", description: "1.5% fee, Instant" },
-  { value: "mobile_money", icon: "📱", title: "Mobile Money", description: "0.5% fee, 2-10 mins" },
-]
+const paymentOptions: { value: PaymentMethod; icon: string; title: string; description: string }[] =
+  [
+    { value: 'bank_transfer', icon: '🏦', title: 'Bank Transfer', description: 'Free, 5-30 mins' },
+    { value: 'card', icon: '💳', title: 'Card Payment', description: '1.5% fee, Instant' },
+    {
+      value: 'mobile_money',
+      icon: '📱',
+      title: 'Mobile Money',
+      description: '0.5% fee, 2-10 mins',
+    },
+  ]
 
 export function OnrampCalculator({
   amountInput,
@@ -81,11 +87,11 @@ export function OnrampCalculator({
   fees,
 }: OnrampCalculatorProps) {
   const processingFeeLabel =
-    paymentMethod === "bank_transfer"
-      ? "FREE"
-      : paymentMethod === "card"
-      ? `${formatCurrency(fees.processingFee, fiatCurrency)} (1.5%)`
-      : `${formatCurrency(fees.processingFee, fiatCurrency)} (0.5%)`
+    paymentMethod === 'bank_transfer'
+      ? 'FREE'
+      : paymentMethod === 'card'
+        ? `${formatCurrency(fees.processingFee, fiatCurrency)} (1.5%)`
+        : `${formatCurrency(fees.processingFee, fiatCurrency)} (0.5%)`
 
   return (
     <div className="rounded-3xl border border-border bg-card p-6 shadow-lg">
@@ -108,7 +114,7 @@ export function OnrampCalculator({
           <CurrencySelector
             variant="fiat"
             value={fiatCurrency}
-            onChange={onFiatChange}
+            onChange={(value) => onFiatChange(value as FiatCurrency)}
             className="md:mt-6"
           />
         </div>
@@ -134,7 +140,7 @@ export function OnrampCalculator({
           <CurrencySelector
             variant="crypto"
             value={cryptoAsset}
-            onChange={onCryptoChange}
+            onChange={(value) => onCryptoChange(value as CryptoAsset)}
             className="md:mt-6"
           />
         </div>
@@ -180,7 +186,9 @@ export function OnrampCalculator({
           </div>
           <div className="mt-2 flex items-center justify-between">
             <span>Network fee</span>
-            <span className="font-medium text-foreground">{formatCurrency(fees.networkFee, fiatCurrency)}</span>
+            <span className="font-medium text-foreground">
+              {formatCurrency(fees.networkFee, fiatCurrency)}
+            </span>
           </div>
           <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-foreground">
             <span className="font-medium">Total cost</span>
@@ -190,8 +198,8 @@ export function OnrampCalculator({
 
         <div className="flex flex-col gap-2 text-xs text-muted-foreground">
           <span>
-            Min: {formatCurrency(limits.min, fiatCurrency)} | Max: {formatCurrency(limits.max, fiatCurrency)} per
-            transaction
+            Min: {formatCurrency(limits.min, fiatCurrency)} | Max:{' '}
+            {formatCurrency(limits.max, fiatCurrency)} per transaction
           </span>
         </div>
 
