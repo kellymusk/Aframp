@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { CheckCircle, Download, Share2, Wallet, ArrowRight, Copy, ExternalLink, CreditCard, Smartphone, Building2, Repeat, Zap, Bridge } from "lucide-react"
+import { CheckCircle, Download, Share2, Wallet, ArrowRight, Copy, ExternalLink, CreditCard, Smartphone, Building2, Repeat, Zap, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { OnrampOrder } from "@/types/onramp"
 import { formatCurrency, truncateAddress } from "@/lib/onramp/formatters"
@@ -36,7 +36,7 @@ export function OnrampSuccessClient() {
         return
       }
       setOrder(parsedOrder)
-      
+
       // Stop animation after 2 seconds
       setTimeout(() => setIsAnimating(false), 2000)
     } catch {
@@ -56,7 +56,7 @@ export function OnrampSuccessClient() {
 
   const handleShare = async () => {
     if (!order) return
-    
+
     const shareData = {
       title: "AFRAMP Transaction Complete",
       text: `Successfully received ${order.cryptoAmount.toFixed(2)} ${order.cryptoAsset} for ${formatCurrency(order.amount, order.fiatCurrency)}`,
@@ -94,7 +94,7 @@ export function OnrampSuccessClient() {
   }
 
   const completedDate = new Date(order.completedAt || order.createdAt)
-  const processingTime = order.completedAt 
+  const processingTime = order.completedAt
     ? Math.floor((order.completedAt - order.createdAt) / 1000)
     : 222 // 3 minutes 42 seconds as specified
   const minutes = Math.floor(processingTime / 60)
@@ -117,12 +117,10 @@ export function OnrampSuccessClient() {
         <div className="max-w-2xl mx-auto">
           {/* Success Animation */}
           <div className="text-center mb-8">
-            <div className={`inline-flex items-center justify-center w-24 h-24 rounded-full bg-green-100 dark:bg-green-900/20 mb-6 transition-all duration-1000 ${
-              isAnimating ? "scale-0 rotate-180" : "scale-100 rotate-0"
-            }`}>
-              <CheckCircle className={`w-16 h-16 text-green-600 dark:text-green-400 transition-all duration-500 ${
-                isAnimating ? "scale-0" : "scale-100"
-              }`} />
+            <div className={`inline-flex items-center justify-center w-24 h-24 rounded-full bg-green-100 dark:bg-green-900/20 mb-6 transition-all duration-1000 ${isAnimating ? "scale-0 rotate-180" : "scale-100 rotate-0"
+              }`}>
+              <CheckCircle className={`w-16 h-16 text-green-600 dark:text-green-400 transition-all duration-500 ${isAnimating ? "scale-0" : "scale-100"
+                }`} />
             </div>
             <h1 className="text-4xl font-bold text-foreground mb-3">
               Purchase Complete! 🎉
@@ -137,7 +135,7 @@ export function OnrampSuccessClient() {
           {/* Transaction Summary Card */}
           <div className="rounded-3xl border border-border bg-card p-8 mb-6 shadow-sm">
             <h2 className="text-2xl font-semibold text-foreground mb-6">Transaction Summary</h2>
-            
+
             <div className="space-y-4">
               <div className="flex justify-between items-center py-2">
                 <span className="text-muted-foreground text-base">You paid:</span>
@@ -145,42 +143,42 @@ export function OnrampSuccessClient() {
                   ₦50,000.00
                 </span>
               </div>
-              
+
               <div className="flex justify-between items-center py-2">
                 <span className="text-muted-foreground text-base">You received:</span>
                 <span className="font-bold text-green-600 dark:text-green-400 text-lg">
                   31.17 cNGN
                 </span>
               </div>
-              
+
               <div className="flex justify-between items-center py-2">
                 <span className="text-muted-foreground text-base">Exchange rate:</span>
                 <span className="text-foreground">
                   1 NGN = 0.0006235 USDC
                 </span>
               </div>
-              
+
               <div className="flex justify-between items-center py-2">
                 <span className="text-muted-foreground text-base">Processing fee:</span>
                 <span className="text-green-600 dark:text-green-400 font-semibold">
                   FREE
                 </span>
               </div>
-              
+
               <div className="flex justify-between items-center py-2">
                 <span className="text-muted-foreground text-base">Network fee:</span>
                 <span className="text-foreground">
                   ₦0.15
                 </span>
               </div>
-              
+
               <div className="flex justify-between items-center py-2">
                 <span className="text-muted-foreground text-base">Total time:</span>
                 <span className="text-foreground font-medium">
                   3 minutes 42 seconds
                 </span>
               </div>
-              
+
               <div className="flex justify-between items-center py-2">
                 <span className="text-muted-foreground text-base">Completed:</span>
                 <span className="text-foreground">
@@ -193,7 +191,7 @@ export function OnrampSuccessClient() {
           {/* Blockchain Verification */}
           <div className="rounded-3xl border border-border bg-card p-8 mb-6 shadow-sm">
             <h3 className="text-xl font-semibold text-foreground mb-6">Blockchain Verification</h3>
-            
+
             <div className="space-y-4">
               <div className="flex items-center justify-between py-2">
                 <span className="text-muted-foreground text-base">Transaction hash:</span>
@@ -226,7 +224,7 @@ export function OnrampSuccessClient() {
                   </Button>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-between py-2">
                 <span className="text-muted-foreground text-base">Sent to:</span>
                 <div className="flex items-center gap-3">
@@ -282,10 +280,10 @@ export function OnrampSuccessClient() {
           {/* What's Next Section */}
           <div className="rounded-3xl border border-border bg-gradient-to-br from-muted/30 to-muted/10 p-8">
             <h3 className="text-2xl font-semibold text-foreground mb-6">What's Next?</h3>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 className="justify-start h-auto p-4 text-left border border-border/50 hover:border-border hover:bg-card/50 transition-all"
               >
                 <div className="flex items-center gap-3 w-full">
@@ -299,9 +297,9 @@ export function OnrampSuccessClient() {
                   <ArrowRight className="h-5 w-5 text-muted-foreground" />
                 </div>
               </Button>
-              
-              <Button 
-                variant="ghost" 
+
+              <Button
+                variant="ghost"
                 className="justify-start h-auto p-4 text-left border border-border/50 hover:border-border hover:bg-card/50 transition-all"
               >
                 <div className="flex items-center gap-3 w-full">
@@ -315,9 +313,9 @@ export function OnrampSuccessClient() {
                   <ArrowRight className="h-5 w-5 text-muted-foreground" />
                 </div>
               </Button>
-              
-              <Button 
-                variant="ghost" 
+
+              <Button
+                variant="ghost"
                 className="justify-start h-auto p-4 text-left border border-border/50 hover:border-border hover:bg-card/50 transition-all"
               >
                 <div className="flex items-center gap-3 w-full">
@@ -331,10 +329,10 @@ export function OnrampSuccessClient() {
                   <ArrowRight className="h-5 w-5 text-muted-foreground" />
                 </div>
               </Button>
-              
-              <Button 
-                variant="ghost" 
-                asChild 
+
+              <Button
+                variant="ghost"
+                asChild
                 className="justify-start h-auto p-4 text-left border border-border/50 hover:border-border hover:bg-card/50 transition-all"
               >
                 <Link href="/onramp">
