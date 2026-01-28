@@ -51,6 +51,7 @@ export function OnrampPageClient() {
 
   useEffect(() => {
     if (!loading && !connected) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setWalletModalOpen(true)
     }
   }, [loading, connected])
@@ -100,8 +101,8 @@ export function OnrampPageClient() {
     form.state.paymentMethod === "bank_transfer"
       ? "FREE"
       : form.state.paymentMethod === "card"
-      ? `${formatCurrency(form.fees.processingFee, form.state.fiatCurrency)} (1.5%)`
-      : `${formatCurrency(form.fees.processingFee, form.state.fiatCurrency)} (0.5%)`
+        ? `${formatCurrency(form.fees.processingFee, form.state.fiatCurrency)} (1.5%)`
+        : `${formatCurrency(form.fees.processingFee, form.state.fiatCurrency)} (0.5%)`
 
   if (loading) {
     return (

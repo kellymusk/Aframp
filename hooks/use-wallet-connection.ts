@@ -18,13 +18,18 @@ export function useWalletConnection() {
     const parsedList = storedList ? (JSON.parse(storedList) as string[]) : []
     const normalizedList = parsedList.filter(Boolean)
 
+    let finalAddresses = normalizedList
     if (storedAddress && !normalizedList.includes(storedAddress)) {
-      normalizedList.unshift(storedAddress)
+      finalAddresses = [storedAddress, ...normalizedList]
     }
 
-    setAddresses(normalizedList)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAddresses(finalAddresses)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAddress(storedAddress)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setConnected(isValidStellarAddress(storedAddress))
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(false)
   }, [])
 
