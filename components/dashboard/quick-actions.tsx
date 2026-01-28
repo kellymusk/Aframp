@@ -44,7 +44,7 @@ export function QuickActions({ onSwap, onSend, onReceive }: QuickActionsProps) {
               else if (action.action === "send") onSend()
               else if (action.action === "receive") onReceive()
               else if (action.action === "onramp") router.push("/onramp")
-              else if (action.action === "bills") console.info("Pay Bills coming soon")
+              else if (action.action === "bills") console.warn("Pay Bills coming soon")
             }}
             className="flex flex-col items-center gap-2 p-4 rounded-xl bg-muted hover:bg-muted/80 transition-colors"
           >

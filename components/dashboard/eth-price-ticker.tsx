@@ -12,8 +12,8 @@ export function EthPriceTicker() {
   const loading = ethBalance?.priceLoading ?? false
   const error = ethBalance?.priceError ?? null
 
-  const formatPrice = (value: number | null) => {
-    if (value === null) return "—"
+  const formatPrice = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return "—"
     return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
@@ -60,14 +60,14 @@ export function EthPriceTicker() {
           )}
         </AnimatePresence>
       </div>
-      
+
       {lastUpdated && !loading && (
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <RefreshCw className="w-3 h-3" />
           <span>Updated {lastUpdated.toLocaleTimeString()}</span>
         </div>
       )}
-      
+
       <button
         onClick={refetch}
         disabled={loading}
