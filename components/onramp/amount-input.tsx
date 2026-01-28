@@ -39,6 +39,7 @@ export function AmountInput({
         onChange={(event) => onChange(event.target.value)}
         readOnly={readOnly}
         autoFocus={autoFocus}
+        suppressHydrationWarning
         className={cn(
           "h-[52px] w-full rounded-xl border bg-background px-4 py-3 text-2xl font-semibold text-right shadow-sm transition focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500",
           readOnly ? "text-muted-foreground" : "text-foreground",

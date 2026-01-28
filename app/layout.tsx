@@ -33,6 +33,7 @@ export const viewport: Viewport = {
   themeColor: "#10b981",
 }
 
+// This is a server component by default
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -40,7 +41,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${manrope.variable} ${outfit.variable} ${spaceMono.variable} font-sans antialiased`}>
+      <body className={`${manrope.variable} ${outfit.variable} ${spaceMono.variable} font-sans antialiased`} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           {children}
         </ThemeProvider>

@@ -1,6 +1,7 @@
 export type FiatCurrency = "NGN" | "KES" | "GHS" | "ZAR" | "UGX"
 export type CryptoAsset = "cNGN" | "cKES" | "cGHS" | "USDC" | "XLM"
 export type PaymentMethod = "bank_transfer" | "card" | "mobile_money"
+export type OrderStatus = "created" | "awaiting_payment" | "payment_received" | "minting" | "transferring" | "completed" | "failed"
 
 export interface ExchangeRateResult {
   fiat: FiatCurrency
@@ -44,6 +45,9 @@ export interface OnrampOrder {
   cryptoAmount: number
   fees: FeeBreakdown
   walletAddress: string
+  status: OrderStatus
+  transactionHash?: string
+  completedAt?: number
 }
 
 export interface TransactionItem {
