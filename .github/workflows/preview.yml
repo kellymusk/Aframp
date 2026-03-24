@@ -3,7 +3,10 @@ name: Preview Deployment
 on:
   pull_request:
     types: [opened, synchronize, reopened, closed]
-
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
 jobs:
   deploy-preview:
     name: Deploy Preview to Unique URL
