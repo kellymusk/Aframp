@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+set -e
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "husky(pre-push): node not found; skipping hook."
+  exit 0
+fi
+
+if [ -x "./node_modules/.bin/jest" ]; then
+  ./node_modules/.bin/jest --watchAll=false --passWithNoTests
+elif command -v jest >/dev/null 2>&1; then
+  jest --watchAll=false --passWithNoTests
+else
+  echo "husky(pre-push): jest not found; skipping. Install dependencies to re-enable."
+fi

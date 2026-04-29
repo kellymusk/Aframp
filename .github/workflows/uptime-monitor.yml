@@ -1,0 +1,42 @@
+name: Uptime Monitor
+
+on:
+  schedule:
+    - cron: '*/1 * * * *' # Every 1 minute
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    name: Check Production Uptime
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check homepage
+        id: homepage
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/)
+          if [ "$STATUS" != "200" ]; then
+            echo "status=down" >> $GITHUB_OUTPUT
+            echo "❌ Homepage down (HTTP $STATUS)"
+            exit 1
+          fi
+          echo "status=up" >> $GITHUB_OUTPUT
+          echo "✅ Homepage up"
+
+      - name: Check onramp page
+        id: onramp
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/onramp)
+          if [ "$STATUS" != "200" ]; then
+            echo "status=down" >> $GITHUB_OUTPUT
+            echo "❌ Onramp page down (HTTP $STATUS)"
+            exit 1
+          fi
+          echo "status=up" >> $GITHUB_OUTPUT
+          echo "✅ Onramp page up"
+
+      - name: Alert on downtime
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            console.log(`🚨 ALERT: AFRAMP is DOWN\n\nTime: ${new Date().toISOString()}\nHomepage: ${{ steps.homepage.outputs.status }}\nOnramp: ${{ steps.onramp.outputs.status }}\n\nCheck: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`);

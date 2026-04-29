@@ -1,0 +1,19 @@
+I worked on the Aframp Design System, architecting the Feedback & Notifications framework to standardize system communication, error handling, and user encouragement.
+
+I worked on the end-to-end mobile onboarding experience for Aframp, focusing on user education and building trust through secure digital wallet features.
+
+I worked on designing the Wallet Setup flow, specifically engineering the 12-word recovery phrase system to prioritize asset security and user education.
+
+I worked on the First Purchase Tutorial for Aframp, creating a low-stakes simulation environment to help new users feel confident during their first trade.
+
+🛠️ Design & Technical Contributions
+Interaction Design: I worked on defining the interaction rules for toast notifications, including auto-dismissal logic, stackability, and keyboard accessibility.
+
+Validation Logic: I worked on the form validation patterns for the Aframp ecosystem, ensuring clear real-time feedback and high-contrast error states.
+
+Security UX: I worked on the protective overlays and warning systems within the wallet setup to ensure users never compromise their recovery phrases.
+
+Visual Language: I worked on the "emerald on obsidian" visual theme, maintaining consistency across both desktop documentation and mobile application interfaces.
+
+https://www.figma.com/design/aqOcUCBjWiXzSWVpL7NU1j/Aframp-UI-and-Branding?node-id=0-1&p=f&t=JjuPIte56oBJWkeT-0
+

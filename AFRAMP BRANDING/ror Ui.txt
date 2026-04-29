@@ -1,0 +1,3 @@
+A high-fidelity UI design for an 'Error State' screen, following the Aframp design system style: dark mode background, neon red and deep charcoal accents. The screen features a centered, stylized 404 or connection error illustration with a 'broken circuit' theme. Below it, clear typography says 'Connection Interrupted' with a sub-text 'We couldn't reach the server. Please check your internet connection and try again.' There is a prominent 'Retry Connection' button in a vibrant neon red outline style, and a secondary 'Go to Dashboard' button in a muted ghost style. The layout is clean, professional, and consistent with the Aframp feedback and notifications aesthetic."
+
+figma link https://fictional-space-enigma-6r5vp5qx6pvc5pjv.github.dev/

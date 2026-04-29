@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+set -e
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "husky(pre-commit): node not found; skipping hook."
+  exit 0
+fi
+
+if [ -x "./node_modules/.bin/lint-staged" ]; then
+  ./node_modules/.bin/lint-staged
+elif command -v lint-staged >/dev/null 2>&1; then
+  lint-staged
+else
+  echo "husky(pre-commit): lint-staged not found; skipping. Install dependencies to re-enable."
+fi
