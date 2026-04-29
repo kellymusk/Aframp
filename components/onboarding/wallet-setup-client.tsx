@@ -19,6 +19,8 @@ import {
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { generateMnemonic } from '@/lib/wallet/mnemonic'
+import { usePepScreening } from '@/hooks/use-pep-screening'
+import { PepAlertBanner } from '@/components/pep/pep-alert-banner'
 
 const TOTAL_STEPS = 4
 const CURRENT_STEP = 3
@@ -30,6 +32,16 @@ export function WalletSetupClient() {
   const [copied, setCopied] = useState(false)
   const [skipWarningOpen, setSkipWarningOpen] = useState(false)
   const [hasAcknowledged, setHasAcknowledged] = useState(false)
+  const [fullName, setFullName] = useState('')
+  const [pepDone, setPepDone] = useState(false)
+  const { result: pepResult, loading: pepLoading, screen } = usePepScreening()
+
+  const handlePepScreen = async () => {
+    if (!fullName.trim()) { toast.error('Enter your full name for identity verification'); return }
+    const walletAddress = typeof window !== 'undefined' ? (localStorage.getItem('walletAddress') ?? 'UNKNOWN') : 'UNKNOWN'
+    await screen(walletAddress, fullName.trim())
+    setPepDone(true)
+  }
 
   const handleCopy = async () => {
     if (!isRevealed) {
@@ -98,6 +110,30 @@ export function WalletSetupClient() {
             <h1 className="text-3xl md:text-4xl font-bold mb-3">Wallet Setup</h1>
             <p className="text-lg text-muted-foreground">Secure Digital Wallet</p>
             <p className="text-sm text-primary mt-2 font-medium">Your security is our priority</p>
+          </div>
+
+          {/* PEP Screening Step */}
+          <div className="mb-6 space-y-3">
+            <p className="text-sm font-medium text-foreground">Identity Verification (KYC)</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Full legal name (as on ID)"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                disabled={pepDone}
+                className="flex-1 px-4 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
+              />
+              <Button
+                size="sm"
+                onClick={handlePepScreen}
+                disabled={pepLoading || pepDone || !fullName.trim()}
+                variant={pepDone ? 'outline' : 'default'}
+              >
+                {pepLoading ? 'Screening…' : pepDone ? '✓ Screened' : 'Verify'}
+              </Button>
+            </div>
+            {pepResult && <PepAlertBanner result={pepResult} />}
           </div>
 
           {/* Instructions */}
