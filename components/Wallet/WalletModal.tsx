@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Dialog,
@@ -9,7 +10,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Drawer } from 'vaul'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import {
   Wallet,
   ExternalLink,
@@ -19,8 +22,10 @@ import {
   RefreshCw,
   Smartphone,
   Monitor,
+  X,
 } from 'lucide-react'
 import { useWallet } from '@/hooks/useWallet'
+import { useIsMobile } from '@/hooks/use-is-mobile'
 
 interface WalletModalProps {
   open: boolean
@@ -28,6 +33,7 @@ interface WalletModalProps {
 }
 
 type ModalView = 'connect' | 'installing' | 'connecting' | 'network-warning'
+type ModalVariant = 'dialog' | 'sheet'
 
 export function WalletModal({ open, onOpenChange }: WalletModalProps) {
   const {
@@ -41,6 +47,7 @@ export function WalletModal({ open, onOpenChange }: WalletModalProps) {
     clearError,
   } = useWallet()
 
+  const isMobile = useIsMobile()
   const [manualView, setManualView] = useState<ModalView | null>(null)
 
   const derivedView = useMemo<ModalView>(() => {
@@ -78,54 +85,168 @@ export function WalletModal({ open, onOpenChange }: WalletModalProps) {
     setManualView('connect')
   }
 
+  const viewsProps = {
+    view,
+    onCheckAgain: () => setManualView('connect'),
+    onConnect: handleConnect,
+    hasError,
+    error,
+    onRetry: handleRetry,
+    isFreighterInstalled,
+    onShowInstall: () => setManualView('installing'),
+    network,
+    onContinue: () => onOpenChange(false),
+    onRefresh: handleRetry,
+  }
+
+  if (isMobile) {
+    return (
+      <Drawer.Root open={open} onOpenChange={handleOpenChange}>
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 z-50 bg-black/80" />
+          <Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-2xl bg-background max-h-[90vh] outline-none">
+            <Drawer.Handle className="mx-auto mt-3 mb-1 h-1.5 w-10 rounded-full bg-muted-foreground/30 shrink-0" />
+            <Drawer.Close asChild>
+              <button className="absolute right-4 top-4 min-h-11 min-w-11 flex items-center justify-center rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </button>
+            </Drawer.Close>
+            <div className="overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+              <WalletModalViews {...viewsProps} variant="sheet" />
+            </div>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md p-0 overflow-hidden">
-        <AnimatePresence mode="wait">
-          {view === 'installing' && (
-            <InstallView key="install" onCheckAgain={() => setManualView('connect')} />
-          )}
-          {view === 'connect' && (
-            <ConnectView
-              key="connect"
-              onConnect={handleConnect}
-              hasError={hasError}
-              error={error}
-              onRetry={handleRetry}
-              isFreighterInstalled={isFreighterInstalled}
-              onShowInstall={() => setManualView('installing')}
-            />
-          )}
-          {view === 'connecting' && <ConnectingView key="connecting" />}
-          {view === 'network-warning' && (
-            <NetworkWarningView
-              key="network"
-              network={network}
-              onContinue={() => onOpenChange(false)}
-              onRefresh={handleRetry}
-            />
-          )}
-        </AnimatePresence>
+        <WalletModalViews {...viewsProps} variant="dialog" />
       </DialogContent>
     </Dialog>
   )
 }
 
-function InstallView({ onCheckAgain }: { onCheckAgain: () => void }) {
+interface WalletModalViewsProps {
+  view: ModalView
+  variant: ModalVariant
+  onCheckAgain: () => void
+  onConnect: () => void
+  hasError: boolean
+  error: string | null
+  onRetry: () => void
+  isFreighterInstalled: boolean
+  onShowInstall: () => void
+  network: string | null
+  onContinue: () => void
+  onRefresh: () => void
+}
+
+function WalletModalViews({
+  view,
+  variant,
+  onCheckAgain,
+  onConnect,
+  hasError,
+  error,
+  onRetry,
+  isFreighterInstalled,
+  onShowInstall,
+  network,
+  onContinue,
+  onRefresh,
+}: WalletModalViewsProps) {
+  return (
+    <AnimatePresence mode="wait">
+      {view === 'installing' && (
+        <InstallView key="install" variant={variant} onCheckAgain={onCheckAgain} />
+      )}
+      {view === 'connect' && (
+        <ConnectView
+          key="connect"
+          variant={variant}
+          onConnect={onConnect}
+          hasError={hasError}
+          error={error}
+          onRetry={onRetry}
+          isFreighterInstalled={isFreighterInstalled}
+          onShowInstall={onShowInstall}
+        />
+      )}
+      {view === 'connecting' && <ConnectingView key="connecting" variant={variant} />}
+      {view === 'network-warning' && (
+        <NetworkWarningView
+          key="network"
+          variant={variant}
+          network={network}
+          onContinue={onContinue}
+          onRefresh={onRefresh}
+        />
+      )}
+    </AnimatePresence>
+  )
+}
+
+function WalletModalHeader({
+  icon,
+  title,
+  description,
+  titleClassName,
+  variant,
+}: {
+  icon: ReactNode
+  title: string
+  description: ReactNode
+  titleClassName?: string
+  variant: ModalVariant
+}) {
+  if (variant === 'dialog') {
+    return (
+      <DialogHeader className="pb-4">
+        <DialogTitle
+          className={cn('text-xl sm:text-2xl font-bold flex items-center gap-2', titleClassName)}
+        >
+          {icon}
+          {title}
+        </DialogTitle>
+        <DialogDescription>{description}</DialogDescription>
+      </DialogHeader>
+    )
+  }
+  return (
+    <div className="pb-4">
+      <h2 className={cn('text-xl font-bold flex items-center gap-2', titleClassName)}>
+        {icon}
+        {title}
+      </h2>
+      <p className="text-sm text-muted-foreground mt-1">{description}</p>
+    </div>
+  )
+}
+
+function InstallView({
+  onCheckAgain,
+  variant,
+}: {
+  onCheckAgain: () => void
+  variant: ModalVariant
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="p-6"
+      className="p-4 sm:p-6"
     >
-      <DialogHeader className="pb-4">
-        <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-          <Wallet className="w-6 h-6" />
-          Install Freighter
-        </DialogTitle>
-        <DialogDescription>Freighter is required to connect to AFRAMP</DialogDescription>
-      </DialogHeader>
+      <WalletModalHeader
+        variant={variant}
+        icon={<Wallet className="w-6 h-6" />}
+        title="Install Freighter"
+        description="Freighter is required to connect to AFRAMP"
+      />
 
       <div className="space-y-4">
         <div className="bg-muted/50 rounded-lg p-4 border border-border">
@@ -143,28 +264,28 @@ function InstallView({ onCheckAgain }: { onCheckAgain: () => void }) {
             href="https://chrome.google.com/webstore/detail/freighter/bcacfldlkkdogcmkkibnjlakofdplcbk"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 p-4 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
+            className="flex items-center gap-3 p-4 min-h-[56px] rounded-lg border border-border bg-card hover:bg-muted/50 active:bg-muted/70 transition-colors"
           >
-            <Monitor className="w-8 h-8 text-primary" />
+            <Monitor className="w-8 h-8 text-primary shrink-0" />
             <div className="flex-1">
               <h5 className="font-medium">Chrome Extension</h5>
               <p className="text-sm text-muted-foreground">For Chrome, Brave, Edge browsers</p>
             </div>
-            <ExternalLink className="w-4 h-4 text-muted-foreground" />
+            <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
           </a>
 
           <a
             href="https://www.freighter.app/"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 p-4 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
+            className="flex items-center gap-3 p-4 min-h-[56px] rounded-lg border border-border bg-card hover:bg-muted/50 active:bg-muted/70 transition-colors"
           >
-            <Smartphone className="w-8 h-8 text-primary" />
+            <Smartphone className="w-8 h-8 text-primary shrink-0" />
             <div className="flex-1">
               <h5 className="font-medium">Mobile App</h5>
               <p className="text-sm text-muted-foreground">iOS & Android available</p>
             </div>
-            <ExternalLink className="w-4 h-4 text-muted-foreground" />
+            <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
           </a>
         </div>
 
@@ -178,9 +299,7 @@ function InstallView({ onCheckAgain }: { onCheckAgain: () => void }) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              window.location.reload()
-            }}
+            onClick={() => window.location.reload()}
             className="w-full"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
@@ -203,6 +322,7 @@ function ConnectView({
   onRetry,
   isFreighterInstalled,
   onShowInstall,
+  variant,
 }: {
   onConnect: () => void
   hasError: boolean
@@ -210,21 +330,21 @@ function ConnectView({
   onRetry: () => void
   isFreighterInstalled: boolean
   onShowInstall: () => void
+  variant: ModalVariant
 }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="p-6"
+      className="p-4 sm:p-6"
     >
-      <DialogHeader className="pb-4">
-        <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-          <Wallet className="w-6 h-6" />
-          Connect Freighter
-        </DialogTitle>
-        <DialogDescription>Connect your Stellar wallet to use AFRAMP</DialogDescription>
-      </DialogHeader>
+      <WalletModalHeader
+        variant={variant}
+        icon={<Wallet className="w-6 h-6" />}
+        title="Connect Freighter"
+        description="Connect your Stellar wallet to use AFRAMP"
+      />
 
       <div className="space-y-4">
         {hasError && error && (
@@ -234,7 +354,7 @@ function ConnectView({
             className="bg-red-50 dark:bg-red-950/30 rounded-lg p-4 border border-red-200 dark:border-red-800"
           >
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-red-800 dark:text-red-200">
                   Connection Failed
@@ -249,10 +369,13 @@ function ConnectView({
           </motion.div>
         )}
 
-        {/* Freighter logo and connect button */}
         <div className="text-center py-4">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center">
-            <svg viewBox="0 0 40 40" className="w-12 h-12 text-white" fill="currentColor">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 rounded-2xl bg-linear-to-br from-purple-500 to-blue-600 flex items-center justify-center">
+            <svg
+              viewBox="0 0 40 40"
+              className="w-10 h-10 sm:w-12 sm:h-12 text-white"
+              fill="currentColor"
+            >
               <path d="M20 5L5 15v10l15 10 15-10V15L20 5zm0 3.5L31 16l-11 7.5L9 16l11-7.5zM8 18.5l10 6.5v8L8 26.5v-8zm24 0v8l-10 6.5v-8l10-6.5z" />
             </svg>
           </div>
@@ -297,25 +420,24 @@ function ConnectView({
   )
 }
 
-function ConnectingView() {
+function ConnectingView({ variant }: { variant: ModalVariant }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="p-6"
+      className="p-4 sm:p-6"
     >
-      <DialogHeader className="pb-4">
-        <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-          <Wallet className="w-6 h-6" />
-          Connecting...
-        </DialogTitle>
-        <DialogDescription>Waiting for Freighter approval</DialogDescription>
-      </DialogHeader>
+      <WalletModalHeader
+        variant={variant}
+        icon={<Wallet className="w-6 h-6" />}
+        title="Connecting..."
+        description="Waiting for Freighter approval"
+      />
 
       <div className="text-center py-8">
-        <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center animate-pulse">
-          <Loader2 className="w-10 h-10 text-white animate-spin" />
+        <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-6 rounded-2xl bg-linear-to-br from-purple-500 to-blue-600 flex items-center justify-center animate-pulse">
+          <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 text-white animate-spin" />
         </div>
         <h3 className="text-lg font-semibold mb-2">Check Freighter</h3>
         <p className="text-sm text-muted-foreground max-w-xs mx-auto">
@@ -337,27 +459,27 @@ function NetworkWarningView({
   network,
   onContinue,
   onRefresh,
+  variant,
 }: {
   network: string | null
   onContinue: () => void
   onRefresh: () => void
+  variant: ModalVariant
 }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="p-6"
+      className="p-4 sm:p-6"
     >
-      <DialogHeader className="pb-4">
-        <DialogTitle className="text-2xl font-bold flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
-          <AlertTriangle className="w-6 h-6" />
-          Wrong Network
-        </DialogTitle>
-        <DialogDescription>
-          You&apos;re connected to {network || 'unknown network'}
-        </DialogDescription>
-      </DialogHeader>
+      <WalletModalHeader
+        variant={variant}
+        icon={<AlertTriangle className="w-6 h-6" />}
+        title="Wrong Network"
+        description={`You're connected to ${network || 'unknown network'}`}
+        titleClassName="text-yellow-600 dark:text-yellow-400"
+      />
 
       <div className="space-y-4">
         <div className="bg-yellow-50 dark:bg-yellow-950/30 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
@@ -392,7 +514,7 @@ function NetworkWarningView({
           </ol>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <Button variant="outline" className="flex-1" onClick={onRefresh}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
