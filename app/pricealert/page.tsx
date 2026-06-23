@@ -1,24 +1,16 @@
 import { SmoothScroll } from '@/components/smooth-scroll'
 import { Navbar } from '@/components/navbar'
-import { Hero } from '@/components/hero'
-import { LogoMarquee } from '@/components/logo-marquee'
-import { BlockchainNetworks } from '@/components/blockchain-networks'
-import { BentoGrid } from '@/components/bento-grid'
-import { HowItWorks } from '@/components/how-it-works'
-import { FinalCTA } from '@/components/final-cta'
 import { Footer } from '@/components/footer'
+import PriceAlertPage from '@/components/pricealert/price-alert-page'
 
-export default function Home() {
+export default function PriceAlertRoute() {
   return (
     <SmoothScroll>
       <main className="min-h-screen bg-background text-foreground">
         <Navbar />
-        <Hero />
-        <LogoMarquee />
-        <BlockchainNetworks />
-        <BentoGrid />
-        <HowItWorks />
-        <FinalCTA />
+        <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+          <PriceAlertPage />
+        </div>
         <Footer />
       </main>
     </SmoothScroll>

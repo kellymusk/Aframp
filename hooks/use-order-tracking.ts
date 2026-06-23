@@ -7,70 +7,86 @@ export function useOrderTracking(orderId: string | null) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // eslint-disable react-hooks/exhaustive-deps
     if (!orderId) {
       setLoading(false)
       setError('No order ID provided')
       return
     }
 
-    try {
-      const orderData = localStorage.getItem(`onramp:order:${orderId}`)
+    const fetchOrder = async () => {
+      try {
+        setLoading(true)
+        
+        // Try to fetch from backend first
+        const response = await fetch(`/api/onramp/order/${orderId}`)
+        const result = await response.json()
 
-      if (!orderData) {
-        // Create mock data for testing if no real order exists
-        const mockOrder: OnrampOrder = {
-          id: orderId,
-          createdAt: Date.now(), // Start at current time so delays work correctly
-          expiresAt: Date.now() + 13 * 60 * 1000, // 13 minutes from now
-          fiatCurrency: 'NGN',
-          cryptoAsset: 'cNGN',
-          paymentMethod: 'bank_transfer',
-          amount: 50000,
-          exchangeRate: 1600,
-          cryptoAmount: 31.25,
-          fees: {
-            processingFee: 0,
-            networkFee: 15,
-            totalFees: 15,
-            totalCost: 50015,
-          },
-          walletAddress: 'GAXYZ123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789ABCDEFG',
-          status: 'awaiting_payment', // Start at awaiting_payment for demo
-          transactionHash: undefined,
+        const localData = localStorage.getItem(`onramp:order:${orderId}`)
+        
+        if (result.success && result.order) {
+          setOrder(result.order)
+        } else if (localData) {
+          // Fallback to localStorage if backend doesn't have it yet (simulated DB)
+          setOrder(JSON.parse(localData))
+        } else {
+          // Create mock data for testing if no real order exists
+          const mockOrder: OnrampOrder = {
+            id: orderId,
+            createdAt: Date.now(),
+            expiresAt: Date.now() + 13 * 60 * 1000,
+            fiatCurrency: 'NGN',
+            cryptoAsset: 'cNGN',
+            paymentMethod: 'bank_transfer',
+            amount: 50000,
+            exchangeRate: 1600,
+            cryptoAmount: 31.25,
+            fees: {
+              processingFee: 0,
+              networkFee: 15,
+              totalFees: 15,
+              totalCost: 50015,
+            },
+            walletAddress: 'GAXYZ123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789ABCDEFG',
+            status: 'awaiting_payment',
+            transactionHash: undefined,
+          }
+          setOrder(mockOrder)
         }
-
-        // Store mock data
-        localStorage.setItem(`onramp:order:${orderId}`, JSON.stringify(mockOrder))
-        setOrder(mockOrder)
+      } catch (err) {
+        console.error('Fetch order error:', err)
+        setError('Failed to load order')
+      } finally {
         setLoading(false)
-        return
       }
-
-      const parsedOrder = JSON.parse(orderData) as OnrampOrder
-      setOrder(parsedOrder)
-      setLoading(false)
-    } catch {
-      setError('Failed to load order')
-      setLoading(false)
     }
-    // eslint-enable react-hooks/exhaustive-deps
+
+    fetchOrder()
   }, [orderId])
 
   const updateOrderStatus = useCallback(
-    (status: OrderStatus, additionalData?: Partial<OnrampOrder>) => {
+    async (status: OrderStatus, additionalData?: Partial<OnrampOrder>) => {
       if (!orderId) return
 
-      setOrder((prevOrder) => {
-        if (!prevOrder) return null
+      try {
+        // Optimistically update local state
+        setOrder((prevOrder) => {
+          if (!prevOrder) return null
+          const updatedOrder = { ...prevOrder, status, ...additionalData }
+          localStorage.setItem(`onramp:order:${orderId}`, JSON.stringify(updatedOrder))
+          return updatedOrder
+        })
 
-        const updatedOrder = { ...prevOrder, status, ...additionalData }
-
-        // Persist to localStorage
-        localStorage.setItem(`onramp:order:${orderId}`, JSON.stringify(updatedOrder))
-
-        return updatedOrder
-      })
+        // Notify backend
+        await fetch(`/api/onramp/order/${orderId}/status`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status, additionalData }),
+        })
+      } catch (err) {
+        console.error('Failed to update order status on backend:', err)
+      }
     },
     [orderId]
   )

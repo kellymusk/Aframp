@@ -11,6 +11,7 @@ import {
   type FreighterNetwork,
   type AssetBalance,
 } from './freighter'
+import { walletSession } from './session'
 
 export type WalletState = 'disconnected' | 'connecting' | 'connected' | 'error'
 
@@ -114,6 +115,7 @@ export const useWalletStore = create<WalletStore>()(
       },
 
       disconnect: () => {
+        walletSession.clear()
         set({
           state: 'disconnected',
           publicKey: null,

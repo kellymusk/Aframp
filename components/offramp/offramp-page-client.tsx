@@ -11,7 +11,7 @@ import { useOfframpRate } from '@/hooks/use-offramp-rate'
 import { useOfframpForm } from '@/hooks/use-offramp-form'
 import { useOfframpBalances } from '@/hooks/use-offramp-balances'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatCurrency } from '@/lib/onramp/formatters'
+import { formatCurrency } from '@/lib/calculations'
 import { formatUsd, formatRateCountdown } from '@/lib/offramp/formatters'
 import type { OfframpOrder } from '@/types/offramp'
 
@@ -84,31 +84,51 @@ export function OfframpPageClient() {
     return form.amountValue > 0 ? form.amountValue * usdRate : 0
   }, [form.amountValue, selectedAsset.asset])
 
-  const handleSubmit = () => {
-    if (!form.isValid) return
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-    const lockExpires = Date.now() + 15 * 60 * 1000
-    setLockExpiresAt(lockExpires)
-    localStorage.setItem(LOCK_KEY, JSON.stringify({ expiresAt: lockExpires }))
+  const handleSubmit = async () => {
+    if (!form.isValid || isSubmitting) return
 
-    const order: OfframpOrder = {
-      id: `offramp-${Date.now()}`,
-      createdAt: Date.now(),
-      lockExpiresAt: lockExpires,
-      assetId: selectedAsset.id,
-      asset: selectedAsset.asset,
-      chain: selectedAsset.chain,
-      amount: parseFloat(form.state.amountInput.replace(/,/g, '')) || 0,
-      fiatCurrency: form.state.fiatCurrency,
-      rate,
-      fiatAmount: form.fiatAmount,
-      fees: form.fees,
-      status: 'pending_bank_details',
+    setIsSubmitting(true)
+    try {
+      const orderData = {
+        assetId: selectedAsset.id,
+        asset: selectedAsset.asset,
+        chain: selectedAsset.chain,
+        amount: parseFloat(form.state.amountInput.replace(/,/g, '')) || 0,
+        fiatCurrency: form.state.fiatCurrency,
+        rate,
+        fiatAmount: form.fiatAmount,
+        fees: form.fees,
+      }
+
+      const response = await fetch('/api/offramp/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create offramp order')
+      }
+
+      const result = await response.json()
+      const order: OfframpOrder = result.order
+
+      const lockExpires = order.lockExpiresAt
+      setLockExpiresAt(lockExpires)
+      localStorage.setItem(LOCK_KEY, JSON.stringify({ expiresAt: lockExpires }))
+
+      localStorage.setItem(ORDER_KEY, JSON.stringify(order))
+      localStorage.setItem(`offramp:order:${order.id}`, JSON.stringify(order))
+      router.push(`/offramp/bank-details?order=${order.id}`)
+    } catch (err) {
+      console.error('Offramp order creation failed:', err)
+    } finally {
+      setIsSubmitting(false)
     }
-
-    localStorage.setItem(ORDER_KEY, JSON.stringify(order))
-    localStorage.setItem(`offramp:order:${order.id}`, JSON.stringify(order))
-    router.push(`/offramp/bank-details?order=${order.id}`)
   }
 
   if (loading) {
@@ -181,6 +201,7 @@ export function OfframpPageClient() {
             errors={form.errors}
             limits={form.limits}
             isCalculating={form.isCalculating}
+            isSubmitting={isSubmitting}
             isValid={form.isValid}
             lockCountdown={lockCountdown}
             onAssetChange={form.setAssetId}

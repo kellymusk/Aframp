@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { isValidStellarAddress } from '@/lib/onramp/validation'
+import { isValidStellarAddress } from '@/lib/calculations'
 import { useWallet } from '@/hooks/useWallet'
 import { walletSession } from '@/lib/wallet/session'
 

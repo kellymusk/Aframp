@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { OrderStatus } from '@/types/onramp'
 import { useOrderTracking } from '@/hooks/use-order-tracking'
-import { formatCurrency, truncateAddress } from '@/lib/onramp/formatters'
+import { formatCurrency, truncateAddress } from '@/lib/calculations'
 
 export function OnrampPaymentClient() {
   const router = useRouter()

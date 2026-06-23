@@ -53,6 +53,7 @@ interface UseBillsDataReturn {
   transactions: BillsTransaction[]
   scheduledPayments: ScheduledPayment[]
   loading: boolean
+  addBiller: (biller: Biller) => void
 }
 
 const MOCK_CATEGORIES: BillCategory[] = [
@@ -251,6 +252,15 @@ const MOCK_SCHEDULED_PAYMENTS: ScheduledPayment[] = [
 
 export function useBillsData(countryCode: string): UseBillsDataReturn {
   const [loading, setLoading] = useState(true)
+  const [customBillers, setCustomBillers] = useState<Biller[]>([])
+
+  useEffect(() => {
+    // Load custom billers from localStorage
+    const saved = localStorage.getItem('custom-billers')
+    if (saved) {
+      setCustomBillers(JSON.parse(saved))
+    }
+  }, [])
 
   // Simulate API delay
   useEffect(() => {
@@ -261,14 +271,18 @@ export function useBillsData(countryCode: string): UseBillsDataReturn {
     return () => clearTimeout(timer)
   }, [countryCode])
 
-  // In a real app, you would fetch data based on countryCode
-  // For now, we return mock data
+  const addBiller = (biller: Biller) => {
+    const updated = [...customBillers, biller]
+    setCustomBillers(updated)
+    localStorage.setItem('custom-billers', JSON.stringify(updated))
+  }
 
   return {
     categories: MOCK_CATEGORIES,
-    recentBillers: MOCK_BILLERS,
+    recentBillers: [...MOCK_BILLERS, ...customBillers],
     transactions: MOCK_TRANSACTIONS,
     scheduledPayments: MOCK_SCHEDULED_PAYMENTS,
     loading,
+    addBiller,
   }
 }

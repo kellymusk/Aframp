@@ -66,15 +66,15 @@ export const _withdrawalStore = new Map<string, WithdrawalRecord[]>()
 const _userLocks = new Map<string, Promise<unknown>>()
 
 function _acquireLock(userId: string): { release: () => void; ready: Promise<void> } {
-  let releaseFn: (() => void) | null = null
+  let releaseFn: () => void = () => {}
   const ready = new Promise<void>((resolve) => {
     const prev = _userLocks.get(userId) ?? Promise.resolve()
     _userLocks.set(
       userId,
       prev.then(() => {
         resolve()
-        return new Promise<void>((resolveRelease) => {
-          releaseFn = resolveRelease
+        return new Promise<void>((r) => {
+          releaseFn = r
         })
       })
     )
@@ -82,7 +82,7 @@ function _acquireLock(userId: string): { release: () => void; ready: Promise<voi
   return {
     ready,
     release: () => {
-      releaseFn?.()
+      releaseFn()
     },
   }
 }

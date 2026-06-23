@@ -14,7 +14,7 @@ import { OrderSummaryCard } from '@/components/onramp/order-summary-card'
 import { TransactionDetails } from '@/components/onramp/transaction-details'
 import { ProcessingTestUtils } from '@/components/onramp/processing-test-utils'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatCurrency, formatNumber } from '@/lib/onramp/formatters'
+import { formatCurrency, formatNumber } from '@/lib/calculations'
 
 interface OnrampProcessingClientProps {
   orderId: string

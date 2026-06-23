@@ -1,8 +1,9 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { Loader2, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useBalanceContext } from '@/contexts/balance-context'
 
 export function EthPriceTicker() {
@@ -34,8 +35,7 @@ export function EthPriceTicker() {
               exit={{ opacity: 0 }}
               className="flex items-center gap-1"
             >
-              <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Loading...</span>
+              <Skeleton className="h-4 w-20 rounded-full" />
             </motion.div>
           ) : error ? (
             <motion.span

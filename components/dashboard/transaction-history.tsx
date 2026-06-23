@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils'
 
 const TransactionChart = dynamic(
   () => import('./transaction-chart').then((m) => m.TransactionChart),
-  { ssr: false, loading: () => <div className="h-40 animate-pulse rounded-lg bg-muted" /> }
+  { ssr: false, loading: () => <div className="h-40 rounded-lg"><div className="h-full w-full rounded-lg bg-muted/40 animate-pulse" /></div> }
 )
 
 const VIRTUAL_THRESHOLD = 50
@@ -702,24 +702,37 @@ export function TransactionHistory() {
                   >
                     <div className="relative overflow-hidden rounded-xl border border-border bg-card h-full">
                       <div className="absolute inset-y-0 right-0 flex items-center gap-2 pr-2">
-                        <Button size="sm" variant="outline" className="h-9 px-3"><Eye className="h-4 w-4" /></Button>
-                        <Button size="sm" variant="outline" className="h-9 px-3"><RefreshCcw className="h-4 w-4" /></Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-9 px-3"
+                          onClick={() => handleViewTransaction(tx.id)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </div>
                       <motion.div
                         animate={{ x: isSwipeActive ? -88 : 0 }}
                         transition={{ duration: 0.2 }}
-                        onTouchStart={(e) => onTouchStart(e.changedTouches[0].clientX)}
-                        onTouchEnd={(e) => onTouchEnd(e.changedTouches[0].clientX, tx.id)}
+                        onTouchStart={(e: React.TouchEvent<HTMLDivElement>) => onTouchStart(e.changedTouches[0].clientX)}
+                        onTouchEnd={(e: React.TouchEvent<HTMLDivElement>) => onTouchEnd(e.changedTouches[0].clientX, tx.id)}
                         className="relative z-10 bg-card p-3 h-full flex flex-col justify-center"
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-start gap-3">
                             <div className={cn('h-8 w-8 rounded-lg border flex items-center justify-center shrink-0', typeConfig[tx.type].iconClassName)}>
                               <Icon className="h-4 w-4" />
                             </div>
                             <div>
                               <p className="font-semibold text-foreground text-sm">{typeConfig[tx.type].label}</p>
-                              <p className="text-xs text-muted-foreground">{tx.id}</p>
+                              <button
+                                type="button"
+                                onClick={() => handleViewTransaction(tx.id)}
+                                className="text-xs text-muted-foreground hover:text-primary hover:underline transition-colors inline-flex items-center gap-1"
+                              >
+                                {tx.id}
+                                <ExternalLink className="h-3 w-3" />
+                              </button>
                             </div>
                           </div>
                           <div className="text-right">
@@ -751,120 +764,71 @@ export function TransactionHistory() {
                   className="relative overflow-hidden rounded-xl border border-border bg-card"
                 >
                   <div className="absolute inset-y-0 right-0 flex items-center gap-2 pr-2">
-                    <Button size="sm" variant="outline" className="h-9 px-3"><Eye className="h-4 w-4" /></Button>
-                    <Button size="sm" variant="outline" className="h-9 px-3"><RefreshCcw className="h-4 w-4" /></Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-9 px-3"
+                      onClick={() => handleViewTransaction(tx.id)}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
                   </div>
                   <motion.div
                     animate={{ x: isSwipeActive ? -88 : 0 }}
                     transition={{ duration: 0.2 }}
-                    onTouchStart={(event) => onTouchStart(event.changedTouches[0].clientX)}
-                    onTouchEnd={(event) => onTouchEnd(event.changedTouches[0].clientX, tx.id)}
+                    onTouchStart={(event: React.TouchEvent<HTMLDivElement>) => onTouchStart(event.changedTouches[0].clientX)}
+                    onTouchEnd={(event: React.TouchEvent<HTMLDivElement>) => onTouchEnd(event.changedTouches[0].clientX, tx.id)}
                     className="relative z-10 bg-card p-4"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3">
-                        <div className={cn('h-9 w-9 rounded-lg border flex items-center justify-center shrink-0', typeConfig[tx.type].iconClassName)}>
+                        <div
+                          className={cn(
+                            'h-9 w-9 rounded-lg border flex items-center justify-center shrink-0',
+                            typeConfig[tx.type].iconClassName
+                          )}
+                        >
                           <Icon className="h-4 w-4" />
                         </div>
                         <div>
                           <p className="font-semibold text-foreground">{typeConfig[tx.type].label}</p>
-                          <p className="text-xs text-muted-foreground">{tx.id}</p>
+                          <button
+                            type="button"
+                            onClick={() => handleViewTransaction(tx.id)}
+                            className="text-xs text-muted-foreground hover:text-primary hover:underline transition-colors inline-flex items-center gap-1"
+                          >
+                            {tx.id}
+                            <ExternalLink className="h-3 w-3" />
+                          </button>
                           <p className="mt-0.5 text-xs text-muted-foreground">{tx.counterparty}</p>
                         </div>
                       </div>
-                      <Badge variant="outline" className={cn('rounded-full border px-3 py-1 text-xs font-semibold flex items-center gap-1.5', statusConfig[tx.status].className)}>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'rounded-full border px-3 py-1 text-xs font-semibold flex items-center gap-1.5',
+                          statusConfig[tx.status].className
+                        )}
+                      >
                         {renderStatusIcon(tx.status)}
                         {statusConfig[tx.status].label}
                       </Badge>
                     </div>
                     <div className="mt-3 flex items-center justify-between">
                       <p className="text-sm text-muted-foreground">{formatDate(tx.date)}</p>
-                      <p className="text-base font-bold text-foreground">NGN {formatAmount(tx.amount)}</p>
+                      <p className="text-base font-bold text-foreground">
+                        NGN {formatAmount(tx.amount)}
+                      </p>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">Swipe left for actions</p>
                   </motion.div>
                 </motion.div>
               )
             })}
-          </tbody>
-        </table>
+          </div>
+        )}
       </div>
 
-      <div className="space-y-3 md:hidden">
-        {paginatedTransactions.map((tx, index) => {
-          const Icon = typeConfig[tx.type].icon
-          const isSwipeActive = activeSwipeId === tx.id
-          return (
-            <motion.div
-              key={tx.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="relative overflow-hidden rounded-xl border border-border bg-card"
-            >
-              <div className="absolute inset-y-0 right-0 flex items-center gap-2 pr-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-9 px-3"
-                  onClick={() => handleViewTransaction(tx.id)}
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
-              </div>
-              <motion.div
-                animate={{ x: isSwipeActive ? -88 : 0 }}
-                transition={{ duration: 0.2 }}
-                onTouchStart={(event: React.TouchEvent<HTMLDivElement>) => onTouchStart(event.changedTouches[0].clientX)}
-                onTouchEnd={(event: React.TouchEvent<HTMLDivElement>) => onTouchEnd(event.changedTouches[0].clientX, tx.id)}
-                className="relative z-10 bg-card p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={cn(
-                        'h-9 w-9 rounded-lg border flex items-center justify-center shrink-0',
-                        typeConfig[tx.type].iconClassName
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground">{typeConfig[tx.type].label}</p>
-                      <button
-                        type="button"
-                        onClick={() => handleViewTransaction(tx.id)}
-                        className="text-xs text-muted-foreground hover:text-primary hover:underline transition-colors inline-flex items-center gap-1"
-                      >
-                        {tx.id}
-                        <ExternalLink className="h-3 w-3" />
-                      </button>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{tx.counterparty}</p>
-                    </div>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-xs font-semibold flex items-center gap-1.5',
-                      statusConfig[tx.status].className
-                    )}
-                  >
-                    {renderStatusIcon(tx.status)}
-                    {statusConfig[tx.status].label}
-                  </Badge>
-                </div>
-                <div className="mt-3 flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">{formatDate(tx.date)}</p>
-                  <p className="text-base font-bold text-foreground">
-                    NGN {formatAmount(tx.amount)}
-                  </p>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">Swipe left for actions</p>
-              </motion.div>
-            </motion.div>
-          )
-        })}
-      </div>
 
       {!isVirtualized && (
         <div className="mt-4">

@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 export interface BillerField {
   id: string
   name: string
@@ -27,6 +29,47 @@ export interface BillerSchema {
   }
   validationApi?: string
 }
+
+export const zBillerFieldOption = z.object({
+  label: z.string(),
+  value: z.string(),
+})
+
+export const zBillerFieldValidation = z.object({
+  required: z.boolean().optional(),
+  pattern: z.string().optional(),
+  minLength: z.number().optional(),
+  maxLength: z.number().optional(),
+  message: z.string().optional(),
+})
+
+export const zBillerField = z.object({
+  id: z.string(),
+  name: z.string(),
+  label: z.string(),
+  type: z.enum(['text', 'number', 'tel', 'email', 'select']),
+  placeholder: z.string().optional(),
+  defaultValue: z.string().optional(),
+  validation: zBillerFieldValidation,
+  options: z.array(zBillerFieldOption).optional(),
+  description: z.string().optional(),
+})
+
+export const zFeeStructure = z.object({
+  baseFee: z.number(),
+  percentageFee: z.number(),
+})
+
+export const zBillerSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  logo: z.string(),
+  fields: z.array(zBillerField),
+  feeStructure: zFeeStructure,
+  validationApi: z.string().optional(),
+})
+
+export const zBillerSchemas = z.record(z.string(), zBillerSchema)
 
 export const BILLER_SCHEMAS: Record<string, BillerSchema> = {
   dstv: {

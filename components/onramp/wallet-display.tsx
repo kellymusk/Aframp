@@ -12,8 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { isValidStellarAddress } from '@/lib/onramp/validation'
-import { truncateAddress } from '@/lib/onramp/formatters'
+import { isValidStellarAddress, truncateAddress } from '@/lib/calculations'
 
 interface WalletDisplayProps {
   address: string

@@ -17,10 +17,25 @@ import { useBillsData } from '@/hooks/use-bills-data'
 export function BillsPageClient() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCountry, setSelectedCountry] = useState('NG')
-  const { categories, transactions, recentBillers, scheduledPayments, loading } =
+  const { categories, transactions, recentBillers, scheduledPayments, loading, addBiller } =
     useBillsData(selectedCountry)
   const { address, connected } = useWalletConnection()
   const headerAddress = address ? `${address.slice(0, 4)}...${address.slice(-4)}` : ''
+
+  const handleAddBiller = () => {
+    const newBiller = {
+      id: `custom-${Date.now()}`,
+      name: 'Custom Utility',
+      logo: '🏗️',
+      category: 'electricity',
+      minAmount: 100,
+      maxAmount: 10000,
+      popular: false,
+      trending: false,
+      description: 'Your added local utility provider.',
+    }
+    addBiller(newBiller)
+  }
 
   // Debounced search
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery)
@@ -87,6 +102,13 @@ export function BillsPageClient() {
           className="space-y-10"
         >
           {/* Page Header */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold font-cal-sans tracking-tight">Bill Payments</h1>
+              <p className="text-muted-foreground">Pay your bills quickly and securely</p>
+            </div>
+            <Button onClick={handleAddBiller}>Add New Biller</Button>
+          </div>
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="space-y-3">
               <motion.div

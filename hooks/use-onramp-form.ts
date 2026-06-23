@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { CryptoAsset, FiatCurrency, OnrampFormState, PaymentMethod } from '@/types/onramp'
 import { calculateCryptoAmount, calculateFeeBreakdown } from '@/lib/onramp/calculations'
-import { formatAmountInput, parseAmountInput } from '@/lib/onramp/formatters'
+import { formatAmountInput, parseAmountInput, formatCurrency } from '@/lib/calculations'
 import { getLimits, validateAmount } from '@/lib/onramp/validation'
 
 const STORAGE_KEY = 'onramp:form'

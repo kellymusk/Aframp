@@ -54,9 +54,9 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-manrope), 'Manrope Fallback', sans-serif;
-  --font-display: var(--font-cal-sans), 'Outfit Fallback', sans-serif;
-  --font-heading: var(--font-instrument-sans), 'Space Mono Fallback', monospace;
+  --font-sans: 'Manrope', 'Inter', 'Segoe UI', Arial, sans-serif;
+  --font-display: 'Outfit', 'Inter', 'Segoe UI', Arial, sans-serif;
+  --font-heading: 'Space Mono', 'SFMono-Regular', Consolas, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

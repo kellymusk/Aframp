@@ -7,7 +7,7 @@ import type {
   ExchangeRateState,
   FiatCurrency,
 } from '@/types/onramp'
-import { formatRate } from '@/lib/onramp/formatters'
+import { formatRate } from '@/lib/calculations'
 
 const API_URL = '/api/exchange-rate'
 

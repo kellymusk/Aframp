@@ -1,5 +1,6 @@
 import type { FiatCurrency } from '@/types/onramp'
 import { formatCurrency } from '@/lib/onramp/formatters'
+import { isValidStellarAddress as sharedIsValidStellarAddress } from '@/lib/calculations'
 
 const limitsMap: Record<FiatCurrency, { min: number; max: number }> = {
   NGN: { min: 1000, max: 500000 },
@@ -28,6 +29,5 @@ export function validateAmount(amount: number, currency: FiatCurrency) {
 }
 
 export function isValidStellarAddress(address: string) {
-  if (!address) return false
-  return /^G[A-Z2-7]{55}$/.test(address)
+  return sharedIsValidStellarAddress(address)
 }

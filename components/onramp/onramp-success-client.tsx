@@ -20,7 +20,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { OnrampOrder } from '@/types/onramp'
-import { formatCurrency } from '@/lib/onramp/formatters'
+import { formatCurrency } from '@/lib/calculations'
 import { generateReceiptPDF } from '@/lib/onramp/receipt'
 
 export function OnrampSuccessClient() {
