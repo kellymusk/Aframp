@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FiatCurrency } from '@/types/onramp'
 import type { OfframpAssetOption, OfframpFormState } from '@/types/offramp'
 import { calculateFiatAmount, calculateFees, getMinMax } from '@/lib/offramp/calculations'
-import { formatAmountInput, parseAmountInput } from '@/lib/onramp/formatters'
+import { formatAmountInput, parseAmountInput, formatCurrency } from '@/lib/calculations'
 
 const STORAGE_KEY = 'offramp:form'
 const EXPIRY_MS = 15 * 60 * 1000

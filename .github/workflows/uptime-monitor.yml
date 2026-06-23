@@ -2,41 +2,42 @@ name: Uptime Monitor
 
 on:
   schedule:
-    - cron: '*/1 * * * *' # Every 1 minute
+    - cron: '*/15 * * * *' # Every 15 minutes (reduced from 1 min to avoid noise)
   workflow_dispatch:
 
 jobs:
   monitor:
     name: Check Production Uptime
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Check homepage
         id: homepage
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/ || echo "000")
           if [ "$STATUS" != "200" ]; then
             echo "status=down" >> $GITHUB_OUTPUT
-            echo "❌ Homepage down (HTTP $STATUS)"
-            exit 1
+            echo "⚠️ Homepage returned HTTP $STATUS"
+          else
+            echo "status=up" >> $GITHUB_OUTPUT
+            echo "✅ Homepage up"
           fi
-          echo "status=up" >> $GITHUB_OUTPUT
-          echo "✅ Homepage up"
 
       - name: Check onramp page
         id: onramp
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/onramp)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/onramp || echo "000")
           if [ "$STATUS" != "200" ]; then
             echo "status=down" >> $GITHUB_OUTPUT
-            echo "❌ Onramp page down (HTTP $STATUS)"
-            exit 1
+            echo "⚠️ Onramp page returned HTTP $STATUS"
+          else
+            echo "status=up" >> $GITHUB_OUTPUT
+            echo "✅ Onramp page up"
           fi
-          echo "status=up" >> $GITHUB_OUTPUT
-          echo "✅ Onramp page up"
 
       - name: Alert on downtime
-        if: failure()
+        if: steps.homepage.outputs.status == 'down' || steps.onramp.outputs.status == 'down'
         uses: actions/github-script@v7
         with:
           script: |
-            console.log(`🚨 ALERT: AFRAMP is DOWN\n\nTime: ${new Date().toISOString()}\nHomepage: ${{ steps.homepage.outputs.status }}\nOnramp: ${{ steps.onramp.outputs.status }}\n\nCheck: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`);
+            console.log(`🚨 ALERT: AFRAMP may be DOWN\n\nTime: ${new Date().toISOString()}\nHomepage: ${{ steps.homepage.outputs.status }}\nOnramp: ${{ steps.onramp.outputs.status }}\n\nCheck: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`);

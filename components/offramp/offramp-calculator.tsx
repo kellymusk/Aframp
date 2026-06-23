@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { AmountInput } from '@/components/onramp/amount-input'
 import { CurrencySelector } from '@/components/onramp/currency-selector'
 import { AssetSelector } from '@/components/offramp/asset-selector'
-import { formatCurrency, formatNumber } from '@/lib/onramp/formatters'
+import { formatCurrency, formatNumber } from '@/lib/calculations'
 import { formatRateCountdown, formatUsd } from '@/lib/offramp/formatters'
 import type { FiatCurrency } from '@/types/onramp'
 import type { OfframpAssetOption } from '@/types/offramp'
@@ -35,6 +35,7 @@ interface OfframpCalculatorProps {
   }
   limits: { min: number; max: number }
   isCalculating: boolean
+  isSubmitting?: boolean
   isValid: boolean
   lockCountdown: number | null
   onAssetChange: (value: string) => void
@@ -60,6 +61,7 @@ export function OfframpCalculator({
   errors,
   limits,
   isCalculating,
+  isSubmitting,
   isValid,
   lockCountdown,
   onAssetChange,
@@ -243,9 +245,10 @@ export function OfframpCalculator({
           size="lg"
           className="w-full rounded-full text-base"
           type="submit"
-          disabled={!isValid || isRateLoading}
+          disabled={!isValid || isRateLoading || isSubmitting}
         >
-          Continue to Bank Details →
+          {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {isSubmitting ? 'Creating Order...' : 'Continue to Bank Details →'}
         </Button>
       </form>
     </div>

@@ -8,6 +8,7 @@ import { TransactionHistory } from '@/components/dashboard/transaction-history'
 import { SwapModal } from '@/components/dashboard/swap-modal'
 import { SendModal } from '@/components/dashboard/send-modal'
 import { ReceiveModal } from '@/components/dashboard/receive-modal'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useBalanceContext } from '@/contexts/balance-context'
 
 interface DashboardContentProps {
@@ -19,7 +20,30 @@ export function DashboardContent({ walletName, walletAddress }: DashboardContent
   const [activeModal, setActiveModal] = useState<'swap' | 'send' | 'receive' | null>(null)
 
   // Get all balances with prices from context
-  const { balances, totalUsdValue, lastUpdated } = useBalanceContext()
+  const { balances, totalUsdValue, lastUpdated, loading } = useBalanceContext()
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4">
+          <Skeleton className="h-28" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Skeleton className="h-40" />
+            <Skeleton className="h-40" />
+            <Skeleton className="h-40" />
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="space-y-4">
+            <Skeleton className="h-72" />
+            <Skeleton className="h-64" />
+          </div>
+          <Skeleton className="h-72" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

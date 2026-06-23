@@ -13,181 +13,104 @@ echo ""
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Check if node_modules is installed
 if [ ! -d "node_modules/.bin" ] || [ -z "$(ls -A node_modules/.bin)" ]; then
     echo -e "${YELLOW}⚠️  Dependencies not installed${NC}"
     echo "Run: npm install"
-    echo ""
-    echo "For now, running structure validation only..."
-    echo ""
+    exit 1
 fi
 
-# 1. Check Workflow Files
-echo "📋 Step 1: Checking GitHub Actions Workflows"
+# 1. Code Quality Checks
+echo -e "${BLUE}📋 Step 1: Code Quality Checks${NC}"
 echo "--------------------------------------------"
 
-WORKFLOWS=(
-    ".github/workflows/ci.yml"
-    ".github/workflows/preview.yml"
-    ".github/workflows/uptime-monitor.yml"
-)
+echo "Running ESLint..."
+if npm run lint > /dev/null 2>&1; then
+    echo -e "${GREEN}✅${NC} ESLint passed"
+else
+    echo -e "${RED}❌${NC} ESLint failed"
+    npm run lint
+    exit 1
+fi
 
-for workflow in "${WORKFLOWS[@]}"; do
-    if [ -f "$workflow" ]; then
-        echo -e "${GREEN}✅${NC} $workflow"
-    else
-        echo -e "${RED}❌${NC} $workflow - MISSING"
-        exit 1
-    fi
-done
+echo "Running Prettier check..."
+if npm run format:check > /dev/null 2>&1; then
+    echo -e "${GREEN}✅${NC} Prettier check passed"
+else
+    echo -e "${RED}❌${NC} Prettier check failed"
+    npm run format:check
+    exit 1
+fi
+
+echo "Running TypeScript check..."
+if npm run type-check > /dev/null 2>&1; then
+    echo -e "${GREEN}✅${NC} TypeScript check passed"
+else
+    echo -e "${RED}❌${NC} TypeScript check failed"
+    npm run type-check
+    exit 1
+fi
 echo ""
 
-# 2. Check Test Files
-echo "🧪 Step 2: Checking Test Files"
+# 2. Tests & Coverage
+echo -e "${BLUE}🧪 Step 2: Tests & Coverage${NC}"
 echo "--------------------------------------------"
 
-TESTS=(
-    "lib/onramp/__tests__/calculations.test.ts"
-    "lib/onramp/__tests__/validation.test.ts"
-    "hooks/__tests__/use-onramp-form.test.ts"
-)
-
-for test in "${TESTS[@]}"; do
-    if [ -f "$test" ]; then
-        echo -e "${GREEN}✅${NC} $test"
-    else
-        echo -e "${RED}❌${NC} $test - MISSING"
-        exit 1
+echo "Running tests with coverage..."
+if npm run test:coverage -- --watchAll=false > /dev/null 2>&1; then
+    echo -e "${GREEN}✅${NC} Tests passed"
+    
+    # Display coverage summary
+    if [ -f "coverage/coverage-summary.json" ]; then
+        echo ""
+        echo "Coverage Summary:"
+        node -e "
+        const coverage = require('./coverage/coverage-summary.json');
+        const total = coverage.total;
+        const badge = (pct) => pct >= 80 ? '🟢' : pct >= 70 ? '🟡' : '🔴';
+        console.log('  Lines:      ' + total.lines.pct + '% ' + badge(total.lines.pct));
+        console.log('  Statements: ' + total.statements.pct + '% ' + badge(total.statements.pct));
+        console.log('  Functions:  ' + total.functions.pct + '% ' + badge(total.functions.pct));
+        console.log('  Branches:   ' + total.branches.pct + '% ' + badge(total.branches.pct));
+        "
     fi
-done
+else
+    echo -e "${RED}❌${NC} Tests failed"
+    npm run test:coverage -- --watchAll=false
+    exit 1
+fi
 echo ""
 
-# 3. Check Config Files
-echo "⚙️  Step 3: Checking Configuration Files"
+# 3. Build
+echo -e "${BLUE}🏗️  Step 3: Production Build${NC}"
 echo "--------------------------------------------"
 
-CONFIGS=(
-    ".eslintrc.json"
-    "jest.config.js"
-    ".prettierrc"
-    ".prettierignore"
-    "vercel.json"
-    "lighthouserc.json"
-    "commitlint.config.js"
-    ".lintstagedrc.json"
-)
-
-for config in "${CONFIGS[@]}"; do
-    if [ -f "$config" ]; then
-        echo -e "${GREEN}✅${NC} $config"
-    else
-        echo -e "${YELLOW}⚠️${NC}  $config - MISSING (optional)"
+echo "Building production bundle..."
+if npm run build > /dev/null 2>&1; then
+    echo -e "${GREEN}✅${NC} Build successful"
+    
+    # Show build size
+    if [ -d ".next" ]; then
+        SIZE=$(du -sh .next | cut -f1)
+        echo "  Build size: $SIZE"
     fi
-done
-echo ""
-
-# 4. Check Git Hooks
-echo "🪝 Step 4: Checking Git Hooks"
-echo "--------------------------------------------"
-
-HOOKS=(
-    ".husky/pre-commit"
-    ".husky/pre-push"
-    ".husky/commit-msg"
-)
-
-for hook in "${HOOKS[@]}"; do
-    if [ -f "$hook" ]; then
-        if [ -x "$hook" ]; then
-            echo -e "${GREEN}✅${NC} $hook (executable)"
-        else
-            echo -e "${YELLOW}⚠️${NC}  $hook (not executable - run: chmod +x $hook)"
-        fi
-    else
-        echo -e "${RED}❌${NC} $hook - MISSING"
-    fi
-done
-echo ""
-
-# 5. Check Documentation
-echo "📚 Step 5: Checking Documentation"
-echo "--------------------------------------------"
-
-DOCS=(
-    "docs/CI-CD.md"
-    "CONTRIBUTING.md"
-    "CI-CD-IMPLEMENTATION.md"
-    "SETUP-INSTRUCTIONS.md"
-)
-
-for doc in "${DOCS[@]}"; do
-    if [ -f "$doc" ]; then
-        echo -e "${GREEN}✅${NC} $doc"
-    else
-        echo -e "${RED}❌${NC} $doc - MISSING"
-    fi
-done
-echo ""
-
-# 6. Validate package.json scripts
-echo "📦 Step 6: Checking package.json Scripts"
-echo "--------------------------------------------"
-
-REQUIRED_SCRIPTS=(
-    "test"
-    "test:coverage"
-    "lint"
-    "format"
-    "format:check"
-    "type-check"
-    "build"
-)
-
-for script in "${REQUIRED_SCRIPTS[@]}"; do
-    if grep -q "\"$script\":" package.json; then
-        echo -e "${GREEN}✅${NC} npm run $script"
-    else
-        echo -e "${RED}❌${NC} npm run $script - MISSING"
-    fi
-done
-echo ""
-
-# 7. Check Source Files
-echo "📁 Step 7: Checking Source Structure"
-echo "--------------------------------------------"
-
-DIRS=(
-    "app"
-    "components"
-    "lib"
-    "hooks"
-    "types"
-)
-
-for dir in "${DIRS[@]}"; do
-    if [ -d "$dir" ]; then
-        COUNT=$(find "$dir" -name "*.tsx" -o -name "*.ts" | wc -l)
-        echo -e "${GREEN}✅${NC} $dir/ ($COUNT files)"
-    else
-        echo -e "${YELLOW}⚠️${NC}  $dir/ - MISSING"
-    fi
-done
+else
+    echo -e "${RED}❌${NC} Build failed"
+    npm run build
+    exit 1
+fi
 echo ""
 
 # Summary
 echo "======================================"
-echo "✅ CI/CD Pipeline Structure: VALID"
+echo -e "${GREEN}✅ All CI checks passed!${NC}"
 echo "======================================"
 echo ""
-echo "Next steps:"
-echo "1. Run: npm install"
-echo "2. Run: npm run test"
-echo "3. Run: npm run lint"
-echo "4. Run: npm run type-check"
-echo "5. Run: npm run build"
-echo ""
-echo "Or run all checks:"
-echo "  npm install && npm run test:coverage && npm run lint && npm run type-check && npm run build"
+echo "Ready to push. The following will run on GitHub:"
+echo "  1. Code Quality (ESLint, Prettier, TypeScript)"
+echo "  2. Tests & Coverage (Jest with Codecov upload)"
+echo "  3. Production Build"
 echo ""

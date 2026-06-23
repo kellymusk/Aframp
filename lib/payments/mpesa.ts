@@ -296,3 +296,7 @@ export class MpesaProvider implements MobileMoneyProvider {
 }
 
 export const mpesaProvider = new MpesaProvider()
+
+export function _resetTokenCache() {
+  tokenCache = null
+}

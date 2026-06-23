@@ -17,7 +17,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { formatCurrency } from '@/lib/onramp/formatters'
+import { formatCurrency } from '@/lib/calculations'
 import { generateReceiptPDF } from '@/lib/offramp/pdf-generator'
 import { toast } from 'sonner'
 import { OfframpWalletGuard } from '@/components/offramp/offramp-wallet-guard'

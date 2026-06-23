@@ -6,7 +6,7 @@ import { Copy, Download, Share2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { buildInvoiceUrl, encodeInvoice, type QRInvoiceData } from '@/lib/bills/qr-invoice'
-import { formatCurrency } from '@/lib/onramp/formatters'
+import { formatCurrency } from '@/lib/calculations'
 import type { FiatCurrency } from '@/types/onramp'
 
 interface QRInvoiceModalProps {

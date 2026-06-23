@@ -2,7 +2,7 @@
  * Tests for the MTN MoMo Collections API integration.
  */
 
-import { MtnMomoProvider, resetMtnMomoTokenCacheForTests } from '../mtn-momo'
+import { MtnMomoProvider, resetMtnMomoTokenCacheForTests, _resetTokenCache } from '../mtn-momo'
 import { MobileMoneyError } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -33,6 +33,7 @@ const BASE_PARAMS = {
 }
 
 beforeEach(() => {
+  _resetTokenCache()
   process.env.MTN_MOMO_SUBSCRIPTION_KEY = 'test-sub-key'
   process.env.MTN_MOMO_API_USER = '550e8400-e29b-41d4-a716-446655440000'
   process.env.MTN_MOMO_API_KEY = 'test-api-key'
@@ -42,7 +43,7 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.restoreAllMocks()
-  jest.resetModules()
+  _resetTokenCache()
 })
 
 // ---------------------------------------------------------------------------
