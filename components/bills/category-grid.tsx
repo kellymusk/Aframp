@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { CategoryIcon } from '@/components/bills/biller-icons'
+import { EmptyState } from '@/components/ui/empty-state'
 import { ArrowRight } from 'lucide-react'
 
 interface BillCategory {
@@ -40,17 +41,16 @@ export function CategoryGrid({ categories, searchQuery, selectedCountry }: Categ
 
   if (filteredCategories.length === 0 && searchQuery) {
     return (
-      <div className="text-center py-16">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/5 mb-4">
-          <svg className="w-8 h-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
-        <div className="text-lg font-medium text-foreground">No categories found</div>
-        <div className="text-muted-foreground mt-1">
-          We couldn&apos;t find any categories matching &quot;{searchQuery}&quot;
-        </div>
-      </div>
+      <section className="space-y-6">
+        <h2 className="text-2xl font-bold font-cal-sans tracking-tight">Categories</h2>
+        <EmptyState
+          variant="search"
+          title="No categories found"
+          description={`Nothing matched "${searchQuery}". Try a different search term.`}
+          bordered={false}
+          className="py-8"
+        />
+      </section>
     )
   }
 

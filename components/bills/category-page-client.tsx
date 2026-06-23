@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { ArrowLeft, Search, Filter, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Search, Filter } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -121,22 +122,23 @@ export function CategoryPageClient({ categorySlug }: CategoryPageClientProps) {
                 ))}
               </motion.div>
             ) : (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center py-24 border-2 border-dashed border-border rounded-3xl bg-muted/20"
-              >
-                <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                  <AlertCircle className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-xl font-bold">No billers found</h3>
-                <p className="text-muted-foreground mb-6 text-center max-w-xs">
-                  We couldn&apos;t find any {category?.name.toLowerCase()} providers matching &quot;
-                  {searchQuery}&quot; in this country.
-                </p>
-                <Button variant="secondary" onClick={() => setSearchQuery('')}>
-                  Clear Search Query
-                </Button>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <EmptyState
+                  variant={searchQuery ? 'search' : 'bills'}
+                  title="No billers found"
+                  description={
+                    searchQuery
+                      ? `We couldn't find any ${category?.name.toLowerCase() ?? 'category'} providers matching "${searchQuery}".`
+                      : `No ${category?.name.toLowerCase() ?? 'category'} providers are available in this country yet.`
+                  }
+                  action={
+                    searchQuery
+                      ? { label: 'Clear search', onClick: () => setSearchQuery('') }
+                      : { label: 'Back to bills', href: '/bills', variant: 'outline' }
+                  }
+                  bordered={false}
+                  className="py-16 border-2 border-dashed border-border rounded-3xl bg-muted/20"
+                />
               </motion.div>
             )}
           </AnimatePresence>

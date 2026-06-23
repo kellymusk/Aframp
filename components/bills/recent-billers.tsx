@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Clock, Star, ArrowRight } from 'lucide-react'
 import { BillerIcon } from '@/components/bills/biller-icons'
+import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 
 interface Biller {
@@ -22,9 +23,10 @@ interface RecentBillersProps {
   billers: Biller[]
   searchQuery: string
   loading: boolean
+  onClearSearch?: () => void
 }
 
-export function RecentBillers({ billers, searchQuery, loading }: RecentBillersProps) {
+export function RecentBillers({ billers, searchQuery, loading, onClearSearch }: RecentBillersProps) {
   const [recentBillers, setRecentBillers] = useState<Biller[]>([])
 
   useEffect(() => {
@@ -66,7 +68,38 @@ export function RecentBillers({ billers, searchQuery, loading }: RecentBillersPr
   }
 
   if (filteredBillers.length === 0 && searchQuery) {
-    return null // Handled by category grid
+    return (
+      <section className="space-y-6">
+        <h2 className="text-2xl font-bold font-cal-sans tracking-tight">Recent Billers</h2>
+        <EmptyState
+          variant="search"
+          title="No billers found"
+          description={`Nothing matched "${searchQuery}". Try another name or category.`}
+          action={
+            onClearSearch
+              ? { label: 'Clear search', onClick: onClearSearch, variant: 'outline' }
+              : undefined
+          }
+          bordered={false}
+          className="py-8"
+        />
+      </section>
+    )
+  }
+
+  if (billers.length === 0) {
+    return (
+      <section className="space-y-6">
+        <h2 className="text-2xl font-bold font-cal-sans tracking-tight">Recent Billers</h2>
+        <EmptyState
+          variant="bills"
+          title="No billers yet"
+          description="Pick a category below to pay your first bill — favorites will appear here."
+          bordered={false}
+          className="py-8"
+        />
+      </section>
+    )
   }
 
   return (

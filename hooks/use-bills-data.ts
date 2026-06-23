@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { isMockEmptyEnabled } from '@/lib/mock-empty'
 
 export interface BillCategory {
   id: string
@@ -277,11 +278,13 @@ export function useBillsData(countryCode: string): UseBillsDataReturn {
     localStorage.setItem('custom-billers', JSON.stringify(updated))
   }
 
+  const useEmpty = isMockEmptyEnabled()
+
   return {
     categories: MOCK_CATEGORIES,
     recentBillers: [...MOCK_BILLERS, ...customBillers],
-    transactions: MOCK_TRANSACTIONS,
-    scheduledPayments: MOCK_SCHEDULED_PAYMENTS,
+    transactions: useEmpty ? [] : MOCK_TRANSACTIONS,
+    scheduledPayments: useEmpty ? [] : MOCK_SCHEDULED_PAYMENTS,
     loading,
     addBiller,
   }

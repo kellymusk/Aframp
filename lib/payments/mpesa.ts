@@ -41,6 +41,11 @@ interface TokenCache {
 
 let tokenCache: TokenCache | null = null
 
+/** Clears cached OAuth token (for tests). */
+export function resetMpesaTokenCacheForTests(): void {
+  tokenCache = null
+}
+
 async function fetchAccessToken(): Promise<string> {
   const now = Date.now()
   if (tokenCache && tokenCache.expiresAt > now + 30_000) {
@@ -226,7 +231,7 @@ async function pollForResult(checkoutRequestId: string): Promise<PaymentStatus> 
 
     // ResponseCode 0 means the query itself succeeded; ResultCode is the payment outcome
     if (result.ResponseCode === '0') {
-      const status = mapResultCode(result.ResultCode)
+      const status = mapResultCode(String(result.ResultCode))
       if (status !== 'PENDING') {
         return status
       }
@@ -273,11 +278,11 @@ export class MpesaProvider implements MobileMoneyProvider {
   async getStatus(transactionId: string): Promise<PaymentStatus> {
     const result = await queryStkStatus(transactionId)
 
-    if (result.ResponseCode !== '0') {
+    if (String(result.ResponseCode) !== '0') {
       return 'PENDING'
     }
 
-    const status = mapResultCode(result.ResultCode)
+    const status = mapResultCode(String(result.ResultCode))
 
     if (status === 'CANCELLED') {
       throw new MobileMoneyError('CANCELLED', result.ResultDesc)

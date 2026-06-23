@@ -30,6 +30,10 @@ export function TransactionStats({ transactions, loading }: TransactionStatsProp
     )
   }
 
+  if (transactions.length === 0) {
+    return null
+  }
+
   const totalSpent = transactions
     .filter((t) => t.status === 'completed')
     .reduce((sum, t) => sum + t.amount, 0)

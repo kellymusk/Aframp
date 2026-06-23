@@ -12,6 +12,7 @@ import { CategoryGrid } from '@/components/bills/category-grid'
 import { RecentBillers } from '@/components/bills/recent-billers'
 import { ScheduledPayments } from '@/components/bills/scheduled-payments'
 import { TransactionStats } from '@/components/bills/transaction-stats'
+import { RecentPayments } from '@/components/bills/recent-payments'
 import { useBillsData } from '@/hooks/use-bills-data'
 
 export function BillsPageClient() {
@@ -161,6 +162,8 @@ export function BillsPageClient() {
             <TransactionStats transactions={transactions} loading={loading} />
           </div>
 
+          <RecentPayments transactions={transactions} loading={loading} />
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
               {/* Category Grid */}
@@ -171,7 +174,12 @@ export function BillsPageClient() {
               />
 
               {/* Recent Billers */}
-              <RecentBillers billers={recentBillers} searchQuery={debouncedSearch} loading={loading} />
+              <RecentBillers
+                billers={recentBillers}
+                searchQuery={debouncedSearch}
+                loading={loading}
+                onClearSearch={() => setSearchQuery('')}
+              />
             </div>
 
             <div className="space-y-8">

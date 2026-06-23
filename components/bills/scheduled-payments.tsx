@@ -1,12 +1,12 @@
 'use client'
 
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Calendar, Pause, Play, MoreHorizontal, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration'
 
 interface ScheduledPayment {
   id: string
@@ -65,8 +65,11 @@ export function ScheduledPayments({ payments, loading }: ScheduledPaymentsProps)
             <p className="text-muted-foreground mb-8 max-w-[250px] mx-auto leading-relaxed">
               Set up recurring payments to automate your bills and never miss a due date.
             </p>
-            <Button className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-medium px-8 transition-all hover:shadow-[0_0_20px_-5px_rgba(34,197,94,0.4)]">
-              Schedule Payment
+            <Button
+              className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-medium px-8 transition-all hover:shadow-[0_0_20px_-5px_rgba(34,197,94,0.4)]"
+              asChild
+            >
+              <Link href="/bills/schedule">Schedule Payment</Link>
             </Button>
           </CardContent>
         </Card>

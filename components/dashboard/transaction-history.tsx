@@ -31,6 +31,11 @@ import {
 } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import {
+  getDashboardTransactions,
+  type DashboardTransaction,
+} from '@/lib/dashboard/mock-transactions'
 import { cn } from '@/lib/utils'
 
 const TransactionChart = dynamic(
@@ -41,15 +46,7 @@ const TransactionChart = dynamic(
 const VIRTUAL_THRESHOLD = 50
 const ROW_HEIGHT = 72 // px — approximate height of each mobile card / table row
 
-interface Transaction {
-  id: string
-  date: string
-  type: 'onramp' | 'offramp' | 'billpay'
-  amount: number
-  asset: string
-  counterparty: string
-  status: 'pending' | 'completed' | 'failed'
-}
+type Transaction = DashboardTransaction
 
 type SortField = 'date' | 'type' | 'asset' | 'amount' | 'status'
 type SortDirection = 'asc' | 'desc'
@@ -58,108 +55,6 @@ type StatusFilter = 'all' | Transaction['status']
 type PeriodFilter = '7d' | '30d' | 'all'
 
 const PAGE_SIZE = 5
-
-const mockTransactions: Transaction[] = [
-  {
-    id: 'ONR-240191',
-    date: '2026-02-26T08:22:00.000Z',
-    type: 'onramp',
-    amount: 15000,
-    asset: 'cNGN',
-    counterparty: 'From Zenith Bank',
-    status: 'completed',
-  },
-  {
-    id: 'OFF-240180',
-    date: '2026-02-26T07:40:00.000Z',
-    type: 'offramp',
-    amount: 8700,
-    asset: 'USDC',
-    counterparty: 'To MTN Mobile Money',
-    status: 'pending',
-  },
-  {
-    id: 'BIL-240178',
-    date: '2026-02-25T16:11:00.000Z',
-    type: 'billpay',
-    amount: 5500,
-    asset: 'cNGN',
-    counterparty: 'To IKEDC Electricity',
-    status: 'completed',
-  },
-  {
-    id: 'ONR-240173',
-    date: '2026-02-25T11:35:00.000Z',
-    type: 'onramp',
-    amount: 25000,
-    asset: 'cNGN',
-    counterparty: 'From Access Bank',
-    status: 'pending',
-  },
-  {
-    id: 'OFF-240166',
-    date: '2026-02-24T19:02:00.000Z',
-    type: 'offramp',
-    amount: 12000,
-    asset: 'USDT',
-    counterparty: 'To Kuda Bank',
-    status: 'completed',
-  },
-  {
-    id: 'BIL-240162',
-    date: '2026-02-24T09:43:00.000Z',
-    type: 'billpay',
-    amount: 2100,
-    asset: 'cNGN',
-    counterparty: 'To Glo Airtime',
-    status: 'failed',
-  },
-  {
-    id: 'ONR-240158',
-    date: '2026-02-23T20:10:00.000Z',
-    type: 'onramp',
-    amount: 8000,
-    asset: 'cNGN',
-    counterparty: 'From GTBank',
-    status: 'completed',
-  },
-  {
-    id: 'BIL-240151',
-    date: '2026-02-23T08:37:00.000Z',
-    type: 'billpay',
-    amount: 4300,
-    asset: 'cNGN',
-    counterparty: 'To DSTV',
-    status: 'completed',
-  },
-  {
-    id: 'OFF-240144',
-    date: '2026-02-22T22:29:00.000Z',
-    type: 'offramp',
-    amount: 16000,
-    asset: 'USDC',
-    counterparty: 'To Opay Wallet',
-    status: 'completed',
-  },
-  {
-    id: 'ONR-240132',
-    date: '2026-02-22T10:04:00.000Z',
-    type: 'onramp',
-    amount: 10000,
-    asset: 'cNGN',
-    counterparty: 'From Moniepoint',
-    status: 'failed',
-  },
-  {
-    id: 'OFF-240120',
-    date: '2026-02-21T14:18:00.000Z',
-    type: 'offramp',
-    amount: 7300,
-    asset: 'USDT',
-    counterparty: 'To First Bank',
-    status: 'completed',
-  },
-]
 
 const typeConfig: Record<
   Transaction['type'],
@@ -307,7 +202,12 @@ function useVirtualList<T>(items: T[], rowHeight: number, containerHeight: numbe
   return { visibleItems, totalHeight: items.length * rowHeight, setScrollTop }
 }
 
-export function TransactionHistory() {
+interface TransactionHistoryProps {
+  transactions?: DashboardTransaction[]
+}
+
+export function TransactionHistory({ transactions: transactionsOverride }: TransactionHistoryProps) {
+  const sourceTransactions = transactionsOverride ?? getDashboardTransactions()
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('30d')
@@ -336,7 +236,7 @@ export function TransactionHistory() {
           ? new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
           : null
 
-    return mockTransactions.filter((tx) => {
+    return sourceTransactions.filter((tx) => {
       const byQuickFilter =
         quickFilter === 'all'
           ? true
@@ -349,7 +249,7 @@ export function TransactionHistory() {
 
       return byQuickFilter && byStatus && byPeriod
     })
-  }, [periodFilter, quickFilter, statusFilter])
+  }, [periodFilter, quickFilter, statusFilter, sourceTransactions])
 
   const sortedTransactions = useMemo(() => {
     const valueByStatus: Record<Transaction['status'], number> = {
@@ -520,6 +420,47 @@ export function TransactionHistory() {
     window.open(getExplorerUrl(txId), '_blank', 'noopener,noreferrer')
   }
 
+  const hasNoTransactions = sourceTransactions.length === 0
+  const hasNoFilteredResults = !hasNoTransactions && sortedTransactions.length === 0
+
+  const clearAllFilters = () => {
+    onFilterChange('all')
+    setStatusFilter('all')
+    setPeriodFilter('all')
+  }
+
+  const renderEmptyState = () => {
+    if (hasNoFilteredResults) {
+      return (
+        <EmptyState
+          variant="filter"
+          title="No matching transactions"
+          description="Try a different filter, status, or date range."
+          action={{
+            label: 'Clear filters',
+            onClick: clearAllFilters,
+          }}
+          bordered={false}
+        />
+      )
+    }
+
+    return (
+      <EmptyState
+        variant="transactions"
+        title="No transactions yet"
+        description="Fund your wallet, cash out, or pay a bill — your activity will appear here."
+        action={{ label: 'Add funds', href: '/onramp' }}
+        secondaryAction={{
+          label: 'Pay a bill',
+          href: '/bills',
+          variant: 'outline',
+        }}
+        bordered={false}
+      />
+    )
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -552,6 +493,10 @@ export function TransactionHistory() {
         </div>
       </div>
 
+      {hasNoTransactions || hasNoFilteredResults ? (
+        <div className="py-4">{renderEmptyState()}</div>
+      ) : (
+        <>
       <Suspense fallback={<div className="h-40 animate-pulse rounded-lg bg-muted mb-4" />}>
         <div className="mb-4">
           <TransactionChart data={chartData} />
@@ -828,9 +773,10 @@ export function TransactionHistory() {
           </div>
         )}
       </div>
+        </>
+      )}
 
-
-      {!isVirtualized && (
+      {sortedTransactions.length > 0 && !isVirtualized && (
         <div className="mt-4">
           <Pagination
             currentPage={currentPage}
