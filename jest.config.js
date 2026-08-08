@@ -1,3 +1,4 @@
+const path = require('path')
 const nextJest = require('next/jest')
 
 const createJestConfig = nextJest({
@@ -5,8 +6,12 @@ const createJestConfig = nextJest({
 })
 
 const customJestConfig = {
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  setupFilesAfterEnv: [path.resolve(__dirname, './jest.setup.ts')],
   testEnvironment: 'jest-environment-jsdom',
+  testEnvironmentOptions: {
+    customExportConditions: [''],
+  },
+  modulePathIgnorePatterns: ['<rootDir>/helpcenter/', '<rootDir>/.claude/'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
@@ -23,13 +28,20 @@ const customJestConfig = {
   ],
   coverageThreshold: {
     global: {
-      branches: 70,
-      functions: 70,
-      lines: 70,
-      statements: 70,
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
     },
   },
   testMatch: ['**/__tests__/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
+  testPathIgnorePatterns: ['/node_modules/', '/.next/', '/helpcenter/', '/.claude/'],
 }
 
-module.exports = createJestConfig(customJestConfig)
+module.exports = async () => {
+  const config = await createJestConfig(customJestConfig)()
+  config.transformIgnorePatterns = [
+    '/node_modules/(?!(rettime|until-async|strict-event-emitter|@mswjs|@open-draft)/)',
+  ]
+  return config
+}

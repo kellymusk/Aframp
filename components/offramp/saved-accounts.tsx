@@ -4,12 +4,9 @@ import * as React from 'react'
 import { History, Plus, Trash2, Check, Banknote } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import {
-  BankAccount,
-  getSavedAccounts,
-  deleteSavedAccount,
-  NIGERIAN_BANKS,
-} from '@/lib/offramp/bank-service'
+import { BankAccount, getSavedAccounts, deleteSavedAccount } from '@/lib/offramp/bank-service'
+import { OFFRAMP_COUNTRIES } from '@/lib/offramp/countries'
+import { CountryFlag } from '@/components/icons/finance-icons'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,7 +80,7 @@ export function SavedAccounts({ onSelect, onAddNew }: SavedAccountsProps) {
 
       <div className="grid gap-3">
         {accounts.map((account) => {
-          const bank = NIGERIAN_BANKS.find((b) => b.code === account.bankCode)
+          const country = OFFRAMP_COUNTRIES[account.country]
           return (
             <div
               key={account.id}
@@ -105,8 +102,10 @@ export function SavedAccounts({ onSelect, onAddNew }: SavedAccountsProps) {
               </div>
 
               <Avatar className="h-10 w-10 border border-border">
-                <AvatarImage src={bank?.logo} alt={account.bankName} />
-                <AvatarFallback className="bg-primary/5 text-primary text-xs">BN</AvatarFallback>
+                <AvatarImage src={account.bankLogo} alt={account.bankName} />
+                <AvatarFallback className="bg-primary/5 text-primary text-xs">
+                  {account.bankName.substring(0, 2).toUpperCase() || 'BN'}
+                </AvatarFallback>
               </Avatar>
 
               <div className="flex-1 min-w-0">
@@ -116,9 +115,12 @@ export function SavedAccounts({ onSelect, onAddNew }: SavedAccountsProps) {
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span className="font-medium">{account.bankName}</span>
+                  <CountryFlag code={country.code} className="h-3 w-3 shrink-0" />
+                  <span className="font-medium truncate">{account.bankName}</span>
                   <span className="opacity-30">•</span>
                   <span className="font-mono">{account.accountNumber}</span>
+                  <span className="opacity-30">•</span>
+                  <span className="font-medium">{account.currency}</span>
                 </div>
               </div>
 

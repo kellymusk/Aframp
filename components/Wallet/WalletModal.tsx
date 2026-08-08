@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Drawer } from 'vaul'
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,7 @@ import {
   Monitor,
 } from 'lucide-react'
 import { useWallet } from '@/hooks/useWallet'
+import { useMediaQuery } from '@/hooks/use-media-query'
 
 interface WalletModalProps {
   open: boolean
@@ -78,34 +80,54 @@ export function WalletModal({ open, onOpenChange }: WalletModalProps) {
     setManualView('connect')
   }
 
+  const isDesktop = useMediaQuery('(min-width: 640px)')
+
+  const views = (
+    <AnimatePresence mode="wait">
+      {view === 'installing' && (
+        <InstallView key="install" onCheckAgain={() => setManualView('connect')} />
+      )}
+      {view === 'connect' && (
+        <ConnectView
+          key="connect"
+          onConnect={handleConnect}
+          hasError={hasError}
+          error={error}
+          onRetry={handleRetry}
+          isFreighterInstalled={isFreighterInstalled}
+          onShowInstall={() => setManualView('installing')}
+        />
+      )}
+      {view === 'connecting' && <ConnectingView key="connecting" />}
+      {view === 'network-warning' && (
+        <NetworkWarningView
+          key="network"
+          network={network}
+          onContinue={() => onOpenChange(false)}
+          onRefresh={handleRetry}
+        />
+      )}
+    </AnimatePresence>
+  )
+
+  if (!isDesktop) {
+    return (
+      <Drawer.Root open={open} onOpenChange={handleOpenChange}>
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 z-50 bg-black/80" />
+          <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-[1.25rem] border-t border-border bg-background outline-none max-h-[90svh] overflow-y-auto">
+            <div className="mx-auto mt-3 mb-1 h-1.5 w-10 shrink-0 rounded-full bg-muted" />
+            {views}
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
+    )
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md p-0 overflow-hidden">
-        <AnimatePresence mode="wait">
-          {view === 'installing' && (
-            <InstallView key="install" onCheckAgain={() => setManualView('connect')} />
-          )}
-          {view === 'connect' && (
-            <ConnectView
-              key="connect"
-              onConnect={handleConnect}
-              hasError={hasError}
-              error={error}
-              onRetry={handleRetry}
-              isFreighterInstalled={isFreighterInstalled}
-              onShowInstall={() => setManualView('installing')}
-            />
-          )}
-          {view === 'connecting' && <ConnectingView key="connecting" />}
-          {view === 'network-warning' && (
-            <NetworkWarningView
-              key="network"
-              network={network}
-              onContinue={() => onOpenChange(false)}
-              onRefresh={handleRetry}
-            />
-          )}
-        </AnimatePresence>
+        {views}
       </DialogContent>
     </Dialog>
   )

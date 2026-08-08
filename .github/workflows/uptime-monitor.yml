@@ -2,41 +2,124 @@ name: Uptime Monitor
 
 on:
   schedule:
-    - cron: '*/1 * * * *' # Every 1 minute
+    - cron: '*/15 * * * *' # Every 15 minutes (reduced from 1 min to avoid noise)
   workflow_dispatch:
 
 jobs:
   monitor:
     name: Check Production Uptime
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Check homepage
         id: homepage
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/ || echo "000")
           if [ "$STATUS" != "200" ]; then
             echo "status=down" >> $GITHUB_OUTPUT
-            echo "❌ Homepage down (HTTP $STATUS)"
-            exit 1
+            echo "⚠️ Homepage returned HTTP $STATUS"
+          else
+            echo "status=up" >> $GITHUB_OUTPUT
+            echo "✅ Homepage up"
           fi
-          echo "status=up" >> $GITHUB_OUTPUT
-          echo "✅ Homepage up"
 
       - name: Check onramp page
         id: onramp
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/onramp)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/onramp || echo "000")
           if [ "$STATUS" != "200" ]; then
             echo "status=down" >> $GITHUB_OUTPUT
-            echo "❌ Onramp page down (HTTP $STATUS)"
-            exit 1
+            echo "⚠️ Onramp page returned HTTP $STATUS"
+          else
+            echo "status=up" >> $GITHUB_OUTPUT
+            echo "✅ Onramp page up"
           fi
-          echo "status=up" >> $GITHUB_OUTPUT
-          echo "✅ Onramp page up"
+
+      - name: Check offramp page
+        id: offramp
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/offramp || echo "000")
+          if [ "$STATUS" != "200" ]; then
+            echo "status=down" >> $GITHUB_OUTPUT
+            echo "⚠️ Offramp page returned HTTP $STATUS"
+          else
+            echo "status=up" >> $GITHUB_OUTPUT
+            echo "✅ Offramp page up"
+          fi
+
+      - name: Check bills page
+        id: bills
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/bills || echo "000")
+          if [ "$STATUS" != "200" ]; then
+            echo "status=down" >> $GITHUB_OUTPUT
+            echo "⚠️ Bills page returned HTTP $STATUS"
+          else
+            echo "status=up" >> $GITHUB_OUTPUT
+            echo "✅ Bills page up"
+          fi
+
+      - name: Check swap page
+        id: swap
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/swap || echo "000")
+          if [ "$STATUS" != "200" ]; then
+            echo "status=down" >> $GITHUB_OUTPUT
+            echo "⚠️ Swap page returned HTTP $STATUS"
+          else
+            echo "status=up" >> $GITHUB_OUTPUT
+            echo "✅ Swap page up"
+          fi
+
+      - name: Check exchange-rate API
+        id: exchange_rate_api
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/api/exchange-rate || echo "000")
+          if [ "$STATUS" != "200" ]; then
+            echo "status=down" >> $GITHUB_OUTPUT
+            echo "⚠️ Exchange-rate API returned HTTP $STATUS"
+          else
+            echo "status=up" >> $GITHUB_OUTPUT
+            echo "✅ Exchange-rate API up"
+          fi
+
+      - name: Check rates API
+        id: rates_api
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/api/rates || echo "000")
+          if [ "$STATUS" != "200" ]; then
+            echo "status=down" >> $GITHUB_OUTPUT
+            echo "⚠️ Rates API returned HTTP $STATUS"
+          else
+            echo "status=up" >> $GITHUB_OUTPUT
+            echo "✅ Rates API up"
+          fi
 
       - name: Alert on downtime
-        if: failure()
+        if: |
+          steps.homepage.outputs.status == 'down' ||
+          steps.onramp.outputs.status == 'down' ||
+          steps.offramp.outputs.status == 'down' ||
+          steps.bills.outputs.status == 'down' ||
+          steps.swap.outputs.status == 'down' ||
+          steps.exchange_rate_api.outputs.status == 'down' ||
+          steps.rates_api.outputs.status == 'down'
         uses: actions/github-script@v7
         with:
           script: |
-            console.log(`🚨 ALERT: AFRAMP is DOWN\n\nTime: ${new Date().toISOString()}\nHomepage: ${{ steps.homepage.outputs.status }}\nOnramp: ${{ steps.onramp.outputs.status }}\n\nCheck: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`);
+            const statuses = {
+              Homepage:       '${{ steps.homepage.outputs.status }}',
+              Onramp:         '${{ steps.onramp.outputs.status }}',
+              Offramp:        '${{ steps.offramp.outputs.status }}',
+              Bills:          '${{ steps.bills.outputs.status }}',
+              Swap:           '${{ steps.swap.outputs.status }}',
+              'Exchange-rate API': '${{ steps.exchange_rate_api.outputs.status }}',
+              'Rates API':    '${{ steps.rates_api.outputs.status }}',
+            };
+            const down = Object.entries(statuses)
+              .filter(([, v]) => v === 'down')
+              .map(([k]) => `  • ${k}`)
+              .join('\n');
+            console.log(
+              `🚨 ALERT: AFRAMP endpoints are DOWN\n\nTime: ${new Date().toISOString()}\n\nAffected:\n${down}\n\nCheck: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`
+            );

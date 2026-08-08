@@ -36,7 +36,7 @@ export default function WelcomePage() {
             asChild
             className="h-12 w-full rounded-xl bg-emerald-500 text-emerald-950 hover:bg-emerald-400"
           >
-            <Link href="/feature-highlights">
+            <Link href="/signup">
               Get Started
               <ArrowRight className="h-4 w-4" />
             </Link>

@@ -7,12 +7,13 @@ import type {
   ExchangeRateState,
   FiatCurrency,
 } from '@/types/onramp'
-import { formatRate } from '@/lib/onramp/formatters'
-
-const API_URL = '/api/exchange-rate'
+import { formatRate } from '@/lib/calculations'
+import { recordDataUpdate } from '@/lib/offline/connectivity'
 
 const STORAGE_KEY = 'onramp:rates'
-const COUNTDOWN_START = 30
+const SPARKLINE_STORAGE_KEY = 'onramp:sparkline'
+const SSE_URL = '/api/exchange-rate/stream'
+const MAX_SPARKLINE_POINTS = 30 // keep last 30 data points (5 mins at 10 s intervals)
 
 function buildRateResult(
   fiat: FiatCurrency,
@@ -35,126 +36,182 @@ function buildRateResult(
   }
 }
 
-async function fetchWithRetry(retries: number) {
-  let attempt = 0
-  let lastError: Error | null = null
-
-  while (attempt < retries) {
-    try {
-      const response = await fetch(API_URL)
-      if (!response.ok) {
-        throw new Error(`Exchange rate request failed: ${response.status}`)
-      }
-      return (await response.json()) as {
-        'usd-coin': Record<string, number>
-        stellar: Record<string, number>
-      }
-    } catch (error) {
-      lastError = error as Error
-      const delay = 300 * 2 ** attempt
-      await new Promise((resolve) => setTimeout(resolve, delay))
-      attempt += 1
-    }
-  }
-
-  throw lastError || new Error('Unable to fetch exchange rates.')
+export interface ExchangeRateHook extends ExchangeRateState {
+  refresh: () => void
+  displayRate: string
+  sparkline: number[]
 }
 
-export function useExchangeRate(fiat: FiatCurrency, asset: CryptoAsset) {
+export function useExchangeRate(fiat: FiatCurrency, asset: CryptoAsset): ExchangeRateHook {
   const [state, setState] = useState<ExchangeRateState>({
     data: null,
     isLoading: true,
     error: null,
     warning: null,
-    countdown: COUNTDOWN_START,
+    countdown: 30,
   })
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [sparkline, setSparkline] = useState<number[]>([])
+  const eventSourceRef = useRef<EventSource | null>(null)
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const updateFromCache = useCallback(
+  const updateFromPayload = useCallback(
     (
-      cached: { timestamp: number; data: Record<string, Record<string, number>> },
-      reason: string
+      payload: {
+        'usd-coin': Record<string, number>
+        stellar: Record<string, number>
+        timestamp: number
+      },
+      source: 'coingecko' | 'cache'
     ) => {
-      if (!cached?.data) return
       const lower = fiat.toLowerCase()
-      const usdcPrice = cached.data['usd-coin']?.[lower]
-      const xlmPrice = cached.data.stellar?.[lower]
+      const usdcPrice = payload['usd-coin']?.[lower]
+      const xlmPrice = payload.stellar?.[lower]
       if (!usdcPrice || !xlmPrice) return
 
-      const result = buildRateResult(fiat, asset, usdcPrice, xlmPrice, 'cache', cached.timestamp)
+      const result = buildRateResult(fiat, asset, usdcPrice, xlmPrice, source, payload.timestamp)
+      recordDataUpdate(result.lastUpdated)
 
       setState((prev) => ({
         ...prev,
         data: result,
         isLoading: false,
-        warning: reason,
+        error: null,
+        warning: source === 'cache' ? 'Using cached exchange rate.' : null,
+        countdown: 30,
       }))
+
+      // Update sparkline
+      setSparkline((prev) => {
+        const next = [...prev, result.rate].slice(-MAX_SPARKLINE_POINTS)
+        try {
+          localStorage.setItem(SPARKLINE_STORAGE_KEY, JSON.stringify(next))
+        } catch {
+          // ignore quota errors
+        }
+        return next
+      })
+
+      // Persist to localStorage
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({ timestamp: result.lastUpdated, data: payload })
+        )
+      } catch {
+        // ignore quota errors
+      }
     },
     [asset, fiat]
   )
 
-  const refresh = useCallback(async () => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }))
-    try {
-      const data = await fetchWithRetry(3)
-      const lower = fiat.toLowerCase()
-      const usdcPrice = data['usd-coin']?.[lower]
-      const xlmPrice = data.stellar?.[lower]
-      if (!usdcPrice || !xlmPrice) {
-        throw new Error('Exchange rate unavailable for selected currency.')
-      }
+  const connectSSE = useCallback(() => {
+    // Clean up existing connection
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close()
+      eventSourceRef.current = null
+    }
 
-      const result = buildRateResult(fiat, asset, usdcPrice, xlmPrice, 'coingecko', Date.now())
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ timestamp: result.lastUpdated, data }))
+    const es = new EventSource(SSE_URL)
+    eventSourceRef.current = es
 
-      setState({
-        data: result,
-        isLoading: false,
-        error: null,
-        warning: null,
-        countdown: COUNTDOWN_START,
-      })
-    } catch (error) {
-      const message = (error as Error).message
-      console.error('Exchange rate error:', error)
+    es.addEventListener('snapshot', (event) => {
+      const payload = JSON.parse(event.data)
+      updateFromPayload(payload, 'coingecko')
+    })
+
+    es.addEventListener('update', (event) => {
+      const payload = JSON.parse(event.data)
+      updateFromPayload(payload, 'coingecko')
+    })
+
+    es.addEventListener('error', (event) => {
+      const data = (event as MessageEvent).data
+      const parsed = data ? JSON.parse(data) : { message: 'Stream connection lost' }
+      console.warn('SSE error:', parsed.message)
+
+      // Use cached data on stream error
       const cachedRaw = localStorage.getItem(STORAGE_KEY)
       if (cachedRaw) {
-        updateFromCache(JSON.parse(cachedRaw), 'Using cached exchange rate.')
+        try {
+          const cached = JSON.parse(cachedRaw)
+          updateFromPayload(cached.data, 'cache')
+        } catch {
+          // ignore parse errors
+        }
       }
+
       setState((prev) => ({
         ...prev,
-        isLoading: false,
-        error: message,
+        warning: 'Using cached rates. Real-time updates paused.',
       }))
-    }
-  }, [asset, fiat, updateFromCache])
+    })
 
+    es.onerror = () => {
+      es.close()
+      setState((prev) => ({
+        ...prev,
+        warning: 'Reconnecting to live rates...',
+      }))
+
+      // Reconnect after 5 seconds
+      reconnectTimerRef.current = setTimeout(() => {
+        connectSSE()
+      }, 5000)
+    }
+  }, [updateFromPayload])
+
+  // Initial mount: load cache + connect SSE
   useEffect(() => {
+    // Load cached rates
     const cachedRaw = localStorage.getItem(STORAGE_KEY)
     if (cachedRaw) {
-      updateFromCache(JSON.parse(cachedRaw), 'Using cached exchange rate while refreshing.')
+      try {
+        const cached = JSON.parse(cachedRaw)
+        updateFromPayload(cached.data, 'cache')
+      } catch {
+        // ignore
+      }
     }
-    refresh()
-  }, [refresh, updateFromCache])
 
-  useEffect(() => {
-    if (timerRef.current) clearInterval(timerRef.current)
+    // Load cached sparkline
+    const sparklineRaw = localStorage.getItem(SPARKLINE_STORAGE_KEY)
+    if (sparklineRaw) {
+      try {
+        setSparkline(JSON.parse(sparklineRaw))
+      } catch {
+        // ignore
+      }
+    }
 
-    timerRef.current = setInterval(() => {
-      setState((prev) => {
-        const next = prev.countdown - 1
-        if (next <= 0) {
-          refresh()
-          return { ...prev, countdown: COUNTDOWN_START }
-        }
-        return { ...prev, countdown: next }
-      })
-    }, 1000)
+    connectSSE()
 
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close()
+        eventSourceRef.current = null
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
+      }
     }
-  }, [refresh])
+  }, [connectSSE, updateFromPayload])
+
+  // Countdown timer (UI only)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setState((prev) => ({
+        ...prev,
+        countdown: prev.countdown > 0 ? prev.countdown - 1 : 30,
+      }))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const refresh = useCallback(() => {
+    // Reconnect SSE to force a fresh fetch
+    connectSSE()
+  }, [connectSSE])
 
   const displayRate = useMemo(() => {
     if (!state.data) return ''
@@ -165,5 +222,6 @@ export function useExchangeRate(fiat: FiatCurrency, asset: CryptoAsset) {
     ...state,
     refresh,
     displayRate,
+    sparkline,
   }
 }

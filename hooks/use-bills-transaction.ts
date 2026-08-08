@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { saveReceipt, loadReceipt } from '@/lib/receipt-cache'
 
 export interface BillsTimelineItem {
   id: string
@@ -23,6 +24,7 @@ export interface BillsTransaction {
   paymentMethod: string
   timeline: BillsTimelineItem[]
   customerSupportEmail: string
+  txHash?: string
 }
 
 export function useBillsTransaction(
@@ -33,6 +35,7 @@ export function useBillsTransaction(
   const [transaction, setTransaction] = useState<BillsTransaction | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [fromCache, setFromCache] = useState(false)
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
@@ -49,10 +52,24 @@ export function useBillsTransaction(
         if (!cancelled) {
           setTransaction(data)
           setError(null)
+          setFromCache(false)
+          saveReceipt(data).catch(() => {})
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Unable to load transaction')
+          // Network failure — try IDB cache
+          try {
+            const cached = await loadReceipt(transactionId)
+            if (cached) {
+              setTransaction(cached)
+              setError(null)
+              setFromCache(true)
+            } else {
+              setError(err instanceof Error ? err.message : 'Unable to load transaction')
+            }
+          } catch {
+            setError(err instanceof Error ? err.message : 'Unable to load transaction')
+          }
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -99,5 +116,5 @@ export function useBillsTransaction(
         : 'Pending'
   }, [transaction])
 
-  return { transaction, loading, error, statusLabel }
+  return { transaction, loading, error, statusLabel, fromCache }
 }

@@ -26,5 +26,6 @@ export async function GET(
     paymentMethod: 'Wallet Balance',
     timeline: sampleTimeline,
     customerSupportEmail: 'support@aframp.com',
+    txHash: `mock-stellar-tx-${transactionId}`,
   })
 }

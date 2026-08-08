@@ -22,15 +22,7 @@ export function EthPriceProvider({ children }: { children: ReactNode }) {
 export function useEthPriceContext() {
   const context = useContext(EthPriceContext)
   if (context === undefined) {
-    // Return default values instead of throwing error
-    // This allows the hook to be used outside the provider without breaking
-    return {
-      price: null,
-      loading: true,
-      error: null,
-      lastUpdated: null,
-      refetch: async () => {},
-    }
+    throw new Error('useEthPriceContext must be used within an EthPriceProvider')
   }
   return context
 }

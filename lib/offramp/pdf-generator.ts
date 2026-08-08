@@ -17,6 +17,8 @@ export interface ReceiptPdfData {
   sections: ReceiptSection[]
   totalLabel?: string
   totalValue?: string
+  /** Base64 PNG data URL for QR code (optional) */
+  qrDataUrl?: string
 }
 
 export function generateReceiptPDF(data: ReceiptPdfData, filename: string) {
@@ -56,6 +58,16 @@ export function generateReceiptPDF(data: ReceiptPdfData, filename: string) {
     doc.text(data.totalLabel, 16, y)
     doc.text(data.totalValue, 80, y)
     y += 8
+  }
+
+  // Embed QR code if provided
+  if (data.qrDataUrl) {
+    y += 4
+    doc.setFontSize(10)
+    doc.text('Scan to verify transaction on explorer:', 16, y)
+    y += 4
+    doc.addImage(data.qrDataUrl, 'PNG', 16, y, 40, 40)
+    y += 44
   }
 
   doc.save(filename)

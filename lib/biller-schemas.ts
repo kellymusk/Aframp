@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 export interface BillerField {
   id: string
   name: string
@@ -10,6 +12,8 @@ export interface BillerField {
     pattern?: string
     minLength?: number
     maxLength?: number
+    /** Numeric minimum value (for type: 'number' fields) — compared numerically, not by string length */
+    min?: number
     message?: string
   }
   options?: { label: string; value: string }[]
@@ -27,6 +31,48 @@ export interface BillerSchema {
   }
   validationApi?: string
 }
+
+export const zBillerFieldOption = z.object({
+  label: z.string(),
+  value: z.string(),
+})
+
+export const zBillerFieldValidation = z.object({
+  required: z.boolean().optional(),
+  pattern: z.string().optional(),
+  minLength: z.number().optional(),
+  maxLength: z.number().optional(),
+  min: z.number().optional(),
+  message: z.string().optional(),
+})
+
+export const zBillerField = z.object({
+  id: z.string(),
+  name: z.string(),
+  label: z.string(),
+  type: z.enum(['text', 'number', 'tel', 'email', 'select']),
+  placeholder: z.string().optional(),
+  defaultValue: z.string().optional(),
+  validation: zBillerFieldValidation,
+  options: z.array(zBillerFieldOption).optional(),
+  description: z.string().optional(),
+})
+
+export const zFeeStructure = z.object({
+  baseFee: z.number(),
+  percentageFee: z.number(),
+})
+
+export const zBillerSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  logo: z.string(),
+  fields: z.array(zBillerField),
+  feeStructure: zFeeStructure,
+  validationApi: z.string().optional(),
+})
+
+export const zBillerSchemas = z.record(z.string(), zBillerSchema)
 
 export const BILLER_SCHEMAS: Record<string, BillerSchema> = {
   dstv: {
@@ -71,7 +117,7 @@ export const BILLER_SCHEMAS: Record<string, BillerSchema> = {
   },
   'ikeja-electric': {
     id: 'ikeja-electric',
-    name: 'Ikeja Electric',
+    name: 'Ikeja Electric (NEPA)',
     logo: '⚡',
     fields: [
       {
@@ -87,6 +133,19 @@ export const BILLER_SCHEMAS: Record<string, BillerSchema> = {
         },
       },
       {
+        id: 'meterType',
+        name: 'meterType',
+        label: 'Meter Type',
+        type: 'select',
+        options: [
+          { label: 'Prepaid', value: 'prepaid' },
+          { label: 'Postpaid', value: 'postpaid' },
+        ],
+        validation: {
+          required: true,
+        },
+      },
+      {
         id: 'amount',
         name: 'amount',
         label: 'Amount (₦)',
@@ -94,7 +153,7 @@ export const BILLER_SCHEMAS: Record<string, BillerSchema> = {
         placeholder: 'Enter amount',
         validation: {
           required: true,
-          minLength: 500,
+          min: 500,
           message: 'Minimum amount is ₦500',
         },
       },
@@ -108,6 +167,18 @@ export const BILLER_SCHEMAS: Record<string, BillerSchema> = {
           required: true,
           pattern: '^(\\+234|0)[789][01]\\d{8}$',
           message: 'Enter a valid Nigerian phone number',
+        },
+      },
+      {
+        id: 'email',
+        name: 'email',
+        label: 'Email Address',
+        type: 'email',
+        placeholder: 'your@email.com',
+        validation: {
+          required: true,
+          pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
+          message: 'Enter a valid email address',
         },
       },
     ],
@@ -180,7 +251,7 @@ export const BILLER_SCHEMAS: Record<string, BillerSchema> = {
         placeholder: 'Enter amount',
         validation: {
           required: true,
-          minLength: 10,
+          min: 10,
           message: 'Minimum amount is 10 KSh',
         },
       },
@@ -214,7 +285,7 @@ export const BILLER_SCHEMAS: Record<string, BillerSchema> = {
         placeholder: 'Enter amount',
         validation: {
           required: true,
-          minLength: 1000,
+          min: 1000,
           message: 'Minimum amount is ₦1,000',
         },
       },

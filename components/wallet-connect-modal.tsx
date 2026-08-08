@@ -26,6 +26,9 @@ declare global {
     coinbaseWalletProvider?: {
       request: (args: { method: string; params?: unknown[] }) => Promise<unknown>
     }
+    freighterApi?: {
+      getPublicKey: () => Promise<string>
+    }
   }
 }
 
@@ -41,8 +44,8 @@ interface WalletOption {
 const walletOptions: WalletOption[] = [
   // Ethereum Wallets
   {
-    id: 'metamask',
-    name: 'MetaMask',
+    id: 'freighter',
+    name: 'Freighter',
     icon: (
       <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
         <path
@@ -71,8 +74,8 @@ const walletOptions: WalletOption[] = [
         />
       </svg>
     ),
-    chain: 'Ethereum',
-    description: 'Connect using MetaMask',
+    chain: 'Stellar',
+    description: 'Connect using Freighter',
     popular: true,
   },
   {
@@ -159,31 +162,16 @@ const walletOptions: WalletOption[] = [
   },
   // Stellar Wallets
   {
-    id: 'lobstr',
-    name: 'Lobstr',
+    id: 'freighter',
+    name: 'Freighter',
     icon: (
-      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="10" fill="#7D00FF" />
-        <path d="M12 6v12M6 12h12" stroke="white" strokeWidth="2" strokeLinecap="round" />
+      <svg className="w-6 h-6" viewBox="0 0 40 40" fill="currentColor">
+        <path d="M20 5L5 15v10l15 10 15-10V15L20 5zm0 3.5L31 16l-11 7.5L9 16l11-7.5zM8 18.5l10 6.5v8L8 26.5v-8zm24 0v8l-10 6.5v-8l10-6.5z" />
       </svg>
     ),
     chain: 'Stellar',
-    description: 'Connect using Lobstr',
-  },
-  {
-    id: 'stellar-xlm',
-    name: 'Stellar XLM',
-    icon: (
-      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="10" fill="#7D00FF" />
-        <path
-          d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-          fill="white"
-        />
-      </svg>
-    ),
-    chain: 'Stellar',
-    description: 'Connect using Stellar',
+    description: 'Connect using Freighter (Stellar)',
+    popular: true,
   },
 ]
 

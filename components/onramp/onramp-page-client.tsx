@@ -15,30 +15,49 @@ import {
 } from '@/components/ui/dialog'
 import { OnrampCalculator } from '@/components/onramp/onramp-calculator'
 import { RecentTransactions } from '@/components/onramp/recent-transactions'
+import { OnrampFeeSummary } from '@/components/onramp/onramp-fee-summary'
 import { useExchangeRate } from '@/hooks/use-exchange-rate'
 import { useOnrampForm } from '@/hooks/use-onramp-form'
 import { useWalletConnection } from '@/hooks/use-wallet-connection'
 import { OnrampTestUtils } from '@/components/onramp/onramp-test-utils'
 import type { CryptoAsset, FiatCurrency } from '@/types/onramp'
-import { formatCurrency } from '@/lib/onramp/formatters'
-import { isValidStellarAddress } from '@/lib/onramp/validation'
+import { isValidStellarAddress } from '@/lib/calculations'
 import type { OnrampOrder } from '@/types/onramp'
+import { csrfHeaders } from '@/lib/security/csrf-client'
 import { Button } from '@/components/ui/button' // Added missing import for Button
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  getAppliedReferralCode,
+  calcReferralDiscount,
+  setAppliedReferralCode,
+} from '@/lib/referral'
+import { useReferral } from '@/hooks/use-referral'
 
 const ORDER_KEY = 'onramp:latest-order'
 
 export function OnrampPageClient() {
   const router = useRouter()
   const { isConnected: storeConnected, publicKey } = useWallet()
-  const { address, addresses, connected, loading, updateAddress, disconnect } =
+  const {
+    address,
+    addresses,
+    connected,
+    loading,
+    updateAddress,
+    setDefaultAddress,
+    removeAddress,
+    disconnect,
+  } =
     useWalletConnection()
   const walletConnected = Boolean(address) || connected || storeConnected || Boolean(publicKey)
+  const referralWalletAddress = address || publicKey || ''
+  const { discountActive, discountConsumed, consumeDiscount } = useReferral(referralWalletAddress)
   const [walletModalOpen, setWalletModalOpen] = useState(false)
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false)
   const [rateOverride, setRateOverride] = useState(0)
 
   const form = useOnrampForm(rateOverride, walletConnected)
-  const { data, countdown, warning, error, isLoading, displayRate, refresh } = useExchangeRate(
+  const { data, countdown, warning, error, isLoading, displayRate, refresh, sparkline } = useExchangeRate(
     form.state.fiatCurrency,
     form.state.cryptoAsset
   )
@@ -64,6 +83,15 @@ export function OnrampPageClient() {
   useEffect(() => {
     router.prefetch('/onramp/payment')
   }, [router])
+
+  // Process referral code from URL query param (e.g. /onramp?ref=AFR-ABCD-1234)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const refCode = params.get('ref')
+    if (refCode && !getAppliedReferralCode() && !discountConsumed) {
+      setAppliedReferralCode(refCode.toUpperCase())
+    }
+  }, [discountConsumed])
 
   // Only show modal if definitely not connected after loading
   useEffect(() => {
@@ -94,59 +122,129 @@ export function OnrampPageClient() {
     }
   }
 
-  const handleSubmit = () => {
-    // For demo purposes, auto-connect a mock wallet if none exists
-    let walletAddress = address
-    if (!isValidStellarAddress(address)) {
-      const mockAddress = 'GAXYZ123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789ABCDEFG'
-      updateAddress(mockAddress)
-      walletAddress = mockAddress
-    }
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-    if (!form.isValid) {
-      return
-    }
-
-    const order: OnrampOrder = {
-      id: `order-${Date.now()}`,
-      createdAt: Date.now(),
-      expiresAt: Date.now() + 15 * 60 * 1000,
+  // Show the confirmation summary first; the order is only created after
+  // the user explicitly confirms in the dialog.
+  const handleInitialSubmit = () => {
+    if (!form.isValid || isSubmitting) return
+    analytics.track('onramp_initiated', {
+      amount: form.amountValue,
       fiatCurrency: form.state.fiatCurrency,
       cryptoAsset: form.state.cryptoAsset,
       paymentMethod: form.state.paymentMethod,
-      amount: form.amountValue,
-      exchangeRate: data?.rate || 1600, // Fallback rate for demo
-      cryptoAmount: form.cryptoAmount,
-      fees: form.fees,
-      walletAddress: walletAddress,
-      status: 'created',
+    })
+    setShowConfirmDialog(true)
+  }
+
+  const handleSubmit = async () => {
+    if (!isValidStellarAddress(address)) {
+      setWalletModalOpen(true)
+      return
     }
 
-    localStorage.setItem(ORDER_KEY, JSON.stringify(order))
-    localStorage.setItem(`onramp:order:${order.id}`, JSON.stringify(order))
+    const walletAddress = address
 
-    // Follow correct workflow: Calculator → Payment Instructions → Processing → Success
-    router.push(`/onramp/payment?order=${order.id}`)
+    if (!form.isValid || isSubmitting) {
+      return
+    }
+
+    // Guard: refuse to create an order if the live exchange rate is unavailable.
+    // Using a stale or hardcoded fallback rate would expose users or the platform
+    // to incorrect pricing (see issue #271).
+    if (!data?.rate) {
+      alert(
+        'Exchange rate is currently unavailable. Please wait for the rate to load or refresh the page before proceeding.'
+      )
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      // Apply referral discount (10% off fees) on first ramp. Consumption is
+      // reserved server-side up front so the one-time discount can't be
+      // replayed by racing requests or clearing client-side state.
+      const referralCode = getAppliedReferralCode()
+      let hasDiscount = false
+      if (referralCode && discountActive) {
+        const consumeError = await consumeDiscount()
+        hasDiscount = !consumeError
+      }
+      const reward = hasDiscount ? calcReferralDiscount(form.fees.totalFees) : null
+      const discountedFees = reward
+        ? {
+            ...form.fees,
+            totalFees: form.fees.totalFees - reward.discountAmount,
+            totalCost: form.fees.totalCost - reward.discountAmount,
+          }
+        : form.fees
+
+      const orderData = {
+        id: `order-${Date.now()}`,
+        fiatCurrency: form.state.fiatCurrency,
+        cryptoAsset: form.state.cryptoAsset,
+        paymentMethod: form.state.paymentMethod,
+        amount: form.amountValue,
+        exchangeRate: data.rate,
+        cryptoAmount: form.cryptoAmount,
+        fees: discountedFees,
+        walletAddress: walletAddress,
+        referralCode: hasDiscount ? referralCode : undefined,
+      }
+
+      const response = await fetch('/api/onramp/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...csrfHeaders(),
+        },
+        body: JSON.stringify(orderData),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create order')
+      }
+
+      const result = await response.json()
+      const order: OnrampOrder = result.order
+
+      localStorage.setItem(ORDER_KEY, JSON.stringify(order))
+      localStorage.setItem(`onramp:order:${order.id}`, JSON.stringify(order))
+
+      analytics.track('onramp_order_created', {
+        orderId: order.id,
+        amount: order.amount,
+        fiatCurrency: order.fiatCurrency,
+        cryptoAsset: order.cryptoAsset,
+        cryptoAmount: order.cryptoAmount,
+        paymentMethod: order.paymentMethod,
+        hasReferralDiscount: hasDiscount,
+      })
+
+      setShowConfirmDialog(false)
+
+      // Follow correct workflow: Calculator → Payment Instructions → Processing → Success
+      router.push(`/onramp/payment?order=${order.id}`)
+    } catch (err) {
+      console.error('Order creation failed:', err)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleDisconnect = () => {
     setDisconnectModalOpen(true)
   }
 
-  const processingFeeLabel =
-    form.state.paymentMethod === 'bank_transfer'
-      ? 'FREE'
-      : form.state.paymentMethod === 'card'
-        ? `${formatCurrency(form.fees.processingFee, form.state.fiatCurrency)} (1.5%)`
-        : `${formatCurrency(form.fees.processingFee, form.state.fiatCurrency)} (0.5%)`
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-12">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 w-48 rounded-full bg-muted" />
-            <div className="h-64 rounded-3xl bg-muted" />
+          <div className="space-y-6">
+            <Skeleton className="h-8 w-48 rounded-full" />
+            <Skeleton className="h-64 rounded-3xl" />
           </div>
         </div>
       </div>
@@ -205,14 +303,17 @@ export function OnrampPageClient() {
             exchangeWarning={warning}
             exchangeError={error}
             exchangeLoading={isLoading}
+            exchangeSparkline={sparkline}
             onRefreshRate={refresh}
             onAmountChange={form.setAmountInput}
             onFiatChange={(value) => form.setFiatCurrency(value as FiatCurrency)}
             onCryptoChange={(value) => form.setCryptoAsset(value as CryptoAsset)}
             onPaymentChange={form.setPaymentMethod}
-            onSubmit={handleSubmit}
+            onSubmit={handleInitialSubmit}
             onCopyWallet={handleCopy}
             onChangeWallet={updateAddress}
+            onSetDefaultWallet={setDefaultAddress}
+            onRemoveWallet={removeAddress}
             onDisconnectWallet={handleDisconnect}
             walletAddress={address}
             walletOptions={addresses}
@@ -221,6 +322,7 @@ export function OnrampPageClient() {
             balanceLabel={`Balance: ${formatCurrency(250000, form.state.fiatCurrency, 0)} available`}
             cryptoAmount={form.cryptoAmount}
             isCalculating={form.isCalculating}
+            isSubmitting={isSubmitting}
             isValid={form.isValid}
             fees={form.fees}
           />
@@ -251,10 +353,23 @@ export function OnrampPageClient() {
                     {formatCurrency(form.fees.networkFee, form.state.fiatCurrency)}
                   </span>
                 </div>
+                {discountActive && (
+                  <div className="flex items-center justify-between text-green-600 dark:text-green-400">
+                    <span>Referral discount (10%)</span>
+                    <span>
+                      −{formatCurrency(form.fees.totalFees * 0.1, form.state.fiatCurrency)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between border-t border-border pt-3 text-foreground">
                   <span>Total cost</span>
                   <span className="font-semibold">
-                    {formatCurrency(form.fees.totalCost, form.state.fiatCurrency)}
+                    {formatCurrency(
+                      discountActive
+                        ? form.fees.totalCost - form.fees.totalFees * 0.1
+                        : form.fees.totalCost,
+                      form.state.fiatCurrency
+                    )}
                   </span>
                 </div>
               </div>
@@ -303,8 +418,84 @@ export function OnrampPageClient() {
             </Button>
           </div>
 
-          {/* Test Utils - Remove in production */}
-          <OnrampTestUtils />
+          {process.env.NODE_ENV === 'development' && <OnrampTestUtils />}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm your order</DialogTitle>
+            <DialogDescription>
+              Review the details below. Your order will only be created after you confirm.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div className="flex items-start justify-between gap-4 border-b border-border pb-2">
+              <span className="text-sm text-muted-foreground">You are paying</span>
+              <span className="font-medium">
+                {formatCurrency(form.fees.totalCost, form.state.fiatCurrency)}
+              </span>
+            </div>
+
+            <div className="flex items-start justify-between gap-4 border-b border-border pb-2">
+              <span className="text-sm text-muted-foreground">You will receive</span>
+              <span className="font-medium text-primary">
+                {form.cryptoAmount} {form.state.cryptoAsset}
+              </span>
+            </div>
+
+            <div className="flex items-start justify-between gap-4 border-b border-border pb-2">
+              <span className="text-sm text-muted-foreground">Exchange rate</span>
+              <div className="text-right">
+                <div className="font-medium">
+                  1 {form.state.cryptoAsset} ={' '}
+                  {formatCurrency(data?.rate || 0, form.state.fiatCurrency)}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {countdown > 0 ? `Rate updates in ${countdown}s` : 'Refreshing rate…'}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-start justify-between gap-4 border-b border-border pb-2">
+              <span className="text-sm text-muted-foreground">Processing fee</span>
+              <span className="font-medium">{processingFeeLabel}</span>
+            </div>
+
+            <div className="flex items-start justify-between gap-4 border-b border-border pb-2">
+              <span className="text-sm text-muted-foreground">Network fee</span>
+              <span className="font-medium">
+                {formatCurrency(form.fees.networkFee, form.state.fiatCurrency)}
+              </span>
+            </div>
+
+            <div className="flex items-start justify-between gap-4 border-b border-border pb-2">
+              <span className="text-sm text-muted-foreground">Destination address</span>
+              <span className="max-w-[200px] break-all text-right text-xs font-medium">
+                {address || 'Connect wallet'}
+              </span>
+            </div>
+
+            <div className="flex items-start justify-between gap-4">
+              <span className="text-sm text-muted-foreground">Estimated completion</span>
+              <span className="font-medium">A few seconds</span>
+            </div>
+          </div>
+
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowConfirmDialog(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? 'Processing…' : 'Confirm and Pay'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

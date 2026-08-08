@@ -1,25 +1,79 @@
 import { OnrampOrder } from '@/types/onramp'
 
+/** Format a number as fiat currency with symbol */
+function formatFiat(amount: number, currency: string): string {
+  const symbols: Record<string, string> = {
+    NGN: '₦',
+    KES: 'KSh',
+    GHS: 'GH₵',
+    ZAR: 'R',
+    UGX: 'USh',
+  }
+  const symbol = symbols[currency] || currency
+  return `${symbol}${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+/** Format a Unix-timestamp (ms) into a human-readable date+time string */
+function formatCompletedAt(timestamp: number): string {
+  const d = new Date(timestamp)
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const month = months[d.getMonth()]
+  const day = d.getDate()
+  const year = d.getFullYear()
+  const hours = d.getHours().toString().padStart(2, '0')
+  const minutes = d.getMinutes().toString().padStart(2, '0')
+  const tz = 'WAT' // simplified; Stellar / Africa timezone
+  return `${month} ${day}, ${year} at ${hours}:${minutes} ${tz}`
+}
+
+/** Calculate human-readable elapsed time from two Unix timestamps (ms) */
+function formatTotalTime(createdAt: number, completedAt?: number): string {
+  const end = completedAt ?? Date.now()
+  const diffMs = Math.max(0, end - createdAt)
+  const totalSeconds = Math.floor(diffMs / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ${seconds} second${seconds !== 1 ? 's' : ''}`
+  return `${seconds} second${seconds !== 1 ? 's' : ''}`
+}
+
+/** Truncate a transaction hash for display */
+function truncateHash(hash?: string): string {
+  if (!hash) return 'N/A'
+  if (hash.length <= 16) return hash
+  return `${hash.slice(0, 10)}...${hash.slice(-8)}`
+}
+
+/** Truncate a wallet address for display */
+function truncateAddress(addr: string): string {
+  if (addr.length <= 16) return addr
+  return `${addr.slice(0, 6)}...${addr.slice(-6)}`
+}
+
 export function generateReceiptPDF(order: OnrampOrder): void {
-  // Enhanced receipt data with all required fields
+  const completedAt = order.completedAt ?? order.createdAt
+  const explorerUrl = order.transactionHash
+    ? `https://stellar.expert/explorer/public/tx/${order.transactionHash}`
+    : 'N/A'
+
   const receiptData = {
     receiptNumber: `RCP-${order.id.slice(-8).toUpperCase()}`,
-    date: new Date(order.completedAt || order.createdAt).toLocaleDateString(),
+    date: new Date(completedAt).toLocaleDateString(),
     orderDetails: {
-      amount: '₦50,000.00', // Using the specific example values
-      asset: '31.17 cNGN',
+      amount: formatFiat(order.amount, order.fiatCurrency),
+      asset: `${order.cryptoAmount} ${order.cryptoAsset}`,
       paymentMethod: order.paymentMethod.replace('_', ' '),
-      exchangeRate: '1 NGN = 0.0006235 USDC',
-      processingFee: 'FREE',
-      networkFee: '₦0.15',
-      totalTime: '3 minutes 42 seconds',
-      completedAt: 'Jan 19, 2026 at 14:26 WAT',
+      exchangeRate: `1 ${order.fiatCurrency} = ${order.exchangeRate} ${order.cryptoAsset}`,
+      processingFee: order.fees.processingFee === 0 ? 'FREE' : formatFiat(order.fees.processingFee, order.fiatCurrency),
+      networkFee: formatFiat(order.fees.networkFee, order.fiatCurrency),
+      totalTime: formatTotalTime(order.createdAt, order.completedAt),
+      completedAt: formatCompletedAt(completedAt),
     },
     blockchain: {
-      transactionHash: '8f3e2d1c...9a1b0c2d',
-      walletAddress: 'GAXYZ...ABC123',
+      transactionHash: truncateHash(order.transactionHash),
+      walletAddress: truncateAddress(order.walletAddress),
       network: 'Stellar',
-      explorerUrl: 'https://stellar.expert/explorer/public/tx/8f3e2d1c9a1b0c2d',
+      explorerUrl,
     },
   }
 

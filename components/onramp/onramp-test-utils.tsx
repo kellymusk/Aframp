@@ -10,6 +10,11 @@ import { logSuccessfulConversion } from '@/lib/onramp/flow-simulation'
 export function OnrampTestUtils() {
   const [isLoading, setIsLoading] = useState(false)
 
+  // Only show in development
+  if (process.env.NODE_ENV === 'production') {
+    return null
+  }
+
   // Sample order data matching your specifications
   const sampleOrder: OnrampOrder = {
     id: 'onr_1234567890abcdef',
@@ -72,7 +77,7 @@ export function OnrampTestUtils() {
     setIsLoading(true)
     try {
       const analyticsData = logSuccessfulConversion(sampleOrder)
-      console.warn('✅ Analytics logged:', analyticsData)
+      console.log('[test] Analytics payload:', analyticsData)
     } catch (error) {
       console.error('❌ Analytics logging failed:', error)
     } finally {

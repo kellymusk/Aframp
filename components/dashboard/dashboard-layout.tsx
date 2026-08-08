@@ -2,13 +2,15 @@
 
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { Home } from 'lucide-react'
+import { Home, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { EthPriceTicker } from '@/components/dashboard/eth-price-ticker'
 import { BalanceProvider } from '@/contexts/balance-context'
 
 import { ConnectButton } from '@/components/Wallet'
+import { NotificationDropdown } from '@/components/notifications/notification-dropdown'
+import { DashboardEffects } from '@/components/dashboard/dashboard-effects'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -18,6 +20,7 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children, walletAddress }: DashboardLayoutProps) {
   return (
     <BalanceProvider walletAddress={walletAddress}>
+      <DashboardEffects walletAddress={walletAddress} />
       <div className="min-h-screen bg-background">
         {/* Header */}
         <motion.header
@@ -37,7 +40,14 @@ export function DashboardLayout({ children, walletAddress }: DashboardLayoutProp
               <div className="flex items-center gap-3">
                 <EthPriceTicker />
                 <ThemeToggle />
+                <NotificationDropdown />
                 <ConnectButton />
+                <Link href="/settings">
+                  <Button variant="ghost" size="sm" id="nav-settings-btn">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Settings
+                  </Button>
+                </Link>
                 <Link href="/">
                   <Button variant="ghost" size="sm">
                     <Home className="w-4 h-4 mr-2" />

@@ -1,121 +1,121 @@
-export interface Bank {
-  id: string
-  name: string
-  code: string
-  logo?: string
-}
+/**
+ * Client-side bank account service for the offramp.
+ *
+ * Every function is country-aware: the bank list, the account number format and
+ * the settlement currency all follow the destination country selected in the
+ * form.  The country registry in ./countries.ts is the source of truth for those
+ * rules; nothing here hardcodes Nigeria.
+ */
+
+import { formatCurrency } from '@/lib/onramp/formatters'
+import {
+  getOfframpCountry,
+  OFFRAMP_COUNTRIES,
+  validateAccountNumber,
+  type OfframpCountryCode,
+} from '@/lib/offramp/countries'
+import {
+  findStaticBank,
+  getStaticBanks,
+  type Bank,
+  type BankListResult,
+  type BankListSource,
+} from '@/lib/offramp/bank-directory'
+import type { FiatCurrency } from '@/types/onramp'
+
+export type { Bank, BankListResult, BankListSource }
+export { NIGERIAN_BANKS } from '@/lib/offramp/bank-directory'
 
 export interface BankAccount {
   id: string
+  /** Destination country — decides the account format and payout currency. */
+  country: OfframpCountryCode
+  currency: FiatCurrency
   bankName: string
+  /** Empty for countries where the customer types the bank name (see countries.ts). */
   bankCode: string
   accountNumber: string
   accountName: string
+  /** How the account name was established — resolved by the gateway, or typed. */
+  accountNameSource: 'resolved' | 'manual'
+  bankLogo?: string
   lastUsed?: Date
 }
 
-export const NIGERIAN_BANKS: Bank[] = [
-  {
-    id: '1',
-    name: 'Access Bank',
-    code: '044',
-    logo: 'https://nigerianbanks.xyz/logo/access-bank.png',
-  },
-  {
-    id: '2',
-    name: 'Guaranty Trust Bank',
-    code: '058',
-    logo: 'https://nigerianbanks.xyz/logo/guaranty-trust-bank.png',
-  },
-  {
-    id: '3',
-    name: 'First Bank of Nigeria',
-    code: '011',
-    logo: 'https://nigerianbanks.xyz/logo/first-bank-of-nigeria.png',
-  },
-  {
-    id: '4',
-    name: 'United Bank for Africa',
-    code: '033',
-    logo: 'https://nigerianbanks.xyz/logo/united-bank-for-africa.png',
-  },
-  {
-    id: '5',
-    name: 'Zenith Bank',
-    code: '057',
-    logo: 'https://nigerianbanks.xyz/logo/zenith-bank.png',
-  },
-  {
-    id: '6',
-    name: 'Stanbic IBTC Bank',
-    code: '221',
-    logo: 'https://nigerianbanks.xyz/logo/stanbic-ibtc-bank.png',
-  },
-  {
-    id: '7',
-    name: 'Sterling Bank',
-    code: '232',
-    logo: 'https://nigerianbanks.xyz/logo/sterling-bank.png',
-  },
-  {
-    id: '8',
-    name: 'Union Bank of Nigeria',
-    code: '032',
-    logo: 'https://nigerianbanks.xyz/logo/union-bank-of-nigeria.png',
-  },
-  { id: '9', name: 'Wema Bank', code: '035', logo: 'https://nigerianbanks.xyz/logo/wema-bank.png' },
-  {
-    id: '10',
-    name: 'Fidelity Bank',
-    code: '070',
-    logo: 'https://nigerianbanks.xyz/logo/fidelity-bank.png',
-  },
-  {
-    id: '11',
-    name: 'Kuda Bank',
-    code: '50211',
-    logo: 'https://nigerianbanks.xyz/logo/kuda-bank.png',
-  },
-  { id: '12', name: 'OPay', code: '999992', logo: 'https://nigerianbanks.xyz/logo/opay.png' },
-  { id: '13', name: 'Palmpay', code: '999991', logo: 'https://nigerianbanks.xyz/logo/palmpay.png' },
-  {
-    id: '14',
-    name: 'Moniepoint',
-    code: '50515',
-    logo: 'https://nigerianbanks.xyz/logo/moniepoint.png',
-  },
-  {
-    id: '15',
-    name: 'First City Monument Bank',
-    code: '214',
-    logo: 'https://nigerianbanks.xyz/logo/first-city-monument-bank.png',
-  },
-]
-
 export const SAVED_ACCOUNTS_STORAGE_KEY = 'aframp_saved_accounts'
 
-export async function fetchBanks(): Promise<Bank[]> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500))
-  return NIGERIAN_BANKS
+/** Key the offramp calculator persists its form state under. */
+const OFFRAMP_FORM_STORAGE_KEY = 'offramp:form'
+
+/** The account the customer picked for the withdrawal in progress. */
+const SELECTED_ACCOUNT_STORAGE_KEY = 'offramp:selectedAccount'
+
+/**
+ * Raised when account name resolution is not available for a market.
+ *
+ * Distinct from a failed lookup: the form responds by asking the customer to
+ * type the account name rather than by showing an error.
+ */
+export class ResolutionUnsupportedError extends Error {
+  readonly code = 'RESOLUTION_UNSUPPORTED'
+
+  constructor() {
+    super('Account name lookup is not available for this country.')
+    this.name = 'ResolutionUnsupportedError'
+  }
 }
 
+/**
+ * Fetches the bank list for a country from /api/offramp/banks.
+ *
+ * Falls back to the static table on a network failure so a flaky connection does
+ * not strand a customer mid-withdrawal.  When neither is available the result
+ * carries `source: 'unavailable'` and the form asks for the bank name instead.
+ */
+export async function fetchBanks(country: OfframpCountryCode): Promise<BankListResult> {
+  const currency = OFFRAMP_COUNTRIES[country].currency
+
+  try {
+    const response = await fetch(`/api/offramp/banks?country=${country}`)
+    if (response.ok) {
+      return (await response.json()) as BankListResult
+    }
+    console.error(`[bank-service] bank list request returned ${response.status} for ${country}`)
+  } catch (error) {
+    console.error(`[bank-service] bank list request failed for ${country}`, error)
+  }
+
+  const fallback = getStaticBanks(country)
+  return {
+    country,
+    currency,
+    source: fallback.length > 0 ? 'static' : 'unavailable',
+    banks: fallback,
+  }
+}
+
+/**
+ * Resolves an account number to its holder's name.
+ *
+ * Throws `ResolutionUnsupportedError` where the market has no lookup, and a
+ * plain Error with a customer-safe message when the lookup itself fails.
+ */
 export async function verifyAccountNumber(
+  country: OfframpCountryCode,
   bankCode: string,
   accountNumber: string
 ): Promise<string> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 1500))
+  const response = await fetch(
+    `/api/bank/verify?accountNumber=${encodeURIComponent(accountNumber)}&bankCode=${encodeURIComponent(bankCode)}`
+  )
 
-  if (accountNumber === '0123456789') {
-    return 'CHUKWUEMEKA OKAFOR'
+  const result = await response.json().catch(() => null)
+
+  if (!response.ok || !result?.accountName) {
+    throw new Error(result?.error || 'Invalid account number or verification failed')
   }
 
-  if (accountNumber.length === 10) {
-    return 'JOHN DOE' // Default mock name for any 10 digit number
-  }
-
-  throw new Error('Invalid account number or verification failed')
+  return result.accountName
 }
 
 export function saveAccount(account: Omit<BankAccount, 'id'>): BankAccount {
@@ -128,8 +128,13 @@ export function saveAccount(account: Omit<BankAccount, 'id'>): BankAccount {
 
   const updated = [
     newAccount,
+    // The same account number can exist in two countries, so identity is
+    // country + bank + number, not the number alone.
     ...saved.filter(
-      (a) => a.accountNumber !== account.accountNumber || a.bankCode !== account.bankCode
+      (a) =>
+        a.accountNumber !== account.accountNumber ||
+        a.bankCode !== account.bankCode ||
+        a.country !== account.country
     ),
   ]
   localStorage.setItem(SAVED_ACCOUNTS_STORAGE_KEY, JSON.stringify(updated.slice(0, 5)))
@@ -140,13 +145,34 @@ export function getSavedAccounts(): BankAccount[] {
   if (typeof window === 'undefined') return []
   try {
     const stored = localStorage.getItem(SAVED_ACCOUNTS_STORAGE_KEY)
-    const parsed = stored ? (JSON.parse(stored) as BankAccount[]) : []
-    return parsed.map((account) => ({
-      ...account,
-      lastUsed: account.lastUsed ? new Date(account.lastUsed) : undefined,
-    }))
+    const parsed = stored ? (JSON.parse(stored) as Partial<BankAccount>[]) : []
+    return parsed.map(migrateSavedAccount)
   } catch {
     return []
+  }
+}
+
+/**
+ * Brings a stored account up to the current shape.
+ *
+ * Accounts saved before the offramp supported more than one country have no
+ * `country` or `currency`.  They were all Nigerian by construction, so that is
+ * what they become — dropping them would lose a customer's saved payout account.
+ */
+function migrateSavedAccount(account: Partial<BankAccount>): BankAccount {
+  const country = getOfframpCountry(account.country).code
+
+  return {
+    id: account.id ?? Math.random().toString(36).substring(2, 9),
+    country,
+    currency: account.currency ?? OFFRAMP_COUNTRIES[country].currency,
+    bankName: account.bankName ?? '',
+    bankCode: account.bankCode ?? '',
+    accountNumber: account.accountNumber ?? '',
+    accountName: account.accountName ?? '',
+    accountNameSource: account.accountNameSource ?? 'resolved',
+    bankLogo: account.bankLogo ?? findStaticBank(country, account.bankCode ?? '')?.logo,
+    lastUsed: account.lastUsed ? new Date(account.lastUsed) : undefined,
   }
 }
 
@@ -156,7 +182,47 @@ export function deleteSavedAccount(id: string): void {
   localStorage.setItem(SAVED_ACCOUNTS_STORAGE_KEY, JSON.stringify(updated))
 }
 
-// Utility for rate limiting verification attempts
+/**
+ * Records the destination account for the withdrawal in progress so the review
+ * step can show the account and currency the customer actually chose, rather
+ * than defaulting to a Nigerian one.
+ */
+export function setSelectedOfframpAccount(account: BankAccount): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(SELECTED_ACCOUNT_STORAGE_KEY, JSON.stringify(account))
+}
+
+export function getSelectedOfframpAccount(): BankAccount | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const stored = localStorage.getItem(SELECTED_ACCOUNT_STORAGE_KEY)
+    if (!stored) return null
+    return migrateSavedAccount(JSON.parse(stored) as Partial<BankAccount>)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The payout currency chosen on the offramp calculator, if the customer has been
+ * through it.  Used to preselect the destination country on the bank form so a
+ * KES withdrawal does not open on a Nigerian bank list.
+ */
+export function getOfframpFormCurrency(): FiatCurrency | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const stored = localStorage.getItem(OFFRAMP_FORM_STORAGE_KEY)
+    if (!stored) return null
+    const parsed = JSON.parse(stored) as { data?: { fiatCurrency?: FiatCurrency } }
+    return parsed.data?.fiatCurrency ?? null
+  } catch {
+    return null
+  }
+}
+
+// Utility for rate limiting verification attempts.
+// A UX guard against fat-fingered retries only — the enforced limit is the
+// per-IP rate limit middleware.ts applies to every /api route.
 const VERIFICATION_ATTEMPTS_KEY = 'aframp_verification_attempts'
 export function checkRateLimit(): boolean {
   const now = Date.now()
@@ -175,12 +241,22 @@ export function checkRateLimit(): boolean {
   return true
 }
 
+/** The message the customer signs to authorise a payout. */
+export function buildKycMessage(
+  amount: number,
+  accountNumber: string,
+  currency: FiatCurrency
+): string {
+  return `I authorize AFRAMP to send ${formatCurrency(amount, currency, 2)} to account ${accountNumber}`
+}
+
 export async function signKycMessage(
   _address: string,
   _amount: number,
-  _accountNumber: string
+  _accountNumber: string,
+  currency: FiatCurrency = 'NGN'
 ): Promise<string> {
-  const message = `I authorize AFRAMP to send ₦${_amount.toLocaleString()} to account ${_accountNumber}`
+  const message = buildKycMessage(_amount, _accountNumber, currency)
 
   // Prefer a real Stellar wallet signature when available (e.g. Freighter)
   if (typeof window !== 'undefined') {

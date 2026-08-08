@@ -186,6 +186,8 @@ async function simulateStatusProgression(
         updateOrderStatus('completed', {
           transactionHash: paymentTxHash,
           completedAt: Date.now(),
+          referralCode: order.referralCode,
+          walletAddress: order.walletAddress,
         })
 
         // Send notification (mock)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -18,56 +18,79 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { OnrampOrder } from '@/types/onramp'
-import { formatCurrency } from '@/lib/onramp/formatters'
+import { formatCurrency } from '@/lib/calculations'
 import { generateReceiptPDF } from '@/lib/onramp/receipt'
+import { fetchOrder, readCachedOrder } from '@/lib/orders/order-client'
+import { useWalletConnection } from '@/hooks/use-wallet-connection'
 
 export function OnrampSuccessClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const orderId = searchParams.get('order')
 
+  const { address, loading: walletLoading } = useWalletConnection()
   const [order, setOrder] = useState<OnrampOrder | null>(null)
   const [copied, setCopied] = useState<'hash' | 'address' | null>(null)
   const [isAnimating, setIsAnimating] = useState(true)
 
-  /* Load order safely (no cascading setState) */
-  const storedOrder = useMemo(() => {
-    if (!orderId) return null
-
-    const data = localStorage.getItem(`onramp:order:${orderId}`)
-    if (!data) return null
-
-    try {
-      return JSON.parse(data) as OnrampOrder
-    } catch {
-      return null
-    }
-  }, [orderId])
-
+  /*
+   * Resolve the order from the local cache first, then from the server.  The
+   * server copy is what makes this page survive a cleared cache or a device
+   * switch — without it, an id with no cached order bounced back to /onramp.
+   */
   useEffect(() => {
     if (!orderId) {
       router.push('/onramp')
       return
     }
 
-    if (!storedOrder) {
-      router.push('/onramp')
-      return
-    }
+    // Hold off on the redirect decision until the wallet address is known,
+    // otherwise the server lookup can only 404 and we would bounce a valid
+    // order back to /onramp.
+    if (walletLoading) return
 
-    if (storedOrder.status !== 'completed') {
-      router.push(`/onramp/payment?order=${orderId}`)
-      return
-    }
+    let cancelled = false
 
-    const timer = setTimeout(() => {
-      setOrder(storedOrder)
+    const resolve = async () => {
+      const cached = readCachedOrder<OnrampOrder>('onramp', orderId)
+
+      // Render the cached copy right away when it is already a finished order;
+      // anything else waits for the server so we do not flash the success page
+      // at someone whose payment is still in flight.
+      if (cached?.status === 'completed') {
+        setOrder(cached)
+        setIsAnimating(false)
+      }
+
+      const remote = await fetchOrder<OnrampOrder>('onramp', orderId, address)
+      if (cancelled) return
+
+      const resolved = remote ?? cached
+
+      if (!resolved) {
+        router.push('/onramp')
+        return
+      }
+
+      if (resolved.status !== 'completed') {
+        router.push(`/onramp/payment?order=${orderId}`)
+        return
+      }
+
+      setOrder(resolved)
       setIsAnimating(false)
-    }, 0)
+    }
 
-    return () => clearTimeout(timer)
-  }, [orderId, storedOrder, router])
+    // Deferred to a microtask so the optimistic cache read does not call
+    // setState synchronously inside the effect body.
+    void Promise.resolve().then(resolve)
+
+    return () => {
+      cancelled = true
+    }
+  }, [orderId, address, walletLoading, router])
 
   const handleCopy = async (type: 'hash' | 'address', value: string) => {
     try {
@@ -118,7 +141,7 @@ export function OnrampSuccessClient() {
   if (!order) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <LoadingSpinner className="h-8 w-8" />
       </div>
     )
   }

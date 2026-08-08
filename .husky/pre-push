@@ -7,9 +7,9 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 
 if [ -x "./node_modules/.bin/jest" ]; then
-  ./node_modules/.bin/jest --watchAll=false --passWithNoTests
+  ./node_modules/.bin/jest --watchAll=false --passWithNoTests --forceExit
 elif command -v jest >/dev/null 2>&1; then
-  jest --watchAll=false --passWithNoTests
+  jest --watchAll=false --passWithNoTests --forceExit
 else
   echo "husky(pre-push): jest not found; skipping. Install dependencies to re-enable."
 fi

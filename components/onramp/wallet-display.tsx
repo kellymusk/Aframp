@@ -12,14 +12,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { isValidStellarAddress } from '@/lib/onramp/validation'
-import { truncateAddress } from '@/lib/onramp/formatters'
+import { isValidStellarAddress, truncateAddress } from '@/lib/calculations'
 
 interface WalletDisplayProps {
   address: string
   addressOptions: string[]
   onCopy: () => void
   onChangeWallet: (address: string) => void
+  onSetDefaultWallet: (address: string) => void
+  onRemoveWallet: (address: string) => void
   onDisconnect: () => void
 }
 
@@ -28,6 +29,8 @@ export function WalletDisplay({
   addressOptions,
   onCopy,
   onChangeWallet,
+  onSetDefaultWallet,
+  onRemoveWallet,
   onDisconnect,
 }: WalletDisplayProps) {
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -133,23 +136,45 @@ export function WalletDisplay({
                 <p className="text-sm text-muted-foreground">No saved wallets found.</p>
               ) : (
                 options.map((option) => (
-                  <button
+                  <div
                     key={option}
-                    type="button"
-                    onClick={() => {
-                      onChangeWallet(option)
-                      setSwitchOpen(false)
-                    }}
                     className={cn(
-                      'flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-xs',
+                      'rounded-xl border px-3 py-2',
                       option === address
                         ? 'border-primary/60 bg-primary/10 text-foreground'
-                        : 'border-border text-muted-foreground hover:border-primary/40'
+                        : 'border-border text-muted-foreground'
                     )}
                   >
-                    <span className="truncate">{truncateAddress(option, 6)}</span>
-                    {option === address ? <CheckCircle2 className="h-4 w-4 text-success" /> : null}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onChangeWallet(option)
+                        setSwitchOpen(false)
+                      }}
+                      className="flex w-full items-center justify-between text-left text-xs"
+                    >
+                      <span className="truncate">{truncateAddress(option, 6)}</span>
+                      {option === address ? <CheckCircle2 className="h-4 w-4 text-success" /> : null}
+                    </button>
+                    <div className="mt-2 flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => onSetDefaultWallet(option)}
+                      >
+                        Set default
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-destructive"
+                        onClick={() => onRemoveWallet(option)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
                 ))
               )}
             </div>

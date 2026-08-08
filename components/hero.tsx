@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { ArrowRight, Wallet, CreditCard, TrendingUp, Coins } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { HERO_STATS } from '@/lib/config/hero-stats'
 
 export function Hero() {
   const textRevealVariants = {
@@ -113,20 +114,15 @@ export function Hero() {
               transition={{ duration: 0.6, delay: 0.7 }}
               className="flex items-center justify-center lg:justify-start gap-8"
             >
-              <div className="text-center lg:text-left">
-                <div className="text-2xl font-bold text-foreground">50K+</div>
-                <div className="text-sm text-muted-foreground">Active Users</div>
-              </div>
-              <div className="w-px h-10 bg-border" />
-              <div className="text-center lg:text-left">
-                <div className="text-2xl font-bold text-foreground">$2M+</div>
-                <div className="text-sm text-muted-foreground">Processed Daily</div>
-              </div>
-              <div className="w-px h-10 bg-border" />
-              <div className="text-center lg:text-left">
-                <div className="text-2xl font-bold text-foreground">12</div>
-                <div className="text-sm text-muted-foreground">Countries</div>
-              </div>
+              {HERO_STATS.map((stat, index) => (
+                <>
+                  {index > 0 && <div key={`divider-${index}`} className="w-px h-10 bg-border" />}
+                  <div key={stat.label} className="text-center lg:text-left">
+                    <div className="text-2xl font-bold text-foreground">{stat.value}</div>
+                    <div className="text-sm text-muted-foreground">{stat.label}</div>
+                  </div>
+                </>
+              ))}
             </motion.div>
           </div>
 

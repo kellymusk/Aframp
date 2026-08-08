@@ -107,7 +107,8 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
 
   // Simulate a scan for demo (in production, integrate jsQR or a decode library)
   const handleSimulateScan = () => {
-    const demo = 'GBSN2ZJBRFWTQHWRJQE4GKDJJDSGPVTLQNQCQX7QR5W5VKHNHQH'
+    const demo =
+      'https://aframp.io/send?recipient=GBSN2ZJBRFWTQHWRJQE4GKDJJDSGPVTLQNQCQX7QR5W5VKHNHQH&amount=25&asset=USDC&network=PUBLIC'
     setScanned(true)
     setTimeout(() => onScan(demo), 600)
   }
@@ -286,12 +287,12 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
             <Keyboard className="w-8 h-8 text-white/60" />
           </div>
           <div className="space-y-2 w-full">
-            <p className="text-white/60 text-xs text-center">Paste or type the wallet address</p>
+            <p className="text-white/60 text-xs text-center">Paste a wallet address or payment link</p>
             <Input
               autoFocus
               value={manualInput}
               onChange={(e) => setManualInput(e.target.value)}
-              placeholder="G... wallet address"
+              placeholder="G... address or Aframp link"
               className="bg-white/10 border-white/20 text-white placeholder:text-white/30 font-mono h-12 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500/60"
             />
           </div>

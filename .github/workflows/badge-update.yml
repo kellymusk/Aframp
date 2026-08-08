@@ -1,0 +1,63 @@
+name: Update Coverage Badge
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-badge:
+    name: Update Coverage Badge
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Generate coverage badge
+        run: |
+          if [ -f "coverage/coverage-summary.json" ]; then
+            node -e "
+            const coverage = require('./coverage/coverage-summary.json');
+            const total = coverage.total;
+            const pct = Math.round(total.lines.pct);
+            
+            let color = 'brightgreen';
+            if (pct < 70) color = 'red';
+            else if (pct < 80) color = 'yellow';
+            
+            const badge = \`[![codecov](https://img.shields.io/badge/coverage-\${pct}%25-\${color})](https://codecov.io/gh/\${{ github.repository }})\`;
+            console.log(badge);
+            " > badge.txt
+            
+            BADGE=$(cat badge.txt)
+            echo "COVERAGE_BADGE=$BADGE" >> $GITHUB_ENV
+          fi
+
+      - name: Update README badge
+        if: env.COVERAGE_BADGE != ''
+        run: |
+          # Update coverage badge in README
+          sed -i "s|!\[codecov\].*codecov.*|${{ env.COVERAGE_BADGE }}|g" README.md
+
+      - name: Commit badge update
+        if: env.COVERAGE_BADGE != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update coverage badge" && git push)

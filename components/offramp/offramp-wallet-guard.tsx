@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useWallet } from '@/hooks/useWallet'
 import { Button } from '@/components/ui/button'
+import { LoadingSpinner } from '@/components/ui/loading-spinner'
 
 interface OfframpWalletGuardProps {
   children: React.ReactNode
@@ -17,7 +18,7 @@ export function OfframpWalletGuard({ children }: OfframpWalletGuardProps) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-2">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto" />
+          <LoadingSpinner className="mx-auto" />
           <p className="text-sm text-muted-foreground">Checking wallet connection...</p>
         </div>
       </div>

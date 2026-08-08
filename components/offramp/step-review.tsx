@@ -6,7 +6,7 @@ import { FeeBreakdown } from './fee-breakdown'
 import { ImportantInfo } from './important-info'
 import { SettlementAddress } from './settlement-address'
 import { ConfirmationChecklist } from './confirmation-checklist'
-import { MOCK_ORDER, OfframpOrder } from '@/lib/offramp/mock-api'
+import { MOCK_ORDER, OfframpOrder, getExchangeRate } from '@/lib/offramp/mock-api'
 import { useRouter } from 'next/navigation'
 import { useWallet } from '@/hooks/useWallet'
 import { buildOfframpPaymentXdr } from '@/lib/offramp/stellar-offramp'
@@ -30,8 +30,25 @@ export function StepReview() {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   React.useEffect(() => {
-    // Simulate fetching order data
-    setOrder(MOCK_ORDER)
+    let cancelled = false
+
+    async function loadOrder() {
+      try {
+        const rate = await getExchangeRate(`${MOCK_ORDER.sourceAsset}-${MOCK_ORDER.fiatCurrency}`)
+        const fiatAmount = Number((MOCK_ORDER.sourceAmount * rate).toFixed(2))
+        if (!cancelled) {
+          setOrder({ ...MOCK_ORDER, exchangeRate: rate, fiatAmount })
+        }
+      } catch (error) {
+        console.error('Failed to fetch live exchange rate', error)
+        if (!cancelled) setOrder(MOCK_ORDER)
+      }
+    }
+
+    loadOrder()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   if (!order)

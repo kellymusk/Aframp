@@ -1,3 +1,4 @@
+import { FlowErrorBoundary } from '@/components/error/FlowErrorBoundary'
 import { OnrampProcessingClient } from '@/components/onramp/onramp-processing-client'
 
 export default async function OnrampProcessingPage({
@@ -6,5 +7,9 @@ export default async function OnrampProcessingPage({
   params: Promise<{ orderId: string }>
 }) {
   const { orderId } = await params
-  return <OnrampProcessingClient orderId={orderId} />
+  return (
+    <FlowErrorBoundary step="onramp-processing" restartHref="/onramp">
+      <OnrampProcessingClient orderId={orderId} />
+    </FlowErrorBoundary>
+  )
 }

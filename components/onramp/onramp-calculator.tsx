@@ -6,8 +6,9 @@ import { CurrencySelector } from '@/components/onramp/currency-selector'
 import { ExchangeRateDisplay } from '@/components/onramp/exchange-rate-display'
 import { PaymentMethodCard } from '@/components/onramp/payment-method-card'
 import { WalletDisplay } from '@/components/onramp/wallet-display'
+import { OnrampFeeSummary } from '@/components/onramp/onramp-fee-summary'
 import { Button } from '@/components/ui/button'
-import { formatCurrency, formatNumber } from '@/lib/onramp/formatters'
+import { formatNumber } from '@/lib/calculations'
 import { PaymentMethodGlyph } from '@/components/icons/finance-icons'
 import type { CryptoAsset, FiatCurrency, PaymentMethod } from '@/types/onramp'
 
@@ -21,6 +22,7 @@ interface OnrampCalculatorProps {
   exchangeWarning?: string | null
   exchangeError?: string | null
   exchangeLoading?: boolean
+  exchangeSparkline?: number[]
   onRefreshRate: () => void
   onAmountChange: (value: string) => void
   onFiatChange: (value: FiatCurrency) => void
@@ -29,6 +31,8 @@ interface OnrampCalculatorProps {
   onSubmit: () => void
   onCopyWallet: () => void
   onChangeWallet: (address: string) => void
+  onSetDefaultWallet: (address: string) => void
+  onRemoveWallet: (address: string) => void
   onDisconnectWallet: () => void
   walletAddress: string
   walletOptions: string[]
@@ -37,6 +41,7 @@ interface OnrampCalculatorProps {
   balanceLabel?: string
   cryptoAmount: number
   isCalculating: boolean
+  isSubmitting?: boolean
   isValid: boolean
   fees: {
     processingFee: number
@@ -62,6 +67,7 @@ export function OnrampCalculator({
   exchangeWarning,
   exchangeError,
   exchangeLoading,
+  exchangeSparkline,
   onRefreshRate,
   onAmountChange,
   onFiatChange,
@@ -70,6 +76,8 @@ export function OnrampCalculator({
   onSubmit,
   onCopyWallet,
   onChangeWallet,
+  onSetDefaultWallet,
+  onRemoveWallet,
   onDisconnectWallet,
   walletAddress,
   walletOptions,
@@ -78,16 +86,10 @@ export function OnrampCalculator({
   balanceLabel,
   cryptoAmount,
   isCalculating,
+  isSubmitting,
   isValid,
   fees,
 }: OnrampCalculatorProps) {
-  const processingFeeLabel =
-    paymentMethod === 'bank_transfer'
-      ? 'FREE'
-      : paymentMethod === 'card'
-        ? `${formatCurrency(fees.processingFee, fiatCurrency)} (1.5%)`
-        : `${formatCurrency(fees.processingFee, fiatCurrency)} (0.5%)`
-
   return (
     <div className="rounded-3xl border border-border bg-card p-6 shadow-lg">
       <form
@@ -123,6 +125,7 @@ export function OnrampCalculator({
           error={exchangeError}
           isLoading={exchangeLoading}
           onRefresh={onRefreshRate}
+          sparkline={exchangeSparkline}
         />
 
         <div className="grid gap-4 md:grid-cols-[1fr_180px] md:items-end">
@@ -172,24 +175,17 @@ export function OnrampCalculator({
           addressOptions={walletOptions}
           onCopy={onCopyWallet}
           onChangeWallet={onChangeWallet}
+          onSetDefaultWallet={onSetDefaultWallet}
+          onRemoveWallet={onRemoveWallet}
           onDisconnect={onDisconnectWallet}
         />
 
         <div className="rounded-2xl border border-border bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
-          <div className="flex items-center justify-between">
-            <span>Processing fee</span>
-            <span className="font-medium text-foreground">{processingFeeLabel}</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between">
-            <span>Network fee</span>
-            <span className="font-medium text-foreground">
-              {formatCurrency(fees.networkFee, fiatCurrency)}
-            </span>
-          </div>
-          <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-foreground">
-            <span className="font-medium">Total cost</span>
-            <span className="font-semibold">{formatCurrency(fees.totalCost, fiatCurrency)}</span>
-          </div>
+          <OnrampFeeSummary
+            fees={fees}
+            fiatCurrency={fiatCurrency}
+            paymentMethod={paymentMethod}
+          />
         </div>
 
         <div className="flex flex-col gap-2 text-xs text-muted-foreground">
@@ -203,12 +199,13 @@ export function OnrampCalculator({
           <Button
             size="lg"
             className="w-full rounded-full text-base"
-            disabled={!isValid || exchangeLoading}
+            disabled={!isValid || exchangeLoading || isSubmitting}
             type="submit"
-            onClick={onSubmit}
           >
-            {exchangeLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Continue to Payment →
+            {exchangeLoading || isSubmitting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : null}
+            {isSubmitting ? 'Creating Order...' : 'Continue to Payment →'}
           </Button>
         </div>
       </form>

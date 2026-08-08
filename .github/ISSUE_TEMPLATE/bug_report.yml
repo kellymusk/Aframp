@@ -1,0 +1,147 @@
+name: 🐛 Bug Report
+description: Report a reproducible bug or unexpected behaviour
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report.
+        Please provide as much detail as possible so we can reproduce and fix it quickly.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm the following before submitting.
+      options:
+        - label: I searched existing issues and this bug has not been reported yet.
+          required: true
+        - label: I am using the latest version of the app (or a recent commit).
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: |
+        When I click "Initiate Offramp" with a cNGN balance, the transaction
+        spinner never resolves and the console shows a TypeError...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal, numbered steps that reliably reproduce the bug.
+      placeholder: |
+        1. Go to /offramp
+        2. Connect Freighter wallet with cNGN balance
+        3. Enter amount 100 and select "Bank Transfer"
+        4. Click "Confirm" — observe spinner hangs indefinitely
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behaviour
+      description: What did you expect to happen?
+      placeholder: The transaction should submit and redirect to the processing page.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behaviour
+      description: What actually happened? Include error messages and stack traces.
+      placeholder: |
+        The spinner hangs. Browser console shows:
+        TypeError: Cannot read properties of undefined (reading 'loadAccount')
+          at buildOfframpPaymentXdr (stellar-offramp.ts:34)
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / Screen Recording
+      description: Drag-and-drop screenshots or a short screen recording here (optional but helpful).
+
+  - type: dropdown
+    id: feature_area
+    attributes:
+      label: Feature Area
+      description: Which part of the app is affected?
+      options:
+        - Onramp (fiat → crypto)
+        - Offramp (crypto → fiat)
+        - Bill Payments
+        - Stellar / Wallet
+        - Mobile Money (M-Pesa / MTN MoMo)
+        - KYC / Verification
+        - Dashboard / Portfolio
+        - Notifications
+        - Authentication / Onboarding
+        - Settings
+        - Admin
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: App Version / Commit SHA
+      description: Run `git rev-parse --short HEAD` or find it in the Vercel deployment URL.
+      placeholder: "e.g. 6b7a0c0 or v0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Local development (npm run dev)
+        - Vercel Preview
+        - Vercel Production
+        - Docker (dev)
+        - Docker (prod)
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: stellar_network
+    attributes:
+      label: Stellar Network
+      options:
+        - Testnet
+        - Mainnet (Public)
+        - N/A (no Stellar interaction)
+    validations:
+      required: true
+
+  - type: textarea
+    id: browser_os
+    attributes:
+      label: Browser & OS
+      description: Include browser version and operating system.
+      placeholder: |
+        Browser: Chrome 126.0 / Firefox 127.0 / Safari 17.5
+        OS: macOS 14.5 / Windows 11 / Ubuntu 22.04
+        Wallet extension: Freighter 2.x (if applicable)
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: |
+        Any other context — related issues, recent PRs, network requests
+        captured in DevTools, or relevant environment variables (do NOT
+        paste actual secrets).

@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils'
 import type { TransactionItem } from '@/types/onramp'
+import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration'
 
 const transactions: TransactionItem[] = [
   {
@@ -34,6 +35,23 @@ const statusClass: Record<TransactionItem['status'], string> = {
 }
 
 export function RecentTransactions() {
+  if (transactions.length === 0) {
+    return (
+      <section className="mt-10">
+        <h3 className="text-lg font-semibold text-foreground">Recent Onramp Transactions</h3>
+        <div className="mt-4 flex flex-col items-center gap-4 py-12 text-center rounded-2xl border border-border bg-card">
+          <EmptyStateIllustration variant="empty" />
+          <div>
+            <p className="font-semibold text-foreground">No recent transactions</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Your onramp transactions will appear here
+            </p>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="mt-10">
       <div className="flex items-center justify-between">

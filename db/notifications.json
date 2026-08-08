@@ -1,0 +1,57 @@
+[
+  {
+    "id": "notif-1785278079064-8ngmwv",
+    "userId": "wallet-1",
+    "title": "Funds received",
+    "message": "You received 2 XLM.",
+    "category": "payment",
+    "priority": "high",
+    "isRead": true,
+    "createdAt": "2026-07-28T22:34:39.064Z",
+    "metadata": {}
+  },
+  {
+    "id": "notif-1785277702042-mqno62",
+    "userId": "wallet-1",
+    "title": "Funds received",
+    "message": "You received 2 XLM.",
+    "category": "payment",
+    "priority": "high",
+    "isRead": true,
+    "createdAt": "2026-07-28T22:28:22.042Z",
+    "metadata": {}
+  },
+  {
+    "id": "notif-1785277526090-x4wt24",
+    "userId": "wallet-1",
+    "title": "Funds received",
+    "message": "You received 2 XLM.",
+    "category": "payment",
+    "priority": "high",
+    "isRead": true,
+    "createdAt": "2026-07-28T22:25:26.090Z",
+    "metadata": {}
+  },
+  {
+    "id": "notif-1785277229243-5d4zp8",
+    "userId": "wallet-1",
+    "title": "Funds received",
+    "message": "You received 2 XLM.",
+    "category": "payment",
+    "priority": "high",
+    "isRead": true,
+    "createdAt": "2026-07-28T22:20:29.243Z",
+    "metadata": {}
+  },
+  {
+    "id": "notif-1785277106673-jttzg4",
+    "userId": "wallet-1",
+    "title": "Funds received",
+    "message": "You received 2 XLM.",
+    "category": "payment",
+    "priority": "high",
+    "isRead": true,
+    "createdAt": "2026-07-28T22:18:26.673Z",
+    "metadata": {}
+  }
+]

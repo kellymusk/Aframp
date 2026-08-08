@@ -16,23 +16,38 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { BillerSchema } from '@/lib/biller-schemas'
-import { PaymentMethod, PaymentMethodSelector } from './payment-method-selector'
+import { csrfHeaders } from '@/lib/security/csrf-client'
+import {
+  PaymentMethod,
+  PaymentMethodSelector,
+  MobileMoneyPaymentDetails,
+} from './payment-method-selector'
 import { FeeBreakdown } from './fee-breakdown'
+import { QRInvoiceModal } from './qr-invoice-modal'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
+import { generateInvoiceId, type QRInvoiceData } from '@/lib/bills/qr-invoice'
+import { useWalletStore } from '@/lib/wallet/walletStore'
 
 interface PaymentFormProps {
   schema: BillerSchema
+  /** ISO 3166-1 alpha-2 country code for regional payment method filtering */
+  countryCode?: string
 }
 
-export function PaymentForm({ schema }: PaymentFormProps) {
+export function PaymentForm({ schema, countryCode }: PaymentFormProps) {
   const [isValidating, setIsValidating] = useState(false)
   const [validatedAccount, setValidatedAccount] = useState<string | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card')
+  const [mobileMoneyDetails, setMobileMoneyDetails] = useState<MobileMoneyPaymentDetails | null>(
+    null
+  )
   const [isProcessing, setIsProcessing] = useState(false)
   const [showSchedule, setShowSchedule] = useState(false)
+  const [invoice, setInvoice] = useState<QRInvoiceData | null>(null)
+  const publicKey = useWalletStore((s) => s.publicKey)
 
   const formSchemaObject: Record<string, z.ZodTypeAny> = {}
   schema.fields.forEach((field) => {
@@ -45,6 +60,12 @@ export function PaymentForm({ schema }: PaymentFormProps) {
         new RegExp(field.validation.pattern),
         field.validation.message
       )
+    }
+    if (field.validation.min !== undefined) {
+      const minValue = field.validation.min
+      validator = (validator as z.ZodString).refine((val) => Number(val) >= minValue, {
+        message: field.validation.message || `Minimum value is ${minValue}`,
+      }) as unknown as z.ZodString
     }
     formSchemaObject[field.name] = validator
   })
@@ -95,81 +116,228 @@ export function PaymentForm({ schema }: PaymentFormProps) {
       setValidatedAccount(null)
     }
   }, [accountValue, errors, primaryFieldName, validatedAccount])
-  const onSubmit = async (_data: FormValues) => {
+  const onSubmit = async (data: FormValues) => {
     setIsProcessing(true)
+
+    try {
+      if (paymentMethod === 'mpesa' || paymentMethod === 'mtn_momo') {
+        if (!mobileMoneyDetails) {
+          toast.error('Please enter a valid mobile number before paying.')
+          setIsProcessing(false)
+          return
+        }
+
+        // Initiate mobile money payment
+        const initiateRes = await fetch('/api/payments/mobile-money/initiate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+          body: JSON.stringify({
+            provider: mobileMoneyDetails.provider,
+            phoneNumber: mobileMoneyDetails.phoneNumber,
+            amount: parsedAmount,
+            currency: 'KES', // TODO: derive from countryCode
+            accountReference: schema.id.slice(0, 12),
+            transactionDesc: `Pay ${schema.name}`.slice(0, 13),
+            externalId: crypto.randomUUID(),
+            kind: 'billpay',
+            // Lets AML screening key this payment to the customer's account
+            // rather than to their handset alone.  Omitted when no wallet is
+            // connected; the route falls back to a hashed MSISDN.
+            userId: publicKey ?? undefined,
+          }),
+        })
+
+        if (!initiateRes.ok) {
+          const err = (await initiateRes.json().catch(() => ({}))) as {
+            error?: string
+            message?: string
+          }
+          // Prefer `message`: compliance holds return a customer-safe string
+          // there, while `error` is a machine code (COMPLIANCE_BLOCKED).
+          throw new Error(err.message ?? err.error ?? 'Payment initiation failed')
+        }
+
+        const { transactionId, provider } = (await initiateRes.json()) as {
+          transactionId: string
+          provider: string
+        }
+
+        toast.info('Check your phone', {
+          description: 'A payment prompt has been sent to your mobile number.',
+        })
+
+        // Poll for confirmation (up to ~60 s)
+        let confirmed = false
+        for (let i = 0; i < 20; i++) {
+          await new Promise((r) => setTimeout(r, 3_000))
+
+          const statusRes = await fetch(
+            `/api/payments/mobile-money/status/${transactionId}?provider=${provider}`
+          )
+          const statusData = (await statusRes.json()) as { status: string; error?: string }
+
+          if (statusData.status === 'SUCCESSFUL') {
+            confirmed = true
+            break
+          }
+          if (
+            statusData.status === 'FAILED' ||
+            statusData.status === 'CANCELLED' ||
+            statusData.status === 'INSUFFICIENT_FUNDS'
+          ) {
+            throw new Error(statusData.error ?? `Payment ${statusData.status.toLowerCase()}`)
+          }
+        }
+
+        if (!confirmed) {
+          throw new Error('Payment timed out. Please try again.')
+        }
+      } else {
+        // Existing mock flow for card / bank_transfer / wallet
+        await new Promise((resolve) => setTimeout(resolve, 3000))
+      }
+
+      toast.success('Payment Successful!', {
+        description: `Your payment to ${schema.name} has been processed.`,
+      })
+    } catch (err) {
+      toast.error('Payment failed', {
+        description: err instanceof Error ? err.message : 'An unexpected error occurred.',
+      })
+    } finally {
+      setIsProcessing(false)
+    }
     await new Promise((resolve) => setTimeout(resolve, 3000))
     setIsProcessing(false)
+
+    const reference = `REF${Date.now()}`
+    const fee = schema.feeStructure.baseFee + parsedAmount * (schema.feeStructure.percentageFee / 100)
+    const newInvoice: QRInvoiceData = {
+      invoiceId: generateInvoiceId(reference),
+      biller: schema.name,
+      billerCategory: 'Bills',
+      accountLabel: validatedAccount ?? (accountValue || 'N/A'),
+      amount: parsedAmount,
+      currency: 'NGN',
+      fee,
+      reference,
+      createdAt: new Date().toISOString(),
+      paymentMethod,
+    }
+    setInvoice(newInvoice)
     toast.success('Payment Successful!', {
       description: `Your payment to ${schema.name} has been processed.`,
     })
   }
 
   return (
+    <>
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-      <div className="space-y-5">
-        {schema.fields.map((field) => (
-          <div key={field.id} className="space-y-2">
-            <Label htmlFor={field.id} className="text-sm font-medium">
-              {field.label}
-            </Label>
+      {/* Live region: announces validation status changes to screen readers */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {isValidating && 'Validating account, please wait.'}
+        {validatedAccount && `Account verified: ${validatedAccount}`}
+      </div>
 
-            {field.type === 'select' ? (
-              <Select
-                onValueChange={(val: string) =>
-                  setValue(field.name as unknown as string, val, { shouldValidate: true })
-                }
-              >
-                <SelectTrigger className="h-12 rounded-2xl bg-muted/30 focus:ring-primary">
-                  <SelectValue placeholder={field.placeholder || `Select ${field.label}`} />
-                </SelectTrigger>
-                <SelectContent>
-                  {field.options?.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <div className="relative">
-                <Input
-                  id={field.id}
-                  type={field.type}
-                  placeholder={field.placeholder}
-                  className={cn(
-                    'h-12 rounded-2xl bg-muted/30 focus:ring-primary',
-                    isValidating && field.id === schema.fields[0]?.id && 'pr-10'
-                  )}
-                  {...register(field.name as unknown as string)}
-                />
-                {isValidating && field.id === schema.fields[0]?.id && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                  </div>
-                )}
-                {validatedAccount && field.id === schema.fields[0]?.id && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-2 text-xs flex items-center gap-1.5 text-green-600 font-medium bg-green-50 p-2 rounded-xl"
+      <div className="space-y-5">
+        {schema.fields.map((field) => {
+          const errorId = `${field.id}-error`
+          const isPrimaryField = field.id === schema.fields[0]?.id
+          return (
+            <div key={field.id} className="space-y-2">
+              <Label htmlFor={field.id} className="text-sm font-medium">
+                {field.label}
+              </Label>
+
+              {field.type === 'select' ? (
+                <Select
+                  onValueChange={(val: string) =>
+                    setValue(field.name as unknown as string, val, { shouldValidate: true })
+                  }
+                >
+                  <SelectTrigger
+                    id={field.id}
+                    aria-labelledby={field.id}
+                    aria-describedby={errors[field.name] ? errorId : undefined}
+                    aria-invalid={!!errors[field.name]}
+                    className="h-12 rounded-2xl bg-muted/30 focus:ring-primary"
                   >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Account Verified: {validatedAccount}
-                  </motion.div>
-                )}
-              </div>
-            )}
-            {errors[field.name] && (
-              <p className="text-xs text-destructive flex items-center gap-1 mt-1">
-                <AlertCircle className="w-3 h-3" />
-                {errors[field.name]?.message as string}
-              </p>
-            )}
-          </div>
-        ))}
+                    <SelectValue placeholder={field.placeholder || `Select ${field.label}`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {field.options?.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="relative">
+                  <Input
+                    id={field.id}
+                    type={field.type}
+                    placeholder={field.placeholder}
+                    aria-describedby={
+                      [
+                        errors[field.name] ? errorId : null,
+                        isPrimaryField && (isValidating || validatedAccount)
+                          ? `${field.id}-status`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' ') || undefined
+                    }
+                    aria-invalid={!!errors[field.name]}
+                    className={cn(
+                      'h-12 rounded-2xl bg-muted/30 focus:ring-primary',
+                      isValidating && isPrimaryField && 'pr-10'
+                    )}
+                    {...register(field.name as unknown as string)}
+                  />
+                  {isValidating && isPrimaryField && (
+                    <div
+                      className="absolute right-3 top-1/2 -translate-y-1/2"
+                      aria-hidden="true"
+                    >
+                      <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    </div>
+                  )}
+                  {validatedAccount && isPrimaryField && (
+                    <motion.div
+                      id={`${field.id}-status`}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-2 text-xs flex items-center gap-1.5 text-green-600 font-medium bg-green-50 p-2 rounded-xl"
+                      aria-hidden="true"
+                    >
+                      <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+                      Account Verified: {validatedAccount}
+                    </motion.div>
+                  )}
+                </div>
+              )}
+              {errors[field.name] && (
+                <p
+                  id={errorId}
+                  role="alert"
+                  className="text-xs text-destructive flex items-center gap-1 mt-1"
+                >
+                  <AlertCircle className="w-3 h-3" aria-hidden="true" />
+                  {errors[field.name]?.message as string}
+                </p>
+              )}
+            </div>
+          )
+        })}
 
         <div className="pt-4">
-          <PaymentMethodSelector selected={paymentMethod} onSelect={setPaymentMethod} />
+          <PaymentMethodSelector
+            selected={paymentMethod}
+            onSelect={setPaymentMethod}
+            countryCode={countryCode}
+            onMobileMoneyDetails={setMobileMoneyDetails}
+          />
         </div>
 
         <div className="space-y-4">
@@ -186,11 +354,16 @@ export function PaymentForm({ schema }: PaymentFormProps) {
           <div className="space-y-4 border border-border/50 rounded-2xl p-4 bg-muted/10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">Schedule for later</span>
+                <Calendar className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+                <span id="schedule-label" className="text-sm font-medium text-foreground">
+                  Schedule for later
+                </span>
               </div>
               <Checkbox
                 id="schedule"
+                aria-labelledby="schedule-label"
+                aria-expanded={showSchedule}
+                aria-controls="schedule-date-section"
                 checked={showSchedule}
                 onCheckedChange={(checked: boolean) => setShowSchedule(!!checked)}
               />
@@ -199,12 +372,21 @@ export function PaymentForm({ schema }: PaymentFormProps) {
             <AnimatePresence>
               {showSchedule && (
                 <motion.div
+                  id="schedule-date-section"
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
                   className="overflow-hidden pt-2"
                 >
-                  <Input type="date" className="h-11 rounded-xl bg-card border-border" />
+                  <Label htmlFor="schedule-date" className="sr-only">
+                    Payment date
+                  </Label>
+                  <Input
+                    id="schedule-date"
+                    type="date"
+                    aria-label="Payment date"
+                    className="h-11 rounded-xl bg-card border-border"
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -227,20 +409,24 @@ export function PaymentForm({ schema }: PaymentFormProps) {
         disabled={
           !isValid || isProcessing || (schema.fields[0].validation.required && !validatedAccount)
         }
+        aria-label={isProcessing ? 'Processing payment, please wait' : `Pay now to ${schema.name}`}
+        aria-busy={isProcessing}
         className="w-full h-14 rounded-2xl text-lg font-semibold"
       >
         {isProcessing ? (
           <div className="flex items-center gap-2">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>Processing...</span>
+            <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+            <span aria-hidden="true">Processing...</span>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <span>Pay Now</span>
-            <ChevronRight className="w-5 h-5" />
+            <span aria-hidden="true">Pay Now</span>
+            <ChevronRight className="w-5 h-5" aria-hidden="true" />
           </div>
         )}
       </Button>
     </form>
+    {invoice && <QRInvoiceModal invoice={invoice} onClose={() => setInvoice(null)} />}
+  </>
   )
 }

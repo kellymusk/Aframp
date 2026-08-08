@@ -13,7 +13,8 @@ import { StatusTimeline } from '@/components/onramp/status-timeline'
 import { OrderSummaryCard } from '@/components/onramp/order-summary-card'
 import { TransactionDetails } from '@/components/onramp/transaction-details'
 import { ProcessingTestUtils } from '@/components/onramp/processing-test-utils'
-import { formatCurrency, formatNumber } from '@/lib/onramp/formatters'
+import { Skeleton } from '@/components/ui/skeleton'
+import { formatCurrency, formatNumber } from '@/lib/calculations'
 
 interface OnrampProcessingClientProps {
   orderId: string
@@ -50,9 +51,9 @@ export function OnrampProcessingClient({ orderId }: OnrampProcessingClientProps)
     return (
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 w-48 rounded-full bg-muted" />
-            <div className="h-64 rounded-3xl bg-muted" />
+          <div className="space-y-6">
+            <Skeleton className="h-8 w-48 rounded-full" />
+            <Skeleton className="h-64 rounded-3xl" />
           </div>
         </div>
       </div>

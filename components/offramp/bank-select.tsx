@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,18 +14,31 @@ import {
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Bank, NIGERIAN_BANKS } from '@/lib/offramp/bank-service'
+import type { Bank } from '@/lib/offramp/bank-service'
+import { OFFRAMP_COUNTRIES, type OfframpCountryCode } from '@/lib/offramp/countries'
 
 interface BankSelectProps {
+  /** Banks for the selected country — see fetchBanks() in the bank service. */
+  banks: Bank[]
+  country: OfframpCountryCode
   value?: string
   onSelect: (bank: Bank) => void
   disabled?: boolean
+  isLoading?: boolean
 }
 
-export function BankSelect({ value, onSelect, disabled }: BankSelectProps) {
+export function BankSelect({
+  banks,
+  country,
+  value,
+  onSelect,
+  disabled,
+  isLoading,
+}: BankSelectProps) {
   const [open, setOpen] = React.useState(false)
 
-  const selectedBank = NIGERIAN_BANKS.find((bank) => bank.code === value)
+  const selectedBank = banks.find((bank) => bank.code === value)
+  const countryName = OFFRAMP_COUNTRIES[country].name
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -35,9 +48,14 @@ export function BankSelect({ value, onSelect, disabled }: BankSelectProps) {
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between h-14 px-4 bg-background border-border hover:bg-accent/50 text-foreground rounded-xl transition-all duration-200"
-          disabled={disabled}
+          disabled={disabled || isLoading || banks.length === 0}
         >
-          {selectedBank ? (
+          {isLoading ? (
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading {countryName} banks...
+            </span>
+          ) : selectedBank ? (
             <div className="flex items-center gap-3">
               <Avatar className="h-6 w-6 border border-border">
                 <AvatarImage src={selectedBank.logo} alt={selectedBank.name} />
@@ -45,10 +63,12 @@ export function BankSelect({ value, onSelect, disabled }: BankSelectProps) {
                   {selectedBank.name.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <span className="font-medium">{selectedBank.name}</span>
+              <span className="font-medium truncate">{selectedBank.name}</span>
             </div>
           ) : (
-            <span className="text-muted-foreground">Select a bank...</span>
+            <span className="text-muted-foreground">
+              {banks.length === 0 ? 'No bank list available' : `Select a ${countryName} bank...`}
+            </span>
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -67,7 +87,7 @@ export function BankSelect({ value, onSelect, disabled }: BankSelectProps) {
               No bank found.
             </CommandEmpty>
             <CommandGroup>
-              {NIGERIAN_BANKS.map((bank) => (
+              {banks.map((bank) => (
                 <CommandItem
                   key={bank.id}
                   value={bank.name}
@@ -83,13 +103,15 @@ export function BankSelect({ value, onSelect, disabled }: BankSelectProps) {
                       {bank.name.substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">{bank.name}</span>
-                    <span className="text-xs text-muted-foreground">Nigeria</span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-medium truncate">{bank.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {bank.type === 'mobile_money' ? `Mobile money • ${countryName}` : countryName}
+                    </span>
                   </div>
                   <Check
                     className={cn(
-                      'ml-auto h-4 w-4 text-primary',
+                      'ml-auto h-4 w-4 shrink-0 text-primary',
                       value === bank.code ? 'opacity-100' : 'opacity-0'
                     )}
                   />

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, QrCode, ChevronRight, Wallet, StickyNote } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +9,13 @@ import { cn } from '@/lib/utils'
 import { RecentRecipients } from './recent-recipients'
 import { QRScanner } from './qr-scanner'
 import { TransactionConfirmation } from './transaction-confirmation'
+import {
+  isValidStellarAddress,
+  estimateStellarFee,
+  sendStellarP2P,
+} from '@/lib/stellar-p2p'
+import { getFreighterPublicKey, getFreighterNetwork } from '@/lib/wallet/freighter'
+import { parseTransferQrValue } from '@/lib/transfer-qr'
 
 type Step = 'recipient' | 'amount' | 'confirm' | 'success'
 
@@ -43,19 +50,32 @@ const NUMPAD_KEYS = [
 
 export function SendPageClient() {
   const router = useRouter()
-  const [step, setStep] = useState<Step>('recipient')
+  const searchParams = useSearchParams()
+  const initialTransfer = useMemo(() => parseTransferQrValue(searchParams.toString()), [searchParams])
+  const [step, setStep] = useState<Step>(initialTransfer?.recipient ? 'amount' : 'recipient')
   const [scannerOpen, setScannerOpen] = useState(false)
   const [isSending, setIsSending] = useState(false)
-  const [recipientInput, setRecipientInput] = useState('')
-  const [form, setForm] = useState<SendFormState>({
-    recipient: null,
-    amount: '',
-    asset: ASSETS[0],
+  const [sendError, setSendError] = useState<string | null>(null)
+  const [txHash, setTxHash] = useState<string | null>(null)
+  const [estimatedFee, setEstimatedFee] = useState<string | null>(null)
+  const [recipientInput, setRecipientInput] = useState(() => initialTransfer?.recipient ?? '')
+  const [form, setForm] = useState<SendFormState>(() => ({
+    recipient: initialTransfer?.recipient ? { address: initialTransfer.recipient } : null,
+    amount: initialTransfer?.amount ?? '',
+    asset: initialTransfer?.asset
+      ? ASSETS.find((asset) => asset.symbol === initialTransfer.asset) ?? ASSETS[0]
+      : ASSETS[0],
     note: '',
-  })
+  }))
 
   const steps: Step[] = ['recipient', 'amount', 'confirm']
   const currentStepIdx = steps.indexOf(step)
+
+  // Fetch fee estimate when entering the confirm step
+  useEffect(() => {
+    if (step !== 'confirm') return
+    estimateStellarFee(null).then(setEstimatedFee).catch(() => setEstimatedFee(null))
+  }, [step])
 
   const handleBack = () => {
     if (step === 'recipient') {
@@ -69,9 +89,34 @@ export function SendPageClient() {
     }
   }
 
-  const handleRecipientSelect = (address: string, name?: string, avatar?: string) => {
+  const handleRecipientSelect = (
+    address: string,
+    name?: string,
+    avatar?: string,
+    amount?: string,
+    assetSymbol?: string
+  ) => {
     setRecipientInput(address)
-    setForm((prev) => ({ ...prev, recipient: { address, name, avatar } }))
+    setForm((prev) => ({
+      ...prev,
+      recipient: { address, name, avatar },
+      amount: amount ?? prev.amount,
+      asset: assetSymbol
+        ? ASSETS.find((asset) => asset.symbol === assetSymbol) ?? prev.asset
+        : prev.asset,
+    }))
+  }
+
+  const applyTransferPayload = (value: string) => {
+    const parsed = parseTransferQrValue(value)
+    if (parsed?.recipient) {
+      handleRecipientSelect(parsed.recipient, undefined, undefined, parsed.amount, parsed.asset)
+      setStep('amount')
+      return
+    }
+
+    handleRecipientSelect(value.trim())
+    setStep('amount')
   }
 
   const handleContinueRecipient = () => {
@@ -104,13 +149,42 @@ export function SendPageClient() {
   }
 
   const handleSend = async () => {
+    if (!form.recipient?.address) return
     setIsSending(true)
-    await new Promise((resolve) => setTimeout(resolve, 2200))
+    setSendError(null)
+
+    const [publicKey, network] = await Promise.all([
+      getFreighterPublicKey(),
+      getFreighterNetwork(),
+    ])
+
+    if (!publicKey) {
+      setSendError('Wallet not connected. Please connect Freighter.')
+      setIsSending(false)
+      return
+    }
+
+    const result = await sendStellarP2P({
+      sourcePublicKey: publicKey,
+      destination: form.recipient.address,
+      amount: form.amount,
+      assetCode: form.asset.symbol,
+      memo: form.note || undefined,
+      network,
+    })
+
     setIsSending(false)
+
+    if (result.error || !result.txHash) {
+      setSendError(result.error ?? 'Transaction failed')
+      return
+    }
+
+    setTxHash(result.txHash)
     setStep('success')
   }
 
-  const isRecipientValid = recipientInput.trim().length > 5
+  const isRecipientValid = isValidStellarAddress(recipientInput.trim())
   const isAmountValid = parseFloat(form.amount) > 0
 
   return (
@@ -175,8 +249,8 @@ export function SendPageClient() {
                 </button>
               </div>
               {recipientInput && !isRecipientValid && (
-                <p className="text-xs text-muted-foreground">
-                  Enter a valid Stellar address (starts with G)
+                <p className="text-xs text-destructive">
+                  Enter a valid Stellar address (starts with G, 56 characters)
                 </p>
               )}
             </div>
@@ -311,6 +385,9 @@ export function SendPageClient() {
             form={form}
             step={step}
             isSending={isSending}
+            sendError={sendError}
+            txHash={txHash}
+            estimatedFee={estimatedFee}
             onBack={() => setStep('amount')}
             onConfirm={handleSend}
             onDone={() => router.push('/dashboard')}
@@ -322,7 +399,7 @@ export function SendPageClient() {
       {scannerOpen && (
         <QRScanner
           onScan={(address) => {
-            handleRecipientSelect(address)
+            applyTransferPayload(address)
             setScannerOpen(false)
           }}
           onClose={() => setScannerOpen(false)}

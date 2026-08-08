@@ -1,6 +1,6 @@
 'use client'
 
-import { use } from 'react'
+import { use, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, ShieldCheck, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,13 @@ interface PageProps {
 export default function BillerPaymentPage({ params }: PageProps) {
   const { billerId } = use(params)
   const schema = BILLER_SCHEMAS[billerId]
+
+  // Read the country the user selected on the bills landing page
+  const [countryCode, setCountryCode] = useState<string>('NG')
+  useEffect(() => {
+    const saved = localStorage.getItem('preferredCountry')
+    if (saved) setCountryCode(saved)
+  }, [])
 
   if (!schema) {
     return (
@@ -81,7 +88,7 @@ export default function BillerPaymentPage({ params }: PageProps) {
 
           {/* Dynamic Form */}
           <div className="bg-card border border-border rounded-[2.5rem] p-6 sm:p-8 shadow-sm">
-            <PaymentForm schema={schema} />
+            <PaymentForm schema={schema} countryCode={countryCode} />
           </div>
 
           {/* Help/Support */}

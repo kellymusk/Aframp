@@ -1,5 +1,6 @@
 import { OnrampOrder } from '@/types/onramp'
 import { notifyOrderUpdate } from './notifications'
+import { analytics } from '@/lib/analytics'
 
 /**
  * Simulates the complete onramp flow with notifications
@@ -20,11 +21,20 @@ export async function simulateOnrampFlow(order: OnrampOrder) {
   await delay(3000)
 
   // 3. Transaction complete
+  // transactionHash must come from the Stellar network response after broadcast.
+  // The caller is responsible for setting order.transactionHash before invoking this
+  // function, or passing an order that already has the confirmed hash attached.
   console.warn('✅ Transaction complete')
+  if (!updatedOrder.transactionHash) {
+    throw new Error(
+      `Cannot complete onramp flow for order ${updatedOrder.id}: ` +
+        'transactionHash is missing. Submit the transaction to Stellar first and ' +
+        'attach the returned hash to the order before calling simulateOnrampFlow.'
+    )
+  }
   const completedOrder = {
     ...updatedOrder,
     status: 'completed' as const,
-    transactionHash: '8f3e2d1c9a1b0c2d',
     completedAt: Date.now(),
   }
   await notifyOrderUpdate(completedOrder, 'transfer_complete')
@@ -51,10 +61,16 @@ export function logSuccessfulConversion(order: OnrampOrder) {
     referrer: typeof window !== 'undefined' ? window.document.referrer : null,
   }
 
-  console.warn('📊 Analytics: Successful conversion logged', analyticsData)
-
-  // In production, this would send to your analytics service
-  // Examples: Google Analytics, Mixpanel, Amplitude, etc.
+  analytics.track('onramp_conversion_completed', {
+    orderId: analyticsData.orderId,
+    amount: analyticsData.amount,
+    fiatCurrency: analyticsData.fiatCurrency,
+    cryptoAmount: analyticsData.cryptoAmount,
+    cryptoAsset: analyticsData.cryptoAsset,
+    paymentMethod: analyticsData.paymentMethod,
+    exchangeRate: analyticsData.exchangeRate,
+    processingTimeMs: analyticsData.processingTime,
+  })
 
   return analyticsData
 }

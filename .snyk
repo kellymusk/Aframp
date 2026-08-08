@@ -1,0 +1,13 @@
+# Snyk policy file
+# Exclude specific paths from scanning
+exclude:
+  global:
+    - "**/__tests__/**"
+    - "**/*.test.*"
+    - "**/*.spec.*"
+    - "coverage/**"
+    - ".next/**"
+    - "node_modules/**"
+
+# Ignore specific vulnerabilities (with expiry)
+patch: {}

@@ -34,8 +34,12 @@ export function calculateFees(
 }
 
 export function getMinMax(currency: FiatCurrency) {
-  return {
-    min: currency === 'NGN' ? 5000 : 5000,
-    max: currency === 'NGN' ? 5000000 : 5000000,
+  const limits: Record<FiatCurrency, { min: number; max: number }> = {
+    NGN: { min: 5_000, max: 5_000_000 },
+    KES: { min: 500, max: 500_000 },
+    GHS: { min: 50, max: 50_000 },
+    ZAR: { min: 100, max: 100_000 },
+    UGX: { min: 20_000, max: 20_000_000 },
   }
+  return limits[currency]
 }

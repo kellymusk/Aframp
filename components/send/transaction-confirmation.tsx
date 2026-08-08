@@ -11,6 +11,9 @@ interface TransactionConfirmationProps {
   form: SendFormState
   step: 'confirm' | 'success'
   isSending: boolean
+  sendError?: string | null
+  txHash?: string | null
+  estimatedFee?: string | null
   onBack: () => void
   onConfirm: () => void
   onDone: () => void
@@ -20,12 +23,15 @@ export function TransactionConfirmation({
   form,
   step,
   isSending,
+  sendError,
+  txHash,
+  estimatedFee,
   onBack,
   onConfirm,
   onDone,
 }: TransactionConfirmationProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null)
-  const [txId] = useState(() => 'AFR' + Math.random().toString(36).slice(2, 10).toUpperCase())
+  const displayTxId = txHash ?? 'pending'
 
   const copy = async (text: string, field: string) => {
     await navigator.clipboard.writeText(text)
@@ -82,11 +88,13 @@ export function TransactionConfirmation({
               )}
               <Separator className="opacity-50" />
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Transaction ID</span>
+                <span className="text-xs text-muted-foreground">Transaction Hash</span>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-mono text-foreground">{txId}</span>
+                  <span className="text-xs font-mono text-foreground truncate max-w-[140px]">
+                    {displayTxId}
+                  </span>
                   <button
-                    onClick={() => copy(txId, 'txid')}
+                    onClick={() => copy(displayTxId, 'txid')}
                     className="text-muted-foreground hover:text-emerald-500 transition-colors"
                   >
                     {copiedField === 'txid' ? (
@@ -109,7 +117,14 @@ export function TransactionConfirmation({
           >
             Back to Home
           </Button>
-          <button className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-2">
+          <button
+            onClick={() =>
+              txHash &&
+              window.open(`https://stellar.expert/explorer/public/tx/${txHash}`, '_blank')
+            }
+            className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-2 disabled:opacity-40"
+            disabled={!txHash}
+          >
             View on Explorer
           </button>
         </div>
@@ -118,8 +133,8 @@ export function TransactionConfirmation({
   }
 
   // ── Confirm screen ──
-  const estimatedFee = (parseFloat(form.amount || '0') * 0.001).toFixed(6)
-  const totalCost = (parseFloat(form.amount || '0') + parseFloat(estimatedFee)).toFixed(6)
+  const feeDisplay = estimatedFee ?? (parseFloat(form.amount || '0') * 0.001).toFixed(7)
+  const totalCost = (parseFloat(form.amount || '0') + parseFloat(feeDisplay)).toFixed(7)
 
   return (
     <div className="flex-1 flex flex-col px-5 pb-8 pt-2 gap-4">
@@ -192,7 +207,7 @@ export function TransactionConfirmation({
         <div className="px-4 py-3.5 flex items-center justify-between">
           <span className="text-sm text-muted-foreground">Network fee</span>
           <span className="text-sm text-muted-foreground">
-            ~{estimatedFee} {form.asset.symbol}
+            ~{feeDisplay} XLM
           </span>
         </div>
 
@@ -226,6 +241,9 @@ export function TransactionConfirmation({
 
       {/* CTAs */}
       <div className="mt-auto space-y-2.5">
+        {sendError && (
+          <p className="text-xs text-destructive text-center px-2">{sendError}</p>
+        )}
         <Button
           onClick={onConfirm}
           disabled={isSending}

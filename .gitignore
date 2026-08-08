@@ -9,3 +9,5 @@ build
 requirements.md
 .vercel
 .env*.local
+coverage/
+

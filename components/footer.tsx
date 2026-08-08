@@ -50,7 +50,13 @@ export function Footer() {
                 {links.map((link) => (
                   <li key={link}>
                     <a
-                      href="#"
+                      href={
+                        link === 'Privacy'
+                          ? '/legal/privacy'
+                          : link === 'Terms'
+                            ? '/legal/terms'
+                            : '#'
+                      }
                       className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                     >
                       {link}

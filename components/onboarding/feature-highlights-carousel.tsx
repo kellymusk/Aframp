@@ -66,33 +66,37 @@ function Illustration({ variant }: { variant: FeatureHighlightIllustration }) {
   const Icon = iconByVariant[variant]
 
   return (
-    <div className="relative flex h-60 w-full items-center justify-center overflow-hidden rounded-2xl border border-emerald-500/25 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.26),rgba(0,0,0,0.6)_45%,rgba(0,0,0,0.92))]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_100%,rgba(16,185,129,0.24),transparent_55%)]" />
-      <div className="absolute top-10 left-12 h-24 w-24 rounded-full border border-emerald-400/25 blur-sm" />
-      <div className="absolute right-10 bottom-8 h-20 w-20 rounded-full border border-emerald-400/20 blur-sm" />
-      <div className="absolute h-0.5 w-full bg-gradient-to-r from-transparent via-emerald-400/45 to-transparent" />
+    <div className="relative flex h-60 w-full items-center justify-center overflow-hidden rounded-2xl border border-primary/25 bg-primary/5 dark:bg-primary/10">
+      {/* radial glow — adapts via primary colour token */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,var(--tw-gradient-from)_0%,transparent_70%)] from-primary/20" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_100%,var(--tw-gradient-from)_0%,transparent_55%)] from-primary/15" />
+
+      {/* decorative rings */}
+      <div className="absolute top-10 left-12 h-24 w-24 rounded-full border border-primary/20 blur-sm" />
+      <div className="absolute right-10 bottom-8 h-20 w-20 rounded-full border border-primary/15 blur-sm" />
+      <div className="absolute h-0.5 w-full bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
 
       {variant === 'network' && (
         <div className="pointer-events-none absolute inset-0 opacity-70">
-          <div className="absolute top-8 left-8 h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.7)]" />
-          <div className="absolute top-16 right-16 h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.7)]" />
-          <div className="absolute right-20 bottom-10 h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.7)]" />
-          <div className="absolute bottom-12 left-[4.5rem] h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.7)]" />
-          <div className="absolute top-11 left-9 h-px w-56 rotate-12 bg-emerald-400/45" />
-          <div className="absolute top-24 left-12 h-px w-48 -rotate-12 bg-emerald-400/45" />
+          <div className="absolute top-8 left-8 h-1.5 w-1.5 rounded-full bg-primary" />
+          <div className="absolute top-16 right-16 h-1.5 w-1.5 rounded-full bg-primary" />
+          <div className="absolute right-20 bottom-10 h-1.5 w-1.5 rounded-full bg-primary" />
+          <div className="absolute bottom-12 left-[4.5rem] h-1.5 w-1.5 rounded-full bg-primary" />
+          <div className="absolute top-11 left-9 h-px w-56 rotate-12 bg-primary/40" />
+          <div className="absolute top-24 left-12 h-px w-48 -rotate-12 bg-primary/40" />
         </div>
       )}
 
       {variant === 'freedom' && (
         <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-75">
-          <Zap className="h-5 w-5 text-emerald-300" />
-          <div className="h-px w-16 bg-emerald-400/70" />
-          <Zap className="h-5 w-5 text-emerald-300" />
+          <Zap className="h-5 w-5 text-primary" />
+          <div className="h-px w-16 bg-primary/60" />
+          <Zap className="h-5 w-5 text-primary" />
         </div>
       )}
 
-      <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-300/30 bg-emerald-400/20 shadow-[0_0_24px_rgba(16,185,129,0.75)]">
-        <Icon className="h-8 w-8 text-emerald-200" />
+      <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/30 bg-primary/15 shadow-[0_0_24px_color-mix(in_oklch,var(--primary)_40%,transparent)]">
+        <Icon className="h-8 w-8 text-primary" />
       </div>
     </div>
   )
@@ -201,7 +205,7 @@ export function FeatureHighlightsCarousel({
   return (
     <section
       className={cn(
-        'relative mx-auto flex min-h-screen w-full max-w-sm flex-col overflow-hidden bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.2),rgba(2,16,10,0.95)_36%,#010b08_74%)] p-6 text-emerald-50',
+        'relative mx-auto flex min-h-screen w-full max-w-sm flex-col overflow-hidden bg-background p-6 text-foreground',
         className
       )}
       aria-roledescription="carousel"
@@ -215,13 +219,13 @@ export function FeatureHighlightsCarousel({
           aria-label={selectedIndex > 0 ? 'Previous slide' : 'Back to welcome'}
           variant="ghost"
           size="icon-sm"
-          className="rounded-full text-emerald-100 hover:bg-emerald-500/15 hover:text-emerald-50"
+          className="rounded-full text-muted-foreground hover:bg-primary/15 hover:text-foreground"
           onClick={handleBack}
           type="button"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-sm font-semibold tracking-wide text-emerald-100">Feature Highlights</h1>
+        <h1 className="text-sm font-semibold tracking-wide text-foreground">Feature Highlights</h1>
         <div className="w-8" aria-hidden />
       </header>
 
@@ -238,10 +242,10 @@ export function FeatureHighlightsCarousel({
             >
               <Illustration variant={slide.illustration} />
               <div className="pt-7">
-                <h2 className="text-3xl font-semibold leading-tight text-emerald-50">
+                <h2 className="text-3xl font-semibold leading-tight text-foreground">
                   {slide.title}
                 </h2>
-                <p className="mt-4 text-sm leading-7 text-emerald-100/75">{slide.description}</p>
+                <p className="mt-4 text-sm leading-7 text-muted-foreground">{slide.description}</p>
               </div>
             </article>
           ))}
@@ -256,9 +260,9 @@ export function FeatureHighlightsCarousel({
               aria-label={`Go to slide ${index + 1}`}
               aria-pressed={selectedIndex === index}
               className={cn(
-                'h-1.5 rounded-full bg-emerald-400/30 transition-all focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-950',
+                'h-1.5 rounded-full bg-primary/20 transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                 selectedIndex === index
-                  ? 'w-6 bg-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.8)]'
+                  ? 'w-6 bg-primary shadow-[0_0_12px_color-mix(in_oklch,var(--primary)_60%,transparent)]'
                   : 'w-1.5'
               )}
               onClick={() => scrollTo(index)}
@@ -268,7 +272,7 @@ export function FeatureHighlightsCarousel({
         </div>
 
         <Button
-          className="h-12 w-full rounded-xl bg-emerald-500 text-emerald-950 shadow-[0_0_26px_rgba(16,185,129,0.42)] hover:bg-emerald-400"
+          className="h-12 w-full rounded-xl bg-primary text-primary-foreground shadow-[0_0_26px_color-mix(in_oklch,var(--primary)_40%,transparent)] hover:bg-primary/90"
           onClick={handleNext}
           type="button"
         >
@@ -276,7 +280,7 @@ export function FeatureHighlightsCarousel({
         </Button>
 
         <button
-          className="mt-4 w-full text-center text-sm text-emerald-200/70 transition hover:text-emerald-100 focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+          className="mt-4 w-full text-center text-sm text-muted-foreground transition hover:text-foreground focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           onClick={onSkip ?? onComplete}
           type="button"
         >

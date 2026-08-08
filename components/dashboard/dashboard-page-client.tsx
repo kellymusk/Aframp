@@ -4,6 +4,10 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout'
 import { DashboardContent } from '@/components/dashboard/dashboard-content'
+import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { useWallet } from '@/hooks/useWallet'
+import { walletSession } from '@/lib/wallet/session'
+import { KycDashboardGuard } from '@/components/kyc/kyc-dashboard-guard'
 
 interface DashboardPageClientProps {
   initialWallet?: string
@@ -12,42 +16,54 @@ interface DashboardPageClientProps {
 
 export function DashboardPageClient({ initialWallet, initialAddress }: DashboardPageClientProps) {
   const router = useRouter()
+  const { state, publicKey } = useWallet()
+  
+  const [isMounted, setIsMounted] = useState(false)
   const [walletAddress, setWalletAddress] = useState<string>('')
   const [walletName, setWalletName] = useState<string>('')
-  const [connected, setConnected] = useState(false)
+
+  // Resolve the active wallet details
+  const activeAddress = publicKey || initialAddress || walletSession.getAddress()
+  const activeName = (publicKey ? 'Freighter' : '') || initialWallet || walletSession.getName()
+  const hasActiveConnection = Boolean(activeAddress && activeName)
+
+  // Track auto-reconnection and connecting states
+  const isConnecting = state === 'connecting'
+  const isAutoReconnecting = publicKey !== null && state !== 'connected'
+  const isLoading = !isMounted || isConnecting || isAutoReconnecting
 
   useEffect(() => {
-    // Prefer URL params passed from the server, then fall back to localStorage
-    const wallet =
-      initialWallet || (typeof window !== 'undefined' ? localStorage.getItem('walletName') : null)
-    const address =
-      initialAddress ||
-      (typeof window !== 'undefined' ? localStorage.getItem('walletAddress') : null)
+    setIsMounted(true)
+  }, [])
 
-    if (wallet && address) {
-      // Batch state updates
-      Promise.resolve().then(() => {
-        setWalletName(wallet)
-        setWalletAddress(address)
-        setConnected(true)
+  // Sync state and ensure session storage persistence once mounted
+  useEffect(() => {
+    if (!isMounted) return
 
-        // Ensure persistence
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('walletName', wallet)
-          localStorage.setItem('walletAddress', address)
-        }
-      })
-    } else {
-      // Redirect to home if not connected
+    if (activeAddress && activeName) {
+      setWalletAddress(activeAddress)
+      setWalletName(activeName)
+
+      // Ensure persistence within the session
+      walletSession.setName(activeName)
+      walletSession.setAddress(activeAddress)
+    }
+  }, [isMounted, activeAddress, activeName])
+
+  // Handle redirection only after mounting and loading state settles
+  useEffect(() => {
+    if (!isMounted || isLoading) return
+
+    if (!hasActiveConnection) {
       router.push('/')
     }
-  }, [initialWallet, initialAddress, router])
+  }, [isMounted, isLoading, hasActiveConnection, router])
 
-  if (!connected) {
+  if (isLoading || !hasActiveConnection) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <LoadingSpinner className="mx-auto mb-4 h-12 w-12" />
           <p className="text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
@@ -56,7 +72,10 @@ export function DashboardPageClient({ initialWallet, initialAddress }: Dashboard
 
   return (
     <DashboardLayout walletAddress={walletAddress}>
-      <DashboardContent walletName={walletName} walletAddress={walletAddress} />
+      <KycDashboardGuard>
+        <DashboardContent walletName={walletName} walletAddress={walletAddress} />
+      </KycDashboardGuard>
     </DashboardLayout>
   )
 }
+

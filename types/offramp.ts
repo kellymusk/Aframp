@@ -36,6 +36,8 @@ export interface OfframpFeeBreakdown {
 export interface OfframpOrder {
   id: string
   createdAt: number
+  /** Wallet the order belongs to — the key it is persisted under server-side. */
+  walletAddress: string
   lockExpiresAt: number
   assetId: string
   asset: OfframpAsset

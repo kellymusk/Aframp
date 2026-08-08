@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { formatNumber } from '@/lib/onramp/formatters'
+import { formatNumber } from '@/lib/calculations'
 import type { OfframpAssetOption } from '@/types/offramp'
 import { CryptoAssetBadge } from '@/components/icons/finance-icons'
 

@@ -8,6 +8,7 @@ interface BalanceContextType {
   balances: TokenBalance[]
   totalUsdValue: number
   loading: boolean
+  error: string | null
   lastUpdated: Date | null
   refetch: () => Promise<void>
 }
@@ -28,14 +29,7 @@ export function BalanceProvider({ children, walletAddress }: BalanceProviderProp
 export function useBalanceContext() {
   const context = useContext(BalanceContext)
   if (context === undefined) {
-    // Return default values instead of throwing error
-    return {
-      balances: [],
-      totalUsdValue: 0,
-      loading: true,
-      lastUpdated: null,
-      refetch: async () => {},
-    }
+    throw new Error('useBalanceContext must be used within a BalanceProvider')
   }
   return context
 }

@@ -1,11 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Copy, Download, Mail, PhoneCall, RefreshCw, Share2 } from 'lucide-react'
+import { Copy, Download, Mail, PhoneCall, Printer, RefreshCw, Share2 } from 'lucide-react'
+import QRCode from 'react-qr-code'
 import { Button } from '@/components/ui/button'
-import { formatCurrency } from '@/lib/onramp/formatters'
+import { formatCurrency } from '@/lib/calculations'
 import type { FiatCurrency } from '@/types/onramp'
 import { generateReceiptPDF } from '@/lib/offramp/pdf-generator'
 import { exportReceiptPNG, exportReceiptCSV } from '@/lib/bills/export'
@@ -18,22 +19,45 @@ const STATUS_STYLES: Record<string, string> = {
   failed: 'bg-destructive/15 text-destructive',
 }
 
+const EXPLORER_BASE = 'https://stellar.expert/explorer/public/tx'
+
 interface BillsReceiptClientProps {
   transactionId: string
+}
+
+/** Render a QR SVG to a PNG data URL via canvas */
+async function qrSvgToDataUrl(svgEl: SVGSVGElement): Promise<string> {
+  const svgData = new XMLSerializer().serializeToString(svgEl)
+  const img = new Image()
+  const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  await new Promise<void>((res, rej) => {
+    img.onload = () => res()
+    img.onerror = rej
+    img.src = url
+  })
+  const canvas = document.createElement('canvas')
+  canvas.width = 200
+  canvas.height = 200
+  canvas.getContext('2d')!.drawImage(img, 0, 0, 200, 200)
+  URL.revokeObjectURL(url)
+  return canvas.toDataURL('image/png')
 }
 
 export function BillsReceiptClient({ transactionId }: BillsReceiptClientProps) {
   const searchParams = useSearchParams()
   const statusOverride = searchParams.get('status')
-  const { transaction, loading, error, statusLabel } = useBillsTransaction(
+  const { transaction, loading, error, statusLabel, fromCache } = useBillsTransaction(
     transactionId,
     process.env.NEXT_PUBLIC_BILLS_WS_URL,
     statusOverride
   )
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState<null | 'pdf' | 'png' | 'csv'>(null)
+  const qrRef = useRef<HTMLDivElement>(null)
 
   const shareUrl = useMemo(() => (typeof window !== 'undefined' ? window.location.href : ''), [])
+  const explorerUrl = transaction?.txHash ? `${EXPLORER_BASE}/${transaction.txHash}` : ''
 
   const handleCopy = async () => {
     if (!shareUrl) return
@@ -42,10 +66,19 @@ export function BillsReceiptClient({ transactionId }: BillsReceiptClientProps) {
     setTimeout(() => setCopied(false), 1500)
   }
 
-  const handlePDF = () => {
+  const handlePrint = () => window.print()
+
+  const handlePDF = async () => {
     if (!transaction) return
     setBusy('pdf')
     try {
+      // Capture QR SVG → PNG data URL to embed in PDF
+      let qrDataUrl: string | undefined
+      const svgEl = qrRef.current?.querySelector('svg')
+      if (svgEl && explorerUrl) {
+        qrDataUrl = await qrSvgToDataUrl(svgEl)
+      }
+
       const ok = generateReceiptPDF(
         {
           title: 'Aframp Bills Receipt',
@@ -64,18 +97,9 @@ export function BillsReceiptClient({ transactionId }: BillsReceiptClientProps) {
             {
               title: 'Amounts',
               rows: [
-                [
-                  'Amount',
-                  formatCurrency(transaction.amount, transaction.currency as FiatCurrency),
-                ],
+                ['Amount', formatCurrency(transaction.amount, transaction.currency as FiatCurrency)],
                 ['Fees', formatCurrency(transaction.fee, transaction.currency as FiatCurrency)],
-                [
-                  'Net Received',
-                  formatCurrency(
-                    transaction.amount - transaction.fee,
-                    transaction.currency as FiatCurrency
-                  ),
-                ],
+                ['Net Received', formatCurrency(transaction.amount - transaction.fee, transaction.currency as FiatCurrency)],
               ].map(([label, value]) => ({ label, value })),
             },
             {
@@ -83,19 +107,18 @@ export function BillsReceiptClient({ transactionId }: BillsReceiptClientProps) {
               rows: [
                 ['Status', statusLabel],
                 ['Reference', transaction.reference],
+                ...(transaction.txHash ? [['Tx Hash', transaction.txHash]] : []),
               ].map(([label, value]) => ({ label, value })),
             },
           ],
           totalLabel: 'Total Paid',
           totalValue: formatCurrency(transaction.amount, transaction.currency as FiatCurrency),
+          qrDataUrl,
         },
         `Aframp-Receipt-${transaction.reference}.pdf`
       )
-      if (!ok) {
-        toast.error('Unable to generate PDF receipt')
-      } else {
-        toast.success('Receipt downloaded')
-      }
+      if (!ok) toast.error('Unable to generate PDF receipt')
+      else toast.success('Receipt downloaded')
     } catch {
       toast.error('Unable to generate PDF receipt')
     } finally {
@@ -129,6 +152,7 @@ export function BillsReceiptClient({ transactionId }: BillsReceiptClientProps) {
         ['Fees', formatCurrency(transaction.fee, transaction.currency as FiatCurrency)],
         ['Status', transaction.status],
         ['Date', new Date(transaction.createdAt).toLocaleString()],
+        ...(transaction.txHash ? [['Tx Hash', transaction.txHash] as [string, string]] : []),
       ])
       toast.success('Receipt CSV exported')
     } finally {
@@ -163,6 +187,12 @@ export function BillsReceiptClient({ transactionId }: BillsReceiptClientProps) {
   return (
     <div className="min-h-screen bg-background px-4 py-10">
       <div className="mx-auto max-w-4xl space-y-6">
+        {fromCache && (
+          <div className="flex items-center gap-2 rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-3 text-sm text-yellow-700 dark:text-yellow-400">
+            <span>⚠️</span>
+            <span>You&apos;re offline — showing cached receipt. Some details may be outdated.</span>
+          </div>
+        )}
         <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-semibold text-primary">Bills Receipt</p>
@@ -241,6 +271,26 @@ export function BillsReceiptClient({ transactionId }: BillsReceiptClientProps) {
                 </p>
               </div>
 
+              {/* QR code for transaction explorer */}
+              {explorerUrl && (
+                <div className="mt-6 flex flex-col items-center gap-2 rounded-2xl border border-border bg-muted/10 p-4">
+                  <p className="text-xs text-muted-foreground">Scan to verify on Stellar Explorer</p>
+                  <a href={explorerUrl} target="_blank" rel="noopener noreferrer" aria-label="View transaction on Stellar Expert">
+                    <div ref={qrRef as unknown as React.Ref<HTMLDivElement>}>
+                      <QRCode value={explorerUrl} size={120} />
+                    </div>
+                  </a>
+                  <a
+                    href={explorerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary underline break-all text-center"
+                  >
+                    {transaction.txHash}
+                  </a>
+                </div>
+              )}
+
               <div className="mt-6">
                 <h3 className="text-sm font-semibold text-foreground">Processing timeline</h3>
                 <div className="mt-3 space-y-3">
@@ -279,8 +329,11 @@ export function BillsReceiptClient({ transactionId }: BillsReceiptClientProps) {
               <h3 className="text-sm font-semibold text-foreground">Download & Export</h3>
               <div className="mt-4 space-y-3">
                 <Button className="w-full" onClick={handlePDF} disabled={busy === 'pdf'}>
-                  <Download className="h-4 w-4" />{' '}
+                  <Download className="h-4 w-4" />
                   {busy === 'pdf' ? 'Generating PDF...' : 'Download PDF'}
+                </Button>
+                <Button variant="outline" className="w-full" onClick={handlePrint}>
+                  <Printer className="h-4 w-4" /> Print Receipt
                 </Button>
                 <Button
                   variant="outline"
@@ -327,7 +380,7 @@ export function BillsReceiptClient({ transactionId }: BillsReceiptClientProps) {
             <div className="rounded-3xl border border-border bg-muted/20 p-6">
               <h3 className="text-sm font-semibold text-foreground">Need help?</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                If your transaction failed or needs review, contact support and we’ll help quickly.
+                If your transaction failed or needs review, contact support and we'll help quickly.
               </p>
               <div className="mt-4 flex flex-col gap-2">
                 <Button variant="outline" className="w-full" asChild>
@@ -343,17 +396,17 @@ export function BillsReceiptClient({ transactionId }: BillsReceiptClientProps) {
               </div>
             </div>
 
-            {transaction.status === 'failed' ? (
+            {transaction.status === 'failed' && (
               <div className="rounded-3xl border border-destructive/20 bg-destructive/10 p-6 text-sm text-destructive">
                 <p className="font-semibold">Payment failed</p>
                 <p className="mt-2">
-                  We couldn’t complete this payment. Please retry or contact support.
+                  We couldn't complete this payment. Please retry or contact support.
                 </p>
                 <Button variant="outline" className="mt-4 w-full" asChild>
                   <Link href="/bills">Retry payment</Link>
                 </Button>
               </div>
-            ) : null}
+            )}
           </div>
         </div>
 

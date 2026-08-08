@@ -1,11 +1,12 @@
 'use client'
 
-import { AlertTriangle, Clock, Info, Loader2 } from 'lucide-react'
+import { AlertTriangle, Clock, Info, Loader2, TrendingDown, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AmountInput } from '@/components/onramp/amount-input'
 import { CurrencySelector } from '@/components/onramp/currency-selector'
 import { AssetSelector } from '@/components/offramp/asset-selector'
-import { formatCurrency, formatNumber } from '@/lib/onramp/formatters'
+import { Sparkline } from '@/components/ui/sparkline'
+import { formatCurrency, formatNumber } from '@/lib/calculations'
 import { formatRateCountdown, formatUsd } from '@/lib/offramp/formatters'
 import type { FiatCurrency } from '@/types/onramp'
 import type { OfframpAssetOption } from '@/types/offramp'
@@ -19,6 +20,7 @@ interface OfframpCalculatorProps {
   rateCountdown: number
   rateUpdatedAt: number
   isRateLoading: boolean
+  rateSparkline?: number[]
   fiatAmount: number
   usdEquivalent: number
   fees: {
@@ -35,6 +37,7 @@ interface OfframpCalculatorProps {
   }
   limits: { min: number; max: number }
   isCalculating: boolean
+  isSubmitting?: boolean
   isValid: boolean
   lockCountdown: number | null
   onAssetChange: (value: string) => void
@@ -54,12 +57,14 @@ export function OfframpCalculator({
   rateCountdown,
   rateUpdatedAt,
   isRateLoading,
+  rateSparkline = [],
   fiatAmount,
   usdEquivalent,
   fees,
   errors,
   limits,
   isCalculating,
+  isSubmitting,
   isValid,
   lockCountdown,
   onAssetChange,
@@ -114,6 +119,26 @@ export function OfframpCalculator({
           ≈ {formatUsd(usdEquivalent)} USD equivalent
         </div>
 
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-foreground">Select Currency</label>
+          <div className="flex flex-wrap gap-2">
+            {(['NGN', 'KES', 'GHS', 'ZAR'] as const).map((curr) => (
+              <button
+                key={curr}
+                type="button"
+                onClick={() => onFiatChange(curr)}
+                className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                  fiatCurrency === curr
+                    ? 'bg-primary text-primary-foreground shadow-md'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                {curr}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-[1fr_180px] md:items-end">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">You&apos;ll Receive</label>
@@ -141,9 +166,14 @@ export function OfframpCalculator({
         <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
           <div className="flex items-center justify-between">
             <span>Rate</span>
-            <span className="font-medium text-foreground">
-              1 {selected.asset} = {formatNumber(rate, 2)} {fiatCurrency}
-            </span>
+            <div className="flex items-center gap-2">
+              {rateSparkline.length >= 2 && (
+                <Sparkline data={rateSparkline} width={60} height={22} />
+              )}
+              <span className="font-medium text-foreground">
+                1 {selected.asset} = {formatNumber(rate, 2)} {fiatCurrency}
+              </span>
+            </div>
           </div>
           <div className="mt-2 flex items-center justify-between">
             <span>Refresh in</span>
@@ -158,6 +188,7 @@ export function OfframpCalculator({
             type="button"
             onClick={onRefreshRate}
             className="mt-2 inline-flex items-center gap-2 text-xs text-primary"
+            aria-label="Refresh exchange rate"
           >
             {isRateLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
             Refresh rate
@@ -223,9 +254,10 @@ export function OfframpCalculator({
           size="lg"
           className="w-full rounded-full text-base"
           type="submit"
-          disabled={!isValid || isRateLoading}
+          disabled={!isValid || isRateLoading || isSubmitting}
         >
-          Continue to Bank Details →
+          {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {isSubmitting ? 'Creating Order...' : 'Continue to Bank Details →'}
         </Button>
       </form>
     </div>

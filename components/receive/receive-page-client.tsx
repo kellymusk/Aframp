@@ -1,21 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
-  Copy,
   Check,
-  Share2,
-  Download,
+  Copy,
   Link2,
   MessageCircle,
+  Share2,
   Twitter,
-  ChevronDown,
 } from 'lucide-react'
 import QRCode from 'react-qr-code'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { buildTransferQrUrl, type TransferNetwork } from '@/lib/transfer-qr'
 
 interface Asset {
   symbol: string
@@ -23,6 +24,17 @@ interface Asset {
   color: string
   bgColor: string
   icon: string
+}
+
+interface ReceivePageClientProps {
+  walletAddress?: string
+  initialParams?: {
+    amount?: string
+    asset?: string
+    network?: string
+    recipient?: string
+    address?: string
+  }
 }
 
 const ASSETS: Asset[] = [
@@ -56,23 +68,50 @@ const ASSETS: Asset[] = [
   },
 ]
 
+const NETWORKS: Array<{ value: TransferNetwork; label: string; description: string }> = [
+  { value: 'PUBLIC', label: 'Mainnet', description: 'Live Stellar network' },
+  { value: 'TESTNET', label: 'Testnet', description: 'Safe for testing' },
+  { value: 'FUTURENET', label: 'Futurenet', description: 'Experimental network' },
+]
+
 // Mock wallet address — in production, pull from wallet context
 const WALLET_ADDRESS = 'GBSN2ZJBRFWTQHWRJQE4GKDJJDSGPVTLQNQCQX7QR5W5VKHNHQH'
 
-interface ReceivePageClientProps {
-  walletAddress?: string
-}
-
-export function ReceivePageClient({ walletAddress = WALLET_ADDRESS }: ReceivePageClientProps) {
+export function ReceivePageClient({
+  walletAddress = WALLET_ADDRESS,
+  initialParams,
+}: ReceivePageClientProps) {
   const router = useRouter()
-  const [selectedAsset, setSelectedAsset] = useState<Asset>(ASSETS[0])
-  const [assetDropdownOpen, setAssetDropdownOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [shareOpen, setShareOpen] = useState(false)
-  const [linkCopied, setLinkCopied] = useState(false)
+  const [selectedAsset, setSelectedAsset] = useState<Asset>(() => {
+    const assetMatch = ASSETS.find((asset) => asset.symbol === initialParams?.asset)
+    return assetMatch ?? ASSETS[0]
+  })
+  const [selectedNetwork, setSelectedNetwork] = useState<TransferNetwork>(() => {
+    if (
+      initialParams?.network === 'PUBLIC' ||
+      initialParams?.network === 'TESTNET' ||
+      initialParams?.network === 'FUTURENET'
+    ) {
+      return initialParams.network
+    }
 
-  const qrValue = `${selectedAsset.symbol.toLowerCase()}:${walletAddress}`
-  const shareUrl = `https://aframp.io/pay/${walletAddress}`
+    return 'PUBLIC'
+  })
+  const [requestedAmount, setRequestedAmount] = useState(() => initialParams?.amount?.trim() || '10')
+  const [copied, setCopied] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+
+  const paymentUrl = useMemo(() => {
+    return buildTransferQrUrl(process.env.NEXT_PUBLIC_API_URL, {
+      recipient: walletAddress,
+      amount: requestedAmount.trim() || undefined,
+      asset: selectedAsset.symbol,
+      network: selectedNetwork,
+    })
+  }, [requestedAmount, selectedAsset.symbol, selectedNetwork, walletAddress])
+
+  const qrValue = paymentUrl
 
   const handleCopyAddress = async () => {
     await navigator.clipboard.writeText(walletAddress)
@@ -81,7 +120,7 @@ export function ReceivePageClient({ walletAddress = WALLET_ADDRESS }: ReceivePag
   }
 
   const handleCopyLink = async () => {
-    await navigator.clipboard.writeText(shareUrl)
+    await navigator.clipboard.writeText(paymentUrl)
     setLinkCopied(true)
     setTimeout(() => setLinkCopied(false), 2000)
   }
@@ -92,30 +131,30 @@ export function ReceivePageClient({ walletAddress = WALLET_ADDRESS }: ReceivePag
         await navigator.share({
           title: 'Send me crypto on Aframp',
           text: `Send ${selectedAsset.symbol} to my Aframp wallet`,
-          url: shareUrl,
+          url: paymentUrl,
         })
         return
       } catch {
-        // fall through to sheet
+        // fall back to the share sheet below
       }
     }
+
     setShareOpen(true)
   }
 
   const handleShareTwitter = () => {
-    const text = encodeURIComponent(`Send me ${selectedAsset.symbol} on Aframp! 🌍\n${shareUrl}`)
+    const text = encodeURIComponent(`Send me ${selectedAsset.symbol} on Aframp!\n${paymentUrl}`)
     window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank')
   }
 
   const handleShareWhatsApp = () => {
-    const text = encodeURIComponent(`Send me ${selectedAsset.symbol} on Aframp!\n${shareUrl}`)
+    const text = encodeURIComponent(`Send me ${selectedAsset.symbol} on Aframp!\n${paymentUrl}`)
     window.open(`https://wa.me/?text=${text}`, '_blank')
   }
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center">
-      <div className="w-full max-w-md flex flex-col min-h-screen relative">
-        {/* ── Header ── */}
+      <div className="relative flex min-h-screen w-full max-w-md flex-col">
         <header className="flex items-center gap-3 px-5 pt-6 pb-4">
           <button
             onClick={() => router.back()}
@@ -123,168 +162,172 @@ export function ReceivePageClient({ walletAddress = WALLET_ADDRESS }: ReceivePag
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-base font-semibold tracking-tight">Receive</h1>
+          <div>
+            <h1 className="text-base font-semibold tracking-tight">Receive</h1>
+            <p className="text-xs text-muted-foreground">Share a QR or payment link</p>
+          </div>
 
-          {/* Share trigger */}
-          <button
-            onClick={handleShare}
-            className="ml-auto p-2 rounded-full hover:bg-muted transition-colors"
-          >
-            <Share2 className="w-5 h-5" />
+          <button onClick={handleShare} className="ml-auto rounded-full p-2 hover:bg-muted transition-colors">
+            <Share2 className="h-5 w-5" />
           </button>
         </header>
 
-        <div className="flex flex-col flex-1 px-5 pb-8 gap-5">
-          {/* ── Asset selector ── */}
-          <div className="relative">
-            <button
-              onClick={() => setAssetDropdownOpen((o) => !o)}
-              className={cn(
-                'w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-all',
-                selectedAsset.bgColor,
-                'hover:opacity-90'
-              )}
-            >
-              <div className={cn('text-xl font-bold w-8 text-center', selectedAsset.color)}>
-                {selectedAsset.icon}
-              </div>
-              <div className="flex-1 text-left">
-                <p className={cn('text-sm font-semibold', selectedAsset.color)}>
-                  {selectedAsset.symbol}
-                </p>
-                <p className="text-xs text-muted-foreground">{selectedAsset.name}</p>
-              </div>
-              <ChevronDown
-                className={cn(
-                  'w-4 h-4 text-muted-foreground transition-transform',
-                  assetDropdownOpen && 'rotate-180'
-                )}
-              />
-            </button>
+        <div className="flex flex-1 flex-col gap-5 px-5 pb-8">
+          <div className="grid gap-3 rounded-2xl border border-border/60 bg-card p-4">
+            <div className="grid grid-cols-2 gap-2">
+              <Select
+                value={selectedAsset.symbol}
+                onValueChange={(value) =>
+                  setSelectedAsset(ASSETS.find((asset) => asset.symbol === value) ?? ASSETS[0])
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Asset" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ASSETS.map((asset) => (
+                    <SelectItem key={asset.symbol} value={asset.symbol}>
+                      {asset.symbol}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            {assetDropdownOpen && (
-              <div className="absolute top-full left-0 right-0 mt-1.5 rounded-2xl border border-border bg-popover shadow-xl z-20 overflow-hidden">
-                {ASSETS.map((asset) => (
-                  <button
-                    key={asset.symbol}
-                    onClick={() => {
-                      setSelectedAsset(asset)
-                      setAssetDropdownOpen(false)
-                    }}
-                    className={cn(
-                      'w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors',
-                      selectedAsset.symbol === asset.symbol && 'bg-muted/30'
-                    )}
-                  >
-                    <span className={cn('text-lg font-bold w-7 text-center', asset.color)}>
-                      {asset.icon}
-                    </span>
-                    <div className="flex-1 text-left">
-                      <p className="text-sm font-medium">{asset.symbol}</p>
-                      <p className="text-xs text-muted-foreground">{asset.name}</p>
-                    </div>
-                    {selectedAsset.symbol === asset.symbol && (
-                      <Check className="w-4 h-4 text-emerald-500" />
-                    )}
-                  </button>
-                ))}
-              </div>
+              <Select
+                value={selectedNetwork}
+                onValueChange={(value) => setSelectedNetwork(value as TransferNetwork)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Network" />
+                </SelectTrigger>
+                <SelectContent>
+                  {NETWORKS.map((network) => (
+                    <SelectItem key={network.value} value={network.value}>
+                      {network.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-1.5">
+              <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Requested amount
+              </label>
+              <Input
+                value={requestedAmount}
+                onChange={(event) => setRequestedAmount(event.target.value)}
+                inputMode="decimal"
+                placeholder="10"
+                className="h-11 font-medium"
+              />
+            </div>
+          </div>
+
+          <div
+            className={cn(
+              'flex flex-col items-center gap-5 rounded-2xl border border-border/60 bg-card p-6',
+              selectedAsset.bgColor
             )}
-          </div>
-
-          {/* ── QR Code card ── */}
-          <div className="flex flex-col items-center gap-5 p-6 rounded-2xl border border-border/60 bg-card">
-            {/* QR code */}
-            <div className="p-4 bg-white rounded-2xl shadow-sm">
-              <QRCode
-                value={qrValue}
-                size={200}
-                style={{ display: 'block' }}
-                viewBox="0 0 256 256"
-              />
+          >
+            <div className="rounded-2xl bg-white p-4 shadow-sm">
+              <QRCode value={qrValue} size={196} style={{ display: 'block' }} viewBox="0 0 256 256" />
             </div>
 
-            {/* Asset badge */}
-            <div
-              className={cn(
-                'px-4 py-1.5 rounded-full border text-xs font-semibold',
-                selectedAsset.bgColor,
-                selectedAsset.color
-              )}
-            >
-              {selectedAsset.name} ({selectedAsset.symbol})
+            <div className="text-center">
+              <div
+                className={cn(
+                  'mx-auto mb-2 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold',
+                  selectedAsset.bgColor,
+                  selectedAsset.color
+                )}
+              >
+                <span>{selectedAsset.icon}</span>
+                <span>
+                  {selectedAsset.name} on{' '}
+                  {NETWORKS.find((network) => network.value === selectedNetwork)?.label}
+                </span>
+              </div>
+              <p className="text-sm font-medium text-foreground">
+                QR includes address, amount, asset, and network
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Scan it in Aframp Send to auto-fill the recipient and amount.
+              </p>
             </div>
-
-            {/* Label */}
-            <p className="text-xs text-muted-foreground text-center px-4">
-              Scan this code to send {selectedAsset.symbol} to this wallet. Only send{' '}
-              <span className="font-medium text-foreground">{selectedAsset.symbol}</span> on the{' '}
-              <span className="font-medium text-foreground">Stellar</span> network.
-            </p>
           </div>
 
-          {/* ── Address display ── */}
           <div className="rounded-2xl border border-border/60 bg-card overflow-hidden">
             <div className="px-4 pt-4 pb-2">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-2">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Wallet address
               </p>
-              <p className="font-mono text-sm break-all leading-relaxed text-foreground">
+              <p className="break-all font-mono text-sm leading-relaxed text-foreground">
                 {walletAddress}
               </p>
             </div>
-            <div className="px-4 pb-4 flex gap-2 mt-2">
+
+            <div className="grid grid-cols-2 gap-2 px-4 pb-4 pt-3">
               <Button
                 onClick={handleCopyAddress}
                 variant="outline"
                 size="sm"
                 className={cn(
-                  'flex-1 h-9 gap-2 transition-all',
+                  'h-9 gap-2',
                   copied && 'border-emerald-500/40 text-emerald-600 bg-emerald-500/5'
                 )}
               >
                 {copied ? (
                   <>
-                    <Check className="w-3.5 h-3.5" />
-                    Copied!
+                    <Check className="h-3.5 w-3.5" />
+                    Copied
                   </>
                 ) : (
                   <>
-                    <Copy className="w-3.5 h-3.5" />
+                    <Copy className="h-3.5 w-3.5" />
                     Copy address
                   </>
                 )}
               </Button>
+
               <Button
-                onClick={() => {
-                  /* TODO: save QR image */
-                }}
+                onClick={handleCopyLink}
                 variant="outline"
                 size="sm"
-                className="h-9 gap-2"
+                className={cn(
+                  'h-9 gap-2',
+                  linkCopied && 'border-emerald-500/40 text-emerald-600 bg-emerald-500/5'
+                )}
               >
-                <Download className="w-3.5 h-3.5" />
-                Save QR
+                {linkCopied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="h-3.5 w-3.5" />
+                    Copy link
+                  </>
+                )}
               </Button>
             </div>
           </div>
 
-          {/* ── Share buttons ── */}
-          <ShareButtons
-            onCopyLink={handleCopyLink}
-            onTwitter={handleShareTwitter}
-            onWhatsApp={handleShareWhatsApp}
-            onNativeShare={handleShare}
-            linkCopied={linkCopied}
-          />
+          <div className="grid grid-cols-3 gap-2">
+            <ShareAction label="WhatsApp" onClick={handleShareWhatsApp} icon={MessageCircle} />
+            <ShareAction label="Twitter" onClick={handleShareTwitter} icon={Twitter} />
+            <ShareAction label="More" onClick={handleShare} icon={Share2} />
+          </div>
         </div>
       </div>
 
-      {/* Share sheet (fallback for non-native share) */}
       {shareOpen && (
         <ShareSheet
-          shareUrl={shareUrl}
+          shareUrl={paymentUrl}
           asset={selectedAsset}
+          networkLabel={NETWORKS.find((network) => network.value === selectedNetwork)?.label ?? 'Mainnet'}
+          amount={requestedAmount}
           onCopyLink={handleCopyLink}
           onTwitter={handleShareTwitter}
           onWhatsApp={handleShareWhatsApp}
@@ -296,79 +339,33 @@ export function ReceivePageClient({ walletAddress = WALLET_ADDRESS }: ReceivePag
   )
 }
 
-// ── Share buttons row ──────────────────────────────────────────
-interface ShareButtonsProps {
-  onCopyLink: () => void
-  onTwitter: () => void
-  onWhatsApp: () => void
-  onNativeShare: () => void
-  linkCopied: boolean
-}
-
-export function ShareButtons({
-  onCopyLink,
-  onTwitter,
-  onWhatsApp,
-  onNativeShare,
-  linkCopied,
-}: ShareButtonsProps) {
-  const actions = [
-    {
-      label: linkCopied ? 'Copied!' : 'Copy link',
-      icon: linkCopied ? Check : Link2,
-      onClick: onCopyLink,
-      accent: linkCopied ? 'text-emerald-500' : 'text-foreground',
-    },
-    {
-      label: 'WhatsApp',
-      icon: MessageCircle,
-      onClick: onWhatsApp,
-      accent: 'text-foreground',
-    },
-    {
-      label: 'Twitter',
-      icon: Twitter,
-      onClick: onTwitter,
-      accent: 'text-foreground',
-    },
-    {
-      label: 'More',
-      icon: Share2,
-      onClick: onNativeShare,
-      accent: 'text-foreground',
-    },
-  ]
-
+function ShareAction({
+  label,
+  icon: Icon,
+  onClick,
+}: {
+  label: string
+  icon: typeof Share2
+  onClick: () => void
+}) {
   return (
-    <div className="space-y-2">
-      <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium px-0.5">
-        Share
-      </p>
-      <div className="grid grid-cols-4 gap-2">
-        {actions.map((action) => {
-          const Icon = action.icon
-          return (
-            <button
-              key={action.label}
-              onClick={action.onClick}
-              className="flex flex-col items-center gap-2 py-3.5 rounded-2xl bg-muted/40 border border-border/50 hover:bg-muted/70 hover:border-border transition-all active:scale-95"
-            >
-              <div className="w-9 h-9 rounded-full bg-background border border-border/60 flex items-center justify-center shadow-sm">
-                <Icon className={cn('w-4 h-4', action.accent)} />
-              </div>
-              <span className={cn('text-xs font-medium', action.accent)}>{action.label}</span>
-            </button>
-          )
-        })}
+    <button
+      onClick={onClick}
+      className="flex flex-col items-center gap-2 rounded-2xl border border-border/50 bg-muted/40 py-3.5 transition-all hover:border-border hover:bg-muted/70 active:scale-95"
+    >
+      <div className="flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background shadow-sm">
+        <Icon className="h-4 w-4" />
       </div>
-    </div>
+      <span className="text-xs font-medium">{label}</span>
+    </button>
   )
 }
 
-// ── Share sheet modal ──────────────────────────────────────────
 interface ShareSheetProps {
   shareUrl: string
   asset: Asset
+  networkLabel: string
+  amount: string
   onCopyLink: () => void
   onTwitter: () => void
   onWhatsApp: () => void
@@ -379,6 +376,8 @@ interface ShareSheetProps {
 function ShareSheet({
   shareUrl,
   asset,
+  networkLabel,
+  amount,
   onCopyLink,
   onTwitter,
   onWhatsApp,
@@ -387,35 +386,30 @@ function ShareSheet({
 }: ShareSheetProps) {
   return (
     <>
-      {/* Backdrop */}
       <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Sheet */}
       <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center">
-        <div className="w-full max-w-md bg-background rounded-t-3xl border border-border/60 border-b-0 px-5 pt-5 pb-10 shadow-2xl">
-          {/* Handle */}
-          <div className="w-10 h-1 bg-muted-foreground/20 rounded-full mx-auto mb-5" />
+        <div className="w-full max-w-md rounded-t-3xl border border-border/60 border-b-0 bg-background px-5 pb-10 pt-5 shadow-2xl">
+          <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-muted-foreground/20" />
 
-          <h3 className="text-base font-semibold mb-1">Share your address</h3>
-          <p className="text-sm text-muted-foreground mb-5">
-            Let others send {asset.symbol} directly to you
+          <h3 className="mb-1 text-base font-semibold">Share payment link</h3>
+          <p className="mb-5 text-sm text-muted-foreground">
+            Let others send {asset.symbol} on {networkLabel}. Request amount: {amount || 'Any'}.
           </p>
 
-          {/* Share link preview */}
-          <div className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/40 border border-border/50 mb-5">
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-muted-foreground">Your payment link</p>
-              <p className="text-sm font-mono truncate">{shareUrl}</p>
+          <div className="mb-5 flex items-center gap-2.5 rounded-xl border border-border/50 bg-muted/40 p-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-muted-foreground">Payment link</p>
+              <p className="truncate font-mono text-sm">{shareUrl}</p>
             </div>
             <button
               onClick={onCopyLink}
-              className="shrink-0 px-3 py-1.5 rounded-lg bg-background border border-border text-sm font-medium hover:bg-muted/50 transition-colors"
+              className="shrink-0 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted/50"
             >
               {linkCopied ? 'Copied!' : 'Copy'}
             </button>
           </div>
 
-          {/* Channel buttons */}
           <div className="grid grid-cols-3 gap-3">
             {[
               {
@@ -446,11 +440,11 @@ function ShareSheet({
                   key={item.label}
                   onClick={item.onClick}
                   className={cn(
-                    'flex flex-col items-center gap-2 py-4 rounded-2xl border transition-all active:scale-95',
+                    'flex flex-col items-center gap-2 rounded-2xl border py-4 transition-all active:scale-95',
                     item.bg
                   )}
                 >
-                  <Icon className={cn('w-5 h-5', item.color)} />
+                  <Icon className={cn('h-5 w-5', item.color)} />
                   <span className="text-xs font-medium">{item.label}</span>
                 </button>
               )
@@ -459,7 +453,7 @@ function ShareSheet({
 
           <button
             onClick={onClose}
-            className="w-full mt-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            className="mt-4 w-full rounded-xl py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
           >
             Cancel
           </button>

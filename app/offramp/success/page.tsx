@@ -17,10 +17,11 @@ import {
   Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { formatCurrency } from '@/lib/onramp/formatters'
+import { formatCurrency } from '@/lib/calculations'
 import { generateReceiptPDF } from '@/lib/offramp/pdf-generator'
 import { toast } from 'sonner'
 import { OfframpWalletGuard } from '@/components/offramp/offramp-wallet-guard'
+import { FlowErrorBoundary } from '@/components/error/FlowErrorBoundary'
 
 export default function OfframpSuccessPage() {
   const [rating, setRating] = useState(0)
@@ -118,7 +119,8 @@ export default function OfframpSuccessPage() {
   }
 
   return (
-    <OfframpWalletGuard>
+    <FlowErrorBoundary step="offramp-success" restartHref="/offramp">
+      <OfframpWalletGuard>
       <div className="min-h-screen bg-background py-12 px-4 md:px-6">
         <div className="max-w-2xl mx-auto space-y-8">
           {/* Success Header */}
@@ -389,5 +391,6 @@ export default function OfframpSuccessPage() {
         </div>
       </div>
     </OfframpWalletGuard>
+    </FlowErrorBoundary>
   )
 }

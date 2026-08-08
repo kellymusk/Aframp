@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  aframp-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: aframp-dev
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
+    environment:
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true
+    volumes:
+      # Mount source code for hot-reload
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    restart: unless-stopped
+    command: npm run dev
+    networks:
+      - aframp-network
+
+networks:
+  aframp-network:
+    driver: bridge

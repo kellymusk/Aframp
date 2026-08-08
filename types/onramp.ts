@@ -55,6 +55,7 @@ export interface OnrampOrder {
   status: OrderStatus
   transactionHash?: string
   completedAt?: number
+  referralCode?: string
 }
 
 export interface TransactionItem {

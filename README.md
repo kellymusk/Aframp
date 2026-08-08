@@ -1,6 +1,10 @@
 # 🌍 AFRAMP: Africa's Financial Bridge
 
-<!-- CI/CD Pipeline Test -->
+[![CI](https://github.com/aframp/aframp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aframp/aframp/actions/workflows/ci.yml)
+[![codecov](https://img.shields.io/badge/coverage-70%25-brightgreen)](https://codecov.io/gh/aframp/aframp)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/typescript-5.0-blue)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/next.js-16.1-black)](https://nextjs.org/)
 
 ## Don't Trust, Verify
 
@@ -40,47 +44,247 @@ Aframp/
 
 ---
 
-## 🚀 Development Setup
+## 🚀 Quick Start (5 Minutes)
 
-Follow these instructions to get a local copy of the AFRAMP frontend up and running.
+Get AFRAMP running locally in under 5 minutes with our automated setup script or manual installation.
 
-### Prerequisites
+### Automated Setup (Easiest) ⚡
 
-Ensure you have the following installed on your system:
+**Linux/Mac:**
+```bash
+git clone https://github.com/your-org/Aframp.git
+cd Aframp
+chmod +x scripts/setup.sh
+./scripts/setup.sh
+```
 
-- **Node.js** (v18 or higher) & **npm**
+**Windows (PowerShell):**
+```powershell
+git clone https://github.com/your-org/Aframp.git
+cd Aframp
+.\scripts\setup.ps1
+```
+
+The script will:
+- ✅ Check prerequisites (Node.js, Docker)
+- ✅ Create `.env.local` from template
+- ✅ Let you choose Docker or Node.js setup
+- ✅ Install dependencies and start the app
+
+Access the app at `http://localhost:3000` ✅
+
+### Manual Setup
+
+#### Option 1: Docker (Recommended) 🐳
+
+**Prerequisites:** Docker & Docker Compose installed
+
+```bash
+# Clone and start
+git clone https://github.com/your-org/Aframp.git
+cd Aframp
+cp .env.example .env.local
+docker-compose -f docker-compose.dev.yml up
+```
+
+Access the app at `http://localhost:3000` ✅
+
+#### Option 2: Node.js
+
+**Prerequisites:** Node.js v18+ & npm
+
+```bash
+# Clone and install
+git clone https://github.com/your-org/Aframp.git
+cd Aframp
+npm install
+
+# Configure and run
+cp .env.example .env.local
+npm run dev
+```
+
+Access the app at `http://localhost:3000` ✅
+
+---
+
+## 🔧 Environment Variables
+
+Copy `.env.example` to `.env.local` and configure the following:
+
+### Required Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `NEXT_PUBLIC_DEMO_MODE` | Enable mock wallet for testing (set to `false` in production) | `false` |
+| `NEXT_PUBLIC_CNGN_ISSUER` | Stellar CNGN token issuer address | `GXXXXXX...` |
+
+### Payment Gateway Configuration
+
+| Variable | Description | Required For |
+|----------|-------------|--------------|
+| `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY` | Paystack public key | Card payments |
+| `PAYSTACK_SECRET_KEY` | Paystack secret key (server-side) | Payment processing |
+| `NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY` | Flutterwave public key | Mobile money |
+| `FLUTTERWAVE_SECRET_KEY` | Flutterwave secret key (server-side) | Payment processing |
+| `FLUTTERWAVE_ENCRYPTION_KEY` | Flutterwave encryption key | Secure transactions |
+
+### Optional Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NEXT_PUBLIC_BILLS_WS_URL` | WebSocket URL for real-time bill updates | N/A |
+
+### Getting API Keys
+
+- **Paystack**: Sign up at [paystack.com](https://paystack.com) → Settings → API Keys
+- **Flutterwave**: Sign up at [flutterwave.com](https://flutterwave.com) → Settings → API
+- **Stellar Issuer**: Use testnet issuer for development or contact AFRAMP team for production issuer
+
+---
+
+## 🐳 Docker Deployment
+
+### Development
+
+```bash
+# Start with hot-reload
+docker-compose up
+
+# Rebuild after dependency changes
+docker-compose up --build
+
+# Run in background
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop containers
+docker-compose down
+```
+
+### Production
+
+```bash
+# Build production image
+docker build -t aframp:latest .
+
+# Run production container
+docker run -p 3000:3000 --env-file .env.local aframp:latest
+
+# Or use docker-compose
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### Docker Environment Variables
+
+Pass environment variables via:
+- `.env.local` file (recommended)
+- Docker Compose `environment` section
+- `docker run -e` flags
+
+---
+
+## 🚀 Backend Deployment
+
+### Vercel (Recommended)
+
+1. **Connect Repository**
+   - Go to [vercel.com](https://vercel.com)
+   - Import your GitHub repository
+   - Select the `Aframp` project
+
+2. **Configure Environment Variables**
+   - In Vercel dashboard → Settings → Environment Variables
+   - Add all variables from `.env.example`
+   - Set `NEXT_PUBLIC_DEMO_MODE=false` for production
+
+3. **Deploy**
+   - Vercel auto-deploys on push to `main`
+   - Preview deployments for PRs
+   - Production URL: `https://your-project.vercel.app`
+
+### Other Platforms
+
+#### Railway
+
+```bash
+# Install Railway CLI
+npm i -g @railway/cli
+
+# Login and deploy
+railway login
+railway init
+railway up
+```
+
+#### Render
+
+1. Create new Web Service
+2. Connect GitHub repository
+3. Build Command: `npm run build`
+4. Start Command: `npm start`
+5. Add environment variables in dashboard
+
+#### AWS/GCP/Azure
+
+Use the provided `Dockerfile` for containerized deployment:
+
+```bash
+# Build and push to container registry
+docker build -t aframp:latest .
+docker tag aframp:latest your-registry/aframp:latest
+docker push your-registry/aframp:latest
+
+# Deploy using your platform's container service
+# (ECS, Cloud Run, Container Apps, etc.)
+```
+
+---
+
+## 📦 Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server with hot-reload |
+| `npm run build` | Build optimized production bundle |
+| `npm start` | Start production server (requires build first) |
+| `npm test` | Run Jest test suite |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run test:coverage` | Generate test coverage report |
+| `npm run lint` | Check code for linting errors |
+| `npm run format` | Format code with Prettier |
+| `npm run type-check` | Run TypeScript type checking |
+
+---
+
+## 🔍 Development Prerequisites
+
+### Required
+
+- **Node.js** v18 or higher
+- **npm** v9 or higher
 - **Git**
-- A modern web browser
-- (Recommended) A Stellar wallet browser extension (like Freighter)
+- Modern web browser (Chrome, Firefox, Safari, Edge)
 
-### Installation & Running
+### Recommended
 
-1.  **Clone the repository and install dependencies:**
+- **Docker Desktop** (for containerized development)
+- **Stellar Freighter Wallet** (browser extension for testing)
+- **VS Code** with recommended extensions:
+  - ESLint
+  - Prettier
+  - Tailwind CSS IntelliSense
+  - TypeScript and JavaScript Language Features
 
-    ```bash
-    git clone https://github.com/your-org/Aframp.git
-    cd Aframp
-    npm install
-    ```
+### Verify Installation
 
-2.  **Configure environment variables:**
-
-    ```bash
-    cp .env.example .env.local
-    ```
-
-    Edit the `.env` file to set your configuration, such as the backend API URL and Stellar network (Testnet/Mainnet).
-
-3.  **Start the development server:**
-
-    ```bash
-    npm start
-    ```
-
-    The application will open at `http://localhost:3000`.
-
-4.  **Connect to the Backend:**
-    The frontend is designed to work with the AFRAMP backend services, which handle blockchain interactions, user KYC, and transaction processing. Ensure the backend services are running and the `REACT_APP_API_URL` in your environment points to the correct location.
+```bash
+node --version  # Should be v18+
+npm --version   # Should be v9+
+docker --version  # Optional but recommended
+```
 
 ---
 

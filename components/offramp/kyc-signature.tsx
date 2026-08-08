@@ -3,7 +3,8 @@
 import * as React from 'react'
 import { ShieldCheck, Wallet, ChevronRight, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { BankAccount, signKycMessage } from '@/lib/offramp/bank-service'
+import { BankAccount, buildKycMessage, signKycMessage } from '@/lib/offramp/bank-service'
+import { OFFRAMP_COUNTRIES } from '@/lib/offramp/countries'
 import { toast } from 'sonner'
 import { useWallet } from '@/hooks/useWallet'
 
@@ -18,6 +19,9 @@ export function KYCSignature({ account, amount, onSigned, onBack }: KYCSignature
   const [isSigning, setIsSigning] = React.useState(false)
   const { publicKey, isConnected } = useWallet()
 
+  // The payout currency follows the destination account, not the platform default.
+  const currency = account.currency ?? OFFRAMP_COUNTRIES[account.country].currency
+
   const handleSign = async () => {
     setIsSigning(true)
     try {
@@ -26,7 +30,7 @@ export function KYCSignature({ account, amount, onSigned, onBack }: KYCSignature
         return
       }
 
-      const signature = await signKycMessage(publicKey, amount, account.accountNumber)
+      const signature = await signKycMessage(publicKey, amount, account.accountNumber, currency)
       onSigned(signature)
       toast.success('Message signed successfully')
     } catch {
@@ -36,7 +40,7 @@ export function KYCSignature({ account, amount, onSigned, onBack }: KYCSignature
     }
   }
 
-  const message = `I authorize AFRAMP to send ₦${amount.toLocaleString()} to account ${account.accountNumber}`
+  const message = buildKycMessage(amount, account.accountNumber, currency)
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
