@@ -41,6 +41,11 @@ export default function WithdrawPage() {
   const [accountNumber, setAccountNumber] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [boundaryError, setBoundaryError] = useState<Error | null>(null)
+
+  // If a backend-unreachable error was captured, re-throw it synchronously
+  // on the next render so the error boundary catches it.
+  if (boundaryError) throw boundaryError
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -53,9 +58,13 @@ export default function WithdrawPage() {
         setWithdrawals(nextWithdrawals)
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return
-        if (cause instanceof ApiError && cause.status === 0) throw cause
-        setError(cause instanceof Error ? cause.message : 'Could not load your cash-out details')
-        setBalances([])
+        if (cause instanceof ApiError && cause.status === 0) {
+          // Capture backend-unreachable errors and re-throw synchronously during render.
+          setBoundaryError(cause)
+        } else {
+          setError(cause instanceof Error ? cause.message : 'Could not load your cash-out details')
+          setBalances([])
+        }
       }
     },
     [token]

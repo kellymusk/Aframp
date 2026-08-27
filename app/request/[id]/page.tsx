@@ -28,6 +28,11 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
   const [request, setRequest] = useState<PaymentRequest | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [remaining, setRemaining] = useState(0)
+  const [boundaryError, setBoundaryError] = useState<Error | null>(null)
+
+  // If a backend-unreachable error was captured, re-throw it synchronously
+  // on the next render so the error boundary catches it.
+  if (boundaryError) throw boundaryError
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -38,7 +43,11 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
         return next
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return null
-        if (cause instanceof ApiError && cause.status === 0) throw cause
+        if (cause instanceof ApiError && cause.status === 0) {
+          // Capture backend-unreachable errors and re-throw synchronously during render.
+          setBoundaryError(cause)
+          return null
+        }
         setError(cause instanceof Error ? cause.message : 'Could not load this charge')
         return null
       }
