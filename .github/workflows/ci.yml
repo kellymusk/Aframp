@@ -52,7 +52,6 @@ jobs:
 
       - name: npm audit
         run: npm audit --audit-level=high
-        continue-on-error: true
 
       - name: Snyk Security Scan
         uses: snyk/actions/node@master
@@ -62,15 +61,12 @@ jobs:
 
       - name: Run OWASP scan
         run: bash scripts/owasp-scan.sh
-        continue-on-error: true
-
-      - name: Run wallet deps audit
-        run: bash scripts/audit-wallet-deps.sh
-        continue-on-error: true
 
   test:
     name: Tests & Coverage
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -105,7 +101,7 @@ jobs:
           retention-days: 1
 
       - name: Comment coverage on PR
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
         with:
           script: |

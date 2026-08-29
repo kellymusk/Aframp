@@ -146,21 +146,26 @@ export interface Withdrawal {
 
 function parseWithBigInts<T>(text: string): T {
   const quoted = text.replace(/"(amount_stroops|available|pending)"\s*:\s*(-?\d+)/g, '"$1":"$2"')
-  return JSON.parse(quoted, (key, value) =>
-    BIGINT_KEYS.has(key) && typeof value === 'string' ? BigInt(value) : value
-  ) as T
+  try {
+    return JSON.parse(quoted, (key, value) =>
+      BIGINT_KEYS.has(key) && typeof value === 'string' ? BigInt(value) : value
+    ) as T
+  } catch (error) {
+    if (error instanceof SyntaxError || error instanceof RangeError) {
+      throw new ApiError(`Invalid JSON response: ${error.message}`, 500)
+    }
+    throw error
+  }
 }
 
 /**
  * JSON.stringify throws on bigint, and `Number(stroops)` would silently round
- * past 2^53. This emits bigints as unquoted JSON integers instead.
+ * past 2^53. This emits bigints as quoted strings, which parseWithBigInts revives.
  */
 function stringifyWithBigInts(value: unknown): string {
-  const marker = ' bigint '
-  const json = JSON.stringify(value, (_key, raw) =>
-    typeof raw === 'bigint' ? `${marker}${raw.toString()}${marker}` : raw
+  return JSON.stringify(value, (_key, raw) =>
+    typeof raw === 'bigint' ? raw.toString() : raw
   )
-  return json.replace(new RegExp(`"${marker}(-?\\d+)${marker}"`, 'g'), '$1')
 }
 
 interface RequestOptions {

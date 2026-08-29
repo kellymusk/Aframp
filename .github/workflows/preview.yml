@@ -8,7 +8,7 @@ jobs:
   deploy-preview:
     name: Deploy Preview to Unique URL
     runs-on: ubuntu-latest
-    if: github.event.action != 'closed' && secrets.VERCEL_TOKEN != ''
+    if: github.event.action != 'closed'
     steps:
       - uses: actions/checkout@v4
 
@@ -41,7 +41,7 @@ jobs:
   cleanup-preview:
     name: Auto-delete Preview
     runs-on: ubuntu-latest
-    if: github.event.action == 'closed' && secrets.VERCEL_TOKEN != ''
+    if: github.event.action == 'closed'
     steps:
       - name: Delete Vercel Preview
         if: ${{ secrets.VERCEL_TOKEN != '' }}
