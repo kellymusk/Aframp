@@ -285,8 +285,7 @@ npm run test:coverage
 
 ### Coverage Requirements
 
-- **Minimum:** 70% across all metrics
-- **Target:** 80%+ for new code
+- **Target:** 80% coverage on changed files
 - **Metrics:** Lines, Statements, Functions, Branches
 
 ---
@@ -327,9 +326,13 @@ npm run test:coverage
 ### PR Description Template
 
 ```markdown
-## Description
+## Summary
 
-Brief description of changes
+Brief description of changes (what and why)
+
+Closes #<!-- issue number -->
+
+---
 
 ## Type of Change
 
@@ -337,10 +340,6 @@ Brief description of changes
 - [ ] New feature
 - [ ] Breaking change
 - [ ] Documentation update
-
-## Related Issues
-
-Closes #123
 
 ## Testing
 

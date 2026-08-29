@@ -1,10 +1,10 @@
 # 🌍 AFRAMP: Africa's Financial Bridge
 
 [![CI](https://github.com/aframp/aframp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aframp/aframp/actions/workflows/ci.yml)
-[![codecov](https://img.shields.io/badge/coverage-70%25-brightgreen)](https://codecov.io/gh/aframp/aframp)
+[[![codecov](https://img.shields.io/badge/coverage-1%25-red)](https://codecov.io/gh/Mac-5/Aframp)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/typescript-5.0-blue)](https://www.typescriptlang.org/)
-[![Next.js](https://img.shields.io/badge/next.js-16.1-black)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/next.js-15.3-black)](https://nextjs.org/)
 
 ## Don't Trust, Verify
 
@@ -27,16 +27,12 @@ The AFRAMP frontend repository is organized for clarity and scalability:
 ```
 Aframp/
 ├── public/                 # Static assets
-├── src/
-│   ├── assets/            # Images, fonts, icons
-│   ├── components/        # Reusable UI components (Buttons, Modals, etc.)
-│   ├── contexts/          # React contexts (Auth, Wallet, Theme)
-│   ├── hooks/             # Custom React hooks
-│   ├── pages/             # Top-level page components (Dashboard, Onramp, Bills)
-│   ├── services/          # API and blockchain service integrations
-│   ├── styles/            # Global and module CSS/Tailwind config
-│   ├── utils/             # Helper functions and constants
-│   └── App.js             # Main application component
+├── app/                    # Next.js App Router
+│   ├── (app)/            # Authenticated routes
+│   ├── layout.tsx        # Root layout
+│   └── page.tsx          # Auth/login page
+├── components/             # Reusable UI components
+├── lib/                    # Utilities, API client, types
 ├── .env.example           # Environment variables template
 ├── package.json
 └── README.md
@@ -74,7 +70,7 @@ The script will:
 - ✅ Let you choose Docker or Node.js setup
 - ✅ Install dependencies and start the app
 
-Access the app at `http://localhost:3000` ✅
+Access the app at `http://localhost:3001` ✅
 
 ### Manual Setup
 
@@ -90,11 +86,11 @@ cp .env.example .env.local
 docker-compose -f docker-compose.dev.yml up
 ```
 
-Access the app at `http://localhost:3000` ✅
+Access the app at `http://localhost:3001` ✅
 
 #### Option 2: Node.js
 
-**Prerequisites:** Node.js v18+ & npm
+**Prerequisites:** Node.js v20+ & npm
 
 ```bash
 # Clone and install
@@ -107,7 +103,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Access the app at `http://localhost:3000` ✅
+Access the app at `http://localhost:3001` ✅
 
 ---
 
@@ -117,32 +113,18 @@ Copy `.env.example` to `.env.local` and configure the following:
 
 ### Required Variables
 
-| Variable                  | Description                                                   | Example      |
-| ------------------------- | ------------------------------------------------------------- | ------------ |
-| `NEXT_PUBLIC_DEMO_MODE`   | Enable mock wallet for testing (set to `false` in production) | `false`      |
-| `NEXT_PUBLIC_CNGN_ISSUER` | Stellar CNGN token issuer address                             | `GXXXXXX...` |
-
-### Payment Gateway Configuration
-
-| Variable                             | Description                          | Required For        |
-| ------------------------------------ | ------------------------------------ | ------------------- |
-| `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY`    | Paystack public key                  | Card payments       |
-| `PAYSTACK_SECRET_KEY`                | Paystack secret key (server-side)    | Payment processing  |
-| `NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY` | Flutterwave public key               | Mobile money        |
-| `FLUTTERWAVE_SECRET_KEY`             | Flutterwave secret key (server-side) | Payment processing  |
-| `FLUTTERWAVE_ENCRYPTION_KEY`         | Flutterwave encryption key           | Secure transactions |
+| Variable               | Description                            | Example               |
+| ---------------------- | -------------------------------------- | --------------------- |
+| `NEXT_PUBLIC_API_URL`  | Backend service URL (default: :3000)   | `http://127.0.0.1:3000` |
 
 ### Optional Variables
 
-| Variable                   | Description                              | Default |
-| -------------------------- | ---------------------------------------- | ------- |
-| `NEXT_PUBLIC_BILLS_WS_URL` | WebSocket URL for real-time bill updates | N/A     |
-
-### Getting API Keys
-
-- **Paystack**: Sign up at [paystack.com](https://paystack.com) → Settings → API Keys
-- **Flutterwave**: Sign up at [flutterwave.com](https://flutterwave.com) → Settings → API
-- **Stellar Issuer**: Use testnet issuer for development or contact AFRAMP team for production issuer
+| Variable                     | Description                    |
+| ---------------------------- | ------------------------------ |
+| `NEXT_PUBLIC_SENTRY_DSN`     | Sentry error tracking endpoint |
+| `SENTRY_AUTH_TOKEN`          | Sentry authentication token    |
+| `SENTRY_ORG`                 | Sentry organization slug       |
+| `SENTRY_PROJECT`             | Sentry project slug            |
 
 ---
 
@@ -174,7 +156,7 @@ docker-compose down
 docker build -t aframp:latest .
 
 # Run production container
-docker run -p 3000:3000 --env-file .env.local aframp:latest
+docker run -p 3001:3001 --env-file .env.local aframp:latest
 
 # Or use docker-compose
 docker-compose -f docker-compose.prod.yml up -d
@@ -292,43 +274,11 @@ docker --version  # Optional but recommended
 
 ---
 
-## 💳 Onramp Page (Wallet-Connected Flow)
-
-The onramp page lives at `/onramp` and assumes a connected Stellar wallet address is already stored in `localStorage`.
-
-### Run Locally
-
-1. Start the dev server (see setup above).
-2. Visit `http://localhost:3000/onramp`.
-3. Ensure `localStorage.walletAddress` is set to a valid Stellar address (56 characters, starts with `G`).
-
-### Environment Variables
-
-No additional environment variables are required for the onramp page. Exchange rates are fetched from CoinGecko on the client.
-
-### Supported Currencies & Assets
-
-- Fiat: NGN, KES, GHS, ZAR, UGX
-- Crypto: cNGN, cKES, cGHS, USDC, XLM
-
-### Payment Methods & Fees
-
-- Bank Transfer: 0% processing fee
-- Card Payment: 1.5% processing fee
-- Mobile Money: 0.5% processing fee
-
-### Known Limitations
-
-- Wallet switching is a client-only selector and does not yet integrate with Freighter accounts.
-- Exchange rates are best-effort with cached fallbacks on API failure.
-
----
-
 ## 🧪 Testing & Quality
 
 - **Run Unit Tests:** Execute `npm test` to launch the test runner.
 - **Code Linting:** Use `npm run lint` to check code style and catch errors.
-- **Build for Production:** Run `npm run build` to create an optimized production build in the `build/` folder.
+- **Build for Production:** Run `npm run build` to create an optimized production build in the `.next/` folder.
 
 ---
 

@@ -14,16 +14,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { api, ApiError, type Balance, type Withdrawal, type WithdrawalStatus } from '@/lib/api'
+import {
+  api,
+  ApiError,
+  type Balance,
+  type ResolvedAccount,
+  type Withdrawal,
+  type WithdrawalStatus,
+} from '@/lib/api'
 import { formatStroops, isWholeKobo, parseAmountToStroops } from '@/lib/money'
 import { BANKS } from '@/lib/banks'
 import { useAuthenticatedSession } from '@/components/session-provider'
+import { useSep24Flow } from '@/hooks/use-sep24-flow'
 
 /** Withdrawals are cNGN-only server-side; XLM balances have no cash-out path. */
 const ASSET = 'cNGN'
 const ACCOUNT_NUMBER_LENGTH = 10
 /** Paystack's own floor is NGN 50. */
 const MINIMUM_STROOPS = 500_000_000n
+/** Avoids firing a resolve request on every keystroke while typing the account number. */
+const RESOLVE_DEBOUNCE_MS = 500
 
 const STATUS_LABEL: Record<WithdrawalStatus, string> = {
   pending: 'Pending',
@@ -34,6 +44,7 @@ const STATUS_LABEL: Record<WithdrawalStatus, string> = {
 
 export default function WithdrawPage() {
   const { token } = useAuthenticatedSession()
+  const sep24 = useSep24Flow(token)
   const [balances, setBalances] = useState<Balance[] | null>(null)
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
   const [amount, setAmount] = useState('')
@@ -41,6 +52,9 @@ export default function WithdrawPage() {
   const [accountNumber, setAccountNumber] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [resolvedAccount, setResolvedAccount] = useState<ResolvedAccount | null>(null)
+  const [resolving, setResolving] = useState(false)
+  const [resolveError, setResolveError] = useState<string | null>(null)
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -53,19 +67,57 @@ export default function WithdrawPage() {
         setWithdrawals(nextWithdrawals)
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return
-        if (cause instanceof ApiError && cause.status === 0) throw cause
-        setError(cause instanceof Error ? cause.message : 'Could not load your cash-out details')
+        if (cause instanceof ApiError && cause.status === 0)
+          setError("Can't reach the payment server. Please try again in a moment.")
+        else setError(cause instanceof Error ? cause.message : 'Could not load your cash-out details')
         setBalances([])
       }
     },
     [token]
   )
 
+  // Refetch on an interval too, since the payout provider can flip a
+  // withdrawal from pending -> completed/failed without any client action.
   useEffect(() => {
     const controller = new AbortController()
     void load(controller.signal)
-    return () => controller.abort()
+    const poll = setInterval(() => void load(), 15_000)
+    return () => {
+      controller.abort()
+      clearInterval(poll)
+    }
   }, [load])
+
+  useEffect(() => {
+    setResolvedAccount(null)
+    setResolveError(null)
+
+    if (accountNumber.length !== ACCOUNT_NUMBER_LENGTH || !bankCode) return
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      setResolving(true)
+      api
+        .resolveAccount(token, bankCode, accountNumber, controller.signal)
+        .then(setResolvedAccount)
+        .catch((cause) => {
+          if (cause instanceof DOMException && cause.name === 'AbortError') return
+          setResolveError(
+            cause instanceof ApiError && cause.status === 404
+              ? 'Account not found. Check the number and bank.'
+              : cause instanceof Error
+                ? cause.message
+                : 'Could not verify this account.'
+          )
+        })
+        .finally(() => setResolving(false))
+    }, RESOLVE_DEBOUNCE_MS)
+
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [token, accountNumber, bankCode])
 
   const available = balances?.find((balance) => balance.asset === ASSET)?.available ?? 0n
   const stroops = parseAmountToStroops(amount)
@@ -80,6 +132,7 @@ export default function WithdrawPage() {
     if (accountNumber.length !== ACCOUNT_NUMBER_LENGTH) {
       return `Account numbers are ${ACCOUNT_NUMBER_LENGTH} digits.`
     }
+    if (!resolvedAccount) return 'We could not verify this account yet.'
     return null
   }
 
@@ -94,9 +147,15 @@ export default function WithdrawPage() {
     setSubmitting(true)
     setError(null)
     try {
-      await api.createWithdrawal(token, stroops!, bankCode, accountNumber, ASSET)
+      const created = await api.createWithdrawal(token, stroops!, bankCode, accountNumber, ASSET)
+      // Show the new withdrawal instantly instead of waiting on a refetch —
+      // the list otherwise only picked up the new entry on the next manual
+      // reload or the background poll.
+      setWithdrawals((current) => [created, ...current])
       setAmount('')
-      await load()
+      setBankCode('')
+      setAccountNumber('')
+      void load()
     } catch (cause) {
       // A 502 carries Paystack's own message — show it rather than a generic one.
       setError(cause instanceof Error ? cause.message : 'Cash-out failed')
@@ -185,12 +244,47 @@ export default function WithdrawPage() {
                 )
               }
             />
+            {resolving && <p className="text-dim text-xs">Verifying account…</p>}
+            {resolvedAccount && (
+              <p className="text-xs font-medium text-emerald-500">
+                {resolvedAccount.account_name}
+              </p>
+            )}
+            {resolveError && <p className="text-destructive text-xs">{resolveError}</p>}
           </div>
 
-          <Button type="submit" size="lg" disabled={submitting || available === 0n}>
+          <Button
+            type="submit"
+            size="lg"
+            disabled={submitting || available === 0n || !resolvedAccount}
+          >
             {submitting ? 'Sending…' : 'Cash out'}
           </Button>
         </form>
+
+        <div className="bg-panel border-hairline space-y-3 rounded-2xl border p-5">
+          <h2 className="text-dim text-xs font-bold tracking-widest uppercase">
+            Prefer your own rails?
+          </h2>
+          <p className="text-dim text-sm">
+            Skip the bank form above and withdraw straight through the anchor&apos;s own
+            interactive flow (SEP-0024) instead.
+          </p>
+          {sep24.error && (
+            <Alert variant="destructive">
+              <AlertDescription>{sep24.error}</AlertDescription>
+            </Alert>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={sep24.busy === 'withdraw' || available === 0n}
+            onClick={() => void sep24.startWithdraw(ASSET)}
+          >
+            {sep24.busy === 'withdraw' ? 'Opening anchor…' : 'Withdraw via anchor'}
+          </Button>
+        </div>
 
         {withdrawals.length > 0 && (
           <section className="space-y-3">

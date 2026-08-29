@@ -213,7 +213,7 @@ jobs:
           NEXT_PUBLIC_STELLAR_NETWORK: TESTNET
 
   lighthouse:
-    name: Lighthouse CI (perf: 0.3+, LCP: 5s, TBT: 5s)
+    name: Lighthouse CI
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -258,3 +258,56 @@ jobs:
           name: lighthouse-results-${{ github.run_number }}
           path: .lighthouseci/
           retention-days: 30
+
+      - name: Comment Lighthouse report links on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            let links = {};
+            try {
+              links = JSON.parse(fs.readFileSync('.lighthouseci/links.json', 'utf8'));
+            } catch (err) {
+              core.warning(`Could not read .lighthouseci/links.json: ${err.message}`);
+            }
+
+            const entries = Object.entries(links);
+            const rows = entries
+              .map(([url, reportUrl]) => `| ${url} | [View report](${reportUrl}) |`)
+              .join('\n');
+
+            const body = [
+              '## 🔦 Lighthouse CI Report',
+              '',
+              entries.length
+                ? `| Page | Report |\n|------|--------|\n${rows}`
+                : '_No report links were produced — check the workflow run for details._',
+              '',
+              'Gate: fails this PR if Performance < 80, Accessibility < 90, or Best Practices < 90.',
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const marker = '## 🔦 Lighthouse CI Report';
+            const existing = comments.find((comment) => comment.body.startsWith(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

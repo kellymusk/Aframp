@@ -72,6 +72,82 @@ export const useCaseTiles: UseCaseTile[] = [
   },
 ]
 
+export type FeatureItem = {
+  title: string
+  blurb: string
+  metric?: { value: string; label: string }
+}
+
+// Distinct from `useCaseTiles` below — these are product capabilities
+// (what Aframp does), not customer scenarios (who uses it and why).
+export const features: FeatureItem[] = [
+  {
+    title: 'Live, Transparent Rates',
+    blurb: 'The NGN/cNGN rate you see is the rate you get — pulled fresh on every page load.',
+  },
+  {
+    title: 'Instant Settlement',
+    blurb: 'Payments confirm on the Stellar ledger in seconds, not days.',
+    metric: { value: '~5s', label: 'avg. ledger close' },
+  },
+  {
+    title: 'Non-Custodial by Design',
+    blurb: 'Your funds stay in your wallet until the moment you choose to send them.',
+  },
+  {
+    title: 'Multiple Funding Methods',
+    blurb: 'Bank transfer, card, or mobile money — pick whatever is fastest where you are.',
+  },
+  {
+    title: 'Bank-Grade Security',
+    blurb: 'Encrypted end-to-end, with the same controls regulated fintechs rely on.',
+  },
+  {
+    title: 'Built for Africa',
+    blurb: 'Country-aware pricing and payout rails, not a one-size-fits-all product.',
+  },
+]
+
+// Copy here is deliberately conservative — see SECURITY.md for our actual
+// disclosure process. No claim below should imply certification, licensing,
+// or an audit that hasn't happened; each links to the primary source
+// instead of using a badge/logo that could be read as a stamp of approval.
+export const trust = {
+  eyebrow: 'Trust & Compliance',
+  title: 'Built in the open, on public infrastructure',
+  blurb:
+    "We'd rather point you at the primary source than ask you to take our word for it.",
+  items: [
+    {
+      title: 'Stellar Network',
+      blurb:
+        'Settlement runs on the public Stellar ledger — every transaction is independently verifiable on a Stellar block explorer, not just in our own dashboard.',
+      linkLabel: 'View on Stellar.org',
+      href: 'https://stellar.org',
+    },
+    {
+      title: 'Responsible Disclosure',
+      blurb:
+        'We maintain a public security policy and a private channel for reporting vulnerabilities. We have not yet commissioned a third-party audit — this is our current process, not a certification.',
+      linkLabel: 'Read our security policy',
+      href: 'https://github.com/aframp/aframp/blob/main/SECURITY.md',
+    },
+    {
+      title: 'Open Source',
+      blurb:
+        'The code behind this site and our platform is public on GitHub — you can read it, not just trust it.',
+      linkLabel: 'View source on GitHub',
+      href: 'https://github.com/aframp/aframp',
+    },
+  ],
+}
+
+export const pricingIntro = {
+  eyebrow: 'Pricing',
+  title: 'Simple, transparent fees',
+  blurb: "See exactly what you'll pay before you send — no hidden charges, ever.",
+}
+
 export const steps = [
   {
     title: 'Enter Amount & Recipient/Your Wallet',
