@@ -2,29 +2,25 @@
 
 import { use, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import QRCode from 'react-qr-code'
-import { Check, Clock, TriangleAlert } from 'lucide-react'
+import { Check, Clock, Copy, ExternalLink, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
+import { CountdownTimer } from '@/components/onramp/countdown-timer'
 import { api, ApiError, type PaymentRequest } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
+import { useSession } from '@/components/session-provider'
 
 /** The backend confirms a deposit within one Horizon poll cycle (60s default). */
 const POLL_INTERVAL_MS = 3000
 
-function secondsUntil(iso: string): number {
-  return Math.max(0, Math.floor((new Date(iso).getTime() - Date.now()) / 1000))
-}
-
-function formatCountdown(seconds: number): string {
-  const minutes = Math.floor(seconds / 60)
-  return `${minutes}:${String(seconds % 60).padStart(2, '0')}`
-}
-
 export default function PaymentRequestPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const { session } = useSession()
+  const router = useRouter()
   const [request, setRequest] = useState<PaymentRequest | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [remaining, setRemaining] = useState(0)
@@ -75,13 +71,30 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
     }
   }, [load])
 
-  // Separate 1s ticker so the countdown moves independently of the poll.
-  useEffect(() => {
-    if (!request || request.status !== 'pending') return
-    setRemaining(secondsUntil(request.expires_at))
-    const timer = setInterval(() => setRemaining(secondsUntil(request.expires_at)), 1000)
-    return () => clearInterval(timer)
-  }, [request])
+  async function regenerate() {
+    if (!request) return
+    if (!session) {
+      router.push('/charge')
+      return
+    }
+    setRegenerating(true)
+    setRegenerateError(null)
+    try {
+      const next = await api.createPaymentRequest(
+        session.token,
+        request.amount_stroops,
+        request.asset,
+        undefined,
+        request.memo || undefined
+      )
+      router.replace(`/request/${next.id}`)
+    } catch (cause) {
+      setRegenerateError(
+        cause instanceof Error ? cause.message : 'Could not generate a new code'
+      )
+      setRegenerating(false)
+    }
+  }
 
   if (error && !request) {
     return (
@@ -118,20 +131,30 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
     )
   }
 
-  if (request.status === 'expired') {
+  if (request.status === 'expired' || clientExpired) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-6 px-6 text-center">
         <div className="bg-muted text-muted-foreground flex size-20 items-center justify-center rounded-full">
           <Clock className="size-10" aria-hidden />
         </div>
         <div className="space-y-1">
-          <h1 className="font-display text-2xl font-semibold tracking-tight">Charge expired</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">
+            This payment code has expired
+          </h1>
           <p className="text-muted-foreground text-sm">
             Nobody paid {amount} before the code ran out.
           </p>
         </div>
-        <Button asChild size="lg" className="w-full">
-          <Link href="/charge">Start a new charge</Link>
+        {regenerateError && (
+          <Alert variant="destructive">
+            <AlertDescription>{regenerateError}</AlertDescription>
+          </Alert>
+        )}
+        <Button size="lg" className="w-full" disabled={regenerating} onClick={regenerate}>
+          {regenerating ? 'Generating…' : 'Generate new code'}
+        </Button>
+        <Button asChild variant="outline" size="lg" className="w-full">
+          <Link href="/charge">Back to keypad</Link>
         </Button>
       </main>
     )
@@ -146,8 +169,8 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
         <p className="font-display text-4xl font-semibold tracking-tight tabular-nums">{amount}</p>
       </header>
 
-      {request.sep7_uri ? (
-        <div className="flex justify-center">
+      {isValidSep7Uri(request.sep7_uri) ? (
+        <div className="flex flex-col items-center gap-3">
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <QRCode
               value={request.sep7_uri}
@@ -155,6 +178,34 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
               level="M"
               title={`Pay ${amount} to ${request.address}`}
             />
+          </div>
+          <p className="text-muted-foreground text-center text-xs">
+            Scan with Freighter or Lobstr to open this payment in-wallet.
+          </p>
+          <div className="flex w-full gap-2">
+            <Button asChild variant="outline" size="sm" className="flex-1">
+              <a href={request.sep7_uri}>
+                <ExternalLink className="size-4" aria-hidden />
+                Open in wallet
+              </a>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => void copySep7Link(request.sep7_uri!)}
+            >
+              {linkCopied ? (
+                <>
+                  <Check className="size-4" aria-hidden /> Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="size-4" aria-hidden /> Copy link
+                </>
+              )}
+            </Button>
           </div>
         </div>
       ) : (
@@ -178,13 +229,12 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
         </div>
       </dl>
 
-      <p
-        className="text-muted-foreground flex items-center justify-center gap-2 text-sm"
-        aria-live="polite"
-      >
-        <Clock className="size-4" aria-hidden />
-        Expires in <span className="tabular-nums">{formatCountdown(remaining)}</span>
-      </p>
+      <div className="flex justify-center" aria-live="polite">
+        <CountdownTimer
+          expiresAt={new Date(request.expires_at)}
+          onExpire={() => setClientExpired(true)}
+        />
+      </div>
 
       <div className="space-y-2">
         <Button asChild variant="outline" size="lg" className="w-full">
