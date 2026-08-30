@@ -72,7 +72,7 @@ export function WalletSidebar() {
           <LogOut className="size-4 shrink-0" strokeWidth={1.75} />
           Sign out
         </button>
-        <p className="text-dim px-1 text-xs">Secure. Non-custodial. Always on.</p>
+        <p className="text-dim px-1 text-xs">Secure. Always on.</p>
       </div>
     </aside>
   )

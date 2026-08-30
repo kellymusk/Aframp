@@ -54,9 +54,6 @@
 }
 
 @theme inline {
-  --font-sans: 'Manrope', 'Inter', 'Segoe UI', Arial, sans-serif;
-  --font-display: 'Outfit', 'Inter', 'Segoe UI', Arial, sans-serif;
-  --font-heading: 'Space Mono', 'SFMono-Regular', Consolas, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

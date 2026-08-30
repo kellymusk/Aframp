@@ -1,6 +1,6 @@
 import type React from 'react'
 import type { Metadata, Viewport } from 'next'
-import { Atkinson_Hyperlegible } from 'next/font/google'
+import { Atkinson_Hyperlegible, Manrope, Outfit, Space_Mono } from 'next/font/google'
 import { ThemeProvider } from '@/components/theme-provider'
 import { SessionProvider } from '@/components/session-provider'
 import './globals.css'
@@ -11,6 +11,25 @@ const atkinson = Atkinson_Hyperlegible({
   subsets: ['latin'],
   weight: ['400', '700'],
   variable: '--font-atkinson',
+  display: 'swap',
+})
+
+const manrope = Manrope({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+})
+
+const outfit = Outfit({
+  subsets: ['latin'],
+  variable: '--font-display',
+  display: 'swap',
+})
+
+const spaceMono = Space_Mono({
+  weight: ['400', '700'],
+  subsets: ['latin'],
+  variable: '--font-heading',
   display: 'swap',
 })
 
@@ -32,7 +51,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={atkinson.variable} suppressHydrationWarning>
+    <html lang="en" className={`${atkinson.variable} ${manrope.variable} ${outfit.variable} ${spaceMono.variable}`} suppressHydrationWarning>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
