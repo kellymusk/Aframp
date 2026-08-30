@@ -9,6 +9,7 @@
 
 import type { KycInitiateRequest, KycInitiateResponse, KycStatusResponse } from '@/types/kyc'
 import type { OfframpFeeBreakdown, OfframpOrder } from '@/types/offramp'
+import type { FiatCurrency } from '@/types/onramp'
 
 /** Backend ids are UUIDs; aliased for readability, not validated here. */
 type UUID = string
@@ -63,6 +64,8 @@ export interface Session {
   token: string
   userId: string
   merchantId: string | null
+}
+
 /** SEP-0010 challenge transaction, ready to be signed client-side. */
 export interface Sep10Challenge {
   transaction: string
@@ -360,9 +363,10 @@ export const api = {
   createWithdrawal: (
     token: string,
     amountStroops: bigint,
-    bankCode: string,
+    bankCode: string | undefined,
     accountNumber: string,
-    asset = 'cNGN'
+    asset = 'cNGN',
+    currency: FiatCurrency = 'NGN'
   ) =>
     request<Withdrawal>('/withdraw', {
       method: 'POST',
@@ -370,7 +374,8 @@ export const api = {
       body: {
         amount_stroops: amountStroops,
         asset,
-        bank_code: bankCode,
+        currency,
+        ...(bankCode ? { bank_code: bankCode } : {}),
         account_number: accountNumber,
       },
     }),
