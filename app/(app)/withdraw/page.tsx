@@ -22,18 +22,26 @@ import {
   type Withdrawal,
   type WithdrawalStatus,
 } from '@/lib/api'
-import { formatStroops, isWholeKobo, parseAmountToStroops } from '@/lib/money'
+import { formatStroops, isWholeKobo, parseAmountToStroops, STROOPS_PER_UNIT } from '@/lib/money'
 import { BANKS } from '@/lib/banks'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { useSep24Flow } from '@/hooks/use-sep24-flow'
+import { useOfframpRate } from '@/hooks/use-offramp-rate'
 
 /** Withdrawals are cNGN-only server-side; XLM balances have no cash-out path. */
 const ASSET = 'cNGN'
 const ACCOUNT_NUMBER_LENGTH = 10
 /** Paystack's own floor is NGN 50. */
 const MINIMUM_STROOPS = 500_000_000n
+/** Flutterwave's documented M-Pesa payout floor is KES 100. */
+const KES_MINIMUM = 100
+/** Kenyan mobile numbers are +254 followed by nine digits. */
+const KES_PHONE_PATTERN = /^\+254\d{9}$/
+const KES_PHONE_PLACEHOLDER = '+254712345678'
 /** Avoids firing a resolve request on every keystroke while typing the account number. */
 const RESOLVE_DEBOUNCE_MS = 500
+
+type WithdrawCurrency = 'NGN' | 'KES'
 
 const STATUS_LABEL: Record<WithdrawalStatus, string> = {
   pending: 'Pending',
@@ -48,8 +56,13 @@ export default function WithdrawPage() {
   const [balances, setBalances] = useState<Balance[] | null>(null)
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
   const [amount, setAmount] = useState('')
+  const [currency, setCurrency] = useState<WithdrawCurrency>('NGN')
   const [bankCode, setBankCode] = useState('')
   const [accountNumber, setAccountNumber] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [resolvedAccount, setResolvedAccount] = useState<ResolvedAccount | null>(null)
+  const [resolveError, setResolveError] = useState<string | null>(null)
+  const [resolving, setResolving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [boundaryError, setBoundaryError] = useState<Error | null>(null)
@@ -57,6 +70,8 @@ export default function WithdrawPage() {
   // If a backend-unreachable error was captured, re-throw it synchronously
   // on the next render so the error boundary catches it.
   if (boundaryError) throw boundaryError
+
+  const rate = useOfframpRate(token, currency === 'KES' ? ASSET : null, currency)
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -97,6 +112,7 @@ export default function WithdrawPage() {
     setResolvedAccount(null)
     setResolveError(null)
 
+    if (currency !== 'NGN') return
     if (accountNumber.length !== ACCOUNT_NUMBER_LENGTH || !bankCode) return
 
     const controller = new AbortController()
@@ -122,10 +138,14 @@ export default function WithdrawPage() {
       clearTimeout(timer)
       controller.abort()
     }
-  }, [token, accountNumber, bankCode])
+  }, [token, currency, accountNumber, bankCode])
 
   const available = balances?.find((balance) => balance.asset === ASSET)?.available ?? 0n
   const stroops = parseAmountToStroops(amount)
+  const receiveEstimate =
+    currency === 'KES' && stroops !== null && rate.rate > 0
+      ? Math.floor((Number(stroops) / Number(STROOPS_PER_UNIT)) * rate.rate)
+      : 0
 
   function validate(): string | null {
     if (stroops === null || stroops <= 0n) return 'Enter an amount to cash out.'
@@ -133,6 +153,17 @@ export default function WithdrawPage() {
     if (stroops < MINIMUM_STROOPS)
       return `The smallest cash-out is ${formatStroops(MINIMUM_STROOPS)} ${ASSET}.`
     if (stroops > available) return 'That is more than your available balance.'
+
+    if (currency === 'KES') {
+      if (!KES_PHONE_PATTERN.test(phoneNumber))
+        return `Enter a valid M-Pesa number, e.g. ${KES_PHONE_PLACEHOLDER}.`
+      if (rate.isLoading) return 'Fetching the current rate — try again in a moment.'
+      if (rate.error) return 'Could not fetch the current KES rate.'
+      if (receiveEstimate < KES_MINIMUM)
+        return `M-Pesa payouts start at KES ${KES_MINIMUM} (Flutterwave's minimum).`
+      return null
+    }
+
     if (!bankCode) return 'Choose your bank.'
     if (accountNumber.length !== ACCOUNT_NUMBER_LENGTH) {
       return `Account numbers are ${ACCOUNT_NUMBER_LENGTH} digits.`
@@ -152,7 +183,10 @@ export default function WithdrawPage() {
     setSubmitting(true)
     setError(null)
     try {
-      const created = await api.createWithdrawal(token, stroops!, bankCode, accountNumber, ASSET)
+      const created =
+        currency === 'KES'
+          ? await api.createWithdrawal(token, stroops!, undefined, phoneNumber, ASSET, 'KES')
+          : await api.createWithdrawal(token, stroops!, bankCode, accountNumber, ASSET, 'NGN')
       // Show the new withdrawal instantly instead of waiting on a refetch —
       // the list otherwise only picked up the new entry on the next manual
       // reload or the background poll.
@@ -160,6 +194,7 @@ export default function WithdrawPage() {
       setAmount('')
       setBankCode('')
       setAccountNumber('')
+      setPhoneNumber('')
       void load()
     } catch (cause) {
       // A 502 carries Paystack's own message — show it rather than a generic one.
@@ -206,6 +241,29 @@ export default function WithdrawPage() {
             </Alert>
           )}
 
+          {currency === 'KES' && rate.error && (
+            <Alert variant="destructive">
+              <AlertDescription>{rate.error}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="currency">Receiving currency</Label>
+            <Select
+              value={currency}
+              onValueChange={(value) => setCurrency(value as WithdrawCurrency)}
+              disabled={available === 0n}
+            >
+              <SelectTrigger id="currency">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NGN">NGN — Nigerian bank account</SelectItem>
+                <SelectItem value="KES">KES — M-Pesa (Flutterwave)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="amount">Amount ({ASSET})</Label>
             <Input
@@ -218,50 +276,93 @@ export default function WithdrawPage() {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="bank">Bank</Label>
-            <Select value={bankCode} onValueChange={setBankCode} disabled={available === 0n}>
-              <SelectTrigger id="bank">
-                <SelectValue placeholder="Choose your bank" />
-              </SelectTrigger>
-              <SelectContent>
-                {BANKS.map((bank) => (
-                  <SelectItem key={bank.code} value={bank.code}>
-                    {bank.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {currency === 'KES' ? (
+            <>
+              <div className="border-hairline flex flex-col gap-2 rounded-lg border px-3 py-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-dim">Rate</span>
+                  {rate.isLoading ? (
+                    <LoadingSpinner className="size-4" />
+                  ) : (
+                    <span className="font-medium">
+                      1 {ASSET} ≈ {rate.rate.toLocaleString()} KES
+                    </span>
+                  )}
+                </div>
+                {receiveEstimate > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-dim">You receive</span>
+                    <span className="font-medium">≈ {receiveEstimate.toLocaleString()} KES</span>
+                  </div>
+                )}
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="account">Account number</Label>
-            <Input
-              id="account"
-              inputMode="numeric"
-              maxLength={ACCOUNT_NUMBER_LENGTH}
-              placeholder="0123456789"
-              value={accountNumber}
-              disabled={available === 0n}
-              onChange={(event) =>
-                setAccountNumber(
-                  event.target.value.replace(/\D/g, '').slice(0, ACCOUNT_NUMBER_LENGTH)
-                )
-              }
-            />
-            {resolving && <p className="text-dim text-xs">Verifying account…</p>}
-            {resolvedAccount && (
-              <p className="text-xs font-medium text-emerald-500">
-                {resolvedAccount.account_name}
-              </p>
-            )}
-            {resolveError && <p className="text-destructive text-xs">{resolveError}</p>}
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">M-Pesa phone number</Label>
+                <Input
+                  id="phone"
+                  inputMode="tel"
+                  placeholder={KES_PHONE_PLACEHOLDER}
+                  value={phoneNumber}
+                  disabled={available === 0n}
+                  onChange={(event) => setPhoneNumber(event.target.value)}
+                />
+                <p className="text-dim text-xs">
+                  Paid out via Flutterwave to a Kenyan <span className="font-medium">+254</span>{' '}
+                  number. The M-Pesa payout minimum is KES {KES_MINIMUM}.
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="bank">Bank</Label>
+                <Select value={bankCode} onValueChange={setBankCode} disabled={available === 0n}>
+                  <SelectTrigger id="bank">
+                    <SelectValue placeholder="Choose your bank" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BANKS.map((bank) => (
+                      <SelectItem key={bank.code} value={bank.code}>
+                        {bank.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="account">Account number</Label>
+                <Input
+                  id="account"
+                  inputMode="numeric"
+                  maxLength={ACCOUNT_NUMBER_LENGTH}
+                  placeholder="0123456789"
+                  value={accountNumber}
+                  disabled={available === 0n}
+                  onChange={(event) =>
+                    setAccountNumber(
+                      event.target.value.replace(/\D/g, '').slice(0, ACCOUNT_NUMBER_LENGTH)
+                    )
+                  }
+                />
+                {resolving && <p className="text-dim text-xs">Verifying account…</p>}
+                {resolvedAccount && (
+                  <p className="text-xs font-medium text-emerald-500">
+                    {resolvedAccount.account_name}
+                  </p>
+                )}
+                {resolveError && <p className="text-destructive text-xs">{resolveError}</p>}
+              </div>
+            </>
+          )}
 
           <Button
             type="submit"
             size="lg"
-            disabled={submitting || available === 0n || !resolvedAccount}
+            disabled={
+              submitting || available === 0n || (currency === 'NGN' && !resolvedAccount)
+            }
           >
             {submitting ? 'Sending…' : 'Cash out'}
           </Button>
