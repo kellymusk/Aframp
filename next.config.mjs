@@ -4,17 +4,6 @@ import { withSentryConfig } from '@sentry/nextjs'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // PWA configuration (next-pwa v2 reads options from the `pwa` key)
-  pwa: {
-    dest: 'public',
-    register: true,
-    // skipWaiting: false — do NOT force immediate service worker updates.
-    // A waiting SW activates only after the user dismisses the update banner
-    // (see components/pwa-update-banner.tsx), preventing in-flight payment
-    // flows from being interrupted.
-    skipWaiting: false,
-    disable: process.env.NODE_ENV === 'development',
-  },
   experimental: {
     // Limit concurrency only in resource-constrained CI environments.
     // Set CI_LOW_RESOURCES=1 in your CI pipeline to enable these caps;
@@ -35,13 +24,16 @@ const nextConfig = {
   },
   output: 'standalone',
   headers() {
+    const apiUrl = new URL(process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:3000')
+    const apiOrigin = `${apiUrl.protocol}//${apiUrl.host}`
+
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://api.coingecko.com https://horizon.stellar.org https://horizon-testnet.stellar.org https://*.sentry.io https://*.ingest.us.sentry.io https://vitals.vercel-insights.com",
+      `connect-src 'self' ${apiOrigin} https://api.coingecko.com https://horizon.stellar.org https://horizon-testnet.stellar.org https://*.sentry.io https://*.ingest.us.sentry.io https://vitals.vercel-insights.com`,
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -63,34 +55,11 @@ const nextConfig = {
   },
 }
 
-// next-pwa@5.6.0 is incompatible with Next.js 15's webpack runtime and causes
-// "a[d] is not a function" errors during SSR prerendering in production builds.
-// Disable it until the project upgrades to @ducanh2912/next-pwa or similar.
+// next-pwa is disabled due to incompatibility with Next.js 15 (see next.config.mjs).
+// The PWA is not actively used in the current payment flow.
 const withPWA = withPWAInit({
   dest: 'public',
-  register: true,
-  skipWaiting: true,
-  reloadOnOnline: false,
-  disable: true, // was: process.env.NODE_ENV === 'development'
-  runtimeCaching: [
-    {
-      urlPattern: /\/api\/(?:exchange-rate|rates)(?:\/)?(?:\?.*)?$/,
-      handler: 'StaleWhileRevalidate',
-      method: 'GET',
-      options: {
-        cacheName: 'exchange-rates',
-        cacheableResponse: {
-          statuses: [0, 200],
-        },
-        expiration: {
-          maxEntries: 8,
-          maxAgeSeconds: 24 * 60 * 60,
-          purgeOnQuotaError: true,
-        },
-      },
-    },
-    ...defaultRuntimeCaching,
-  ],
+  disable: true,
 })
 
 const configWithPWA = withPWA(nextConfig)

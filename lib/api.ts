@@ -22,6 +22,13 @@ const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:3000').re
 const BIGINT_KEYS = new Set(['amount_stroops', 'available', 'pending'])
 
 /**
+ * A control character that can never appear in user-controlled JSON strings,
+ * used as a marker for bigint fields during serialization. Unlike a string
+ * marker, this cannot collide with user input.
+ */
+const BIGINT_MARKER = '\x00'
+
+/**
  * There are no refresh tokens — a 24h expiry just starts returning 401. The
  * session provider registers here so any expired call lands the user back on
  * the login screen instead of showing a bare error.
@@ -160,12 +167,17 @@ function parseWithBigInts<T>(text: string): T {
 
 /**
  * JSON.stringify throws on bigint, and `Number(stroops)` would silently round
- * past 2^53. This emits bigints as quoted strings, which parseWithBigInts revives.
+ * past 2^53. This emits bigints as unquoted JSON integers instead.
+ *
+ * The marker is a control character (\x00) that cannot appear in JSON strings
+ * or user input, preventing collisions with string fields that happen to match
+ * a numeric pattern.
  */
 function stringifyWithBigInts(value: unknown): string {
-  return JSON.stringify(value, (_key, raw) =>
-    typeof raw === 'bigint' ? raw.toString() : raw
+  const json = JSON.stringify(value, (_key, raw) =>
+    typeof raw === 'bigint' ? `${BIGINT_MARKER}${raw.toString()}${BIGINT_MARKER}` : raw
   )
+  return json.replace(new RegExp(`"${BIGINT_MARKER}(-?\\d+)${BIGINT_MARKER}"`, 'g'), '$1')
 }
 
 interface RequestOptions {

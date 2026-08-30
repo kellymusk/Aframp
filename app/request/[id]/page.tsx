@@ -23,12 +23,12 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
   const router = useRouter()
   const [request, setRequest] = useState<PaymentRequest | null>(null)
   const [error, setError] = useState<string | null>(null)
-  // The countdown component fires this the moment its own clock hits zero,
-  // so the customer sees "expired" immediately rather than waiting for the
-  // next poll to catch up with the server's status.
-  const [clientExpired, setClientExpired] = useState(false)
-  const [regenerating, setRegenerating] = useState(false)
-  const [regenerateError, setRegenerateError] = useState<string | null>(null)
+  const [remaining, setRemaining] = useState(0)
+  const [boundaryError, setBoundaryError] = useState<Error | null>(null)
+
+  // If a backend-unreachable error was captured, re-throw it synchronously
+  // on the next render so the error boundary catches it.
+  if (boundaryError) throw boundaryError
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -39,9 +39,12 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
         return next
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return null
-        if (cause instanceof ApiError && cause.status === 0)
-          setError("Can't reach the payment server. Please try again in a moment.")
-        else setError(cause instanceof Error ? cause.message : 'Could not load this charge')
+        if (cause instanceof ApiError && cause.status === 0) {
+          // Capture backend-unreachable errors and re-throw synchronously during render.
+          setBoundaryError(cause)
+          return null
+        }
+        setError(cause instanceof Error ? cause.message : 'Could not load this charge')
         return null
       }
     },
