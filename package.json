@@ -12,6 +12,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --passWithNoTests",
     "test:diff-coverage": "node scripts/check-diff-coverage.js",
+    "check:env-docs": "node scripts/check-env-docs.js",
+    "docs:env": "node scripts/check-env-docs.js --write",
     "format": "prettier --write .",
     "format:check": "prettier --check '**/*.{ts,tsx,css,json,md}'",
     "type-check": "tsc --noEmit",
