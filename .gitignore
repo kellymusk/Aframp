@@ -13,3 +13,6 @@ coverage/
 .claude 
 tsconfig.tsbuildinfo
 designs
+
+*storybook.log
+storybook-static

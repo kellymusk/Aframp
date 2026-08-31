@@ -64,4 +64,12 @@ const withPWA = withPWAInit({
 
 const configWithPWA = withPWA(nextConfig)
 
-export default withSentryConfig(configWithPWA)
+export default withSentryConfig(configWithPWA, {
+  // Source maps are still uploaded to Sentry for stack-trace symbolication,
+  // but removed from the production build output afterward so they're not
+  // servable/fetchable from the browser. `hideSourceMaps` was the option
+  // name pre-v8 of the SDK; this is its current equivalent. (#481)
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true,
+  },
+})
