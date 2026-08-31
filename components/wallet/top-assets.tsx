@@ -1,8 +1,9 @@
+import { memo } from 'react'
 import Link from 'next/link'
 import type { Balance } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
 
-export function TopAssets({ balances }: { balances: Balance[] }) {
+export const TopAssets = memo(function TopAssets({ balances }: { balances: Balance[] }) {
   return (
     <div>
       <p className="text-dim mb-2 text-xs">Balances</p>
@@ -37,4 +38,4 @@ export function TopAssets({ balances }: { balances: Balance[] }) {
       )}
     </div>
   )
-}
+})
