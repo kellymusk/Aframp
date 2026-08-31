@@ -8,6 +8,7 @@ import {
   Home,
   LogOut,
   Receipt,
+  Settings,
   Wallet as WalletIcon,
 } from 'lucide-react'
 
@@ -21,6 +22,7 @@ const LINKS = [
   { label: 'Payments', icon: Receipt, href: '/transactions' },
   { label: 'Cash out', icon: ArrowDownToLine, href: '/withdraw' },
   { label: 'Wallet', icon: WalletIcon, href: '/wallet' },
+  { label: 'Settings', icon: Settings, href: '/settings' },
 ]
 
 export function WalletSidebar() {

@@ -125,6 +125,16 @@ export interface Withdrawal {
   updated_at: string
 }
 
+export interface ApiKey {
+  id: UUID
+  merchant_id: UUID
+  name: string
+  key_preview: string // e.g. "ak_live_••••••••••••••••"
+  created_at: string
+  last_used_at: string | null
+  revoked_at: string | null
+}
+
 function parseWithBigInts<T>(text: string): T {
   const quoted = text.replace(/"(amount_stroops|available|pending)"\s*:\s*(-?\d+)/g, '"$1":"$2"')
   return JSON.parse(quoted, (key, value) =>
@@ -145,7 +155,7 @@ function stringifyWithBigInts(value: unknown): string {
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'DELETE'
   body?: unknown
   token?: string
   signal?: AbortSignal
@@ -255,4 +265,17 @@ export const api = {
 
   listWithdrawals: (token: string, limit = 50, signal?: AbortSignal) =>
     request<Withdrawal[]>(`/withdrawals?limit=${limit}`, { token, signal }),
+
+  listApiKeys: (token: string, signal?: AbortSignal) =>
+    request<ApiKey[]>('/api-keys', { token, signal }),
+
+  createApiKey: (token: string, name: string) =>
+    request<{ api_key: ApiKey; full_key: string }>('/api-keys', {
+      method: 'POST',
+      token,
+      body: { name },
+    }),
+
+  revokeApiKey: (token: string, id: UUID) =>
+    request<void>(`/api-keys/${id}`, { method: 'DELETE', token }),
 }
