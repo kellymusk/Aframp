@@ -160,6 +160,23 @@ export interface DeleteAccountResponse {
   message: string
 }
 
+export interface PushSubscriptionRequest {
+  endpoint: string
+  p256dh: string
+  auth: string
+}
+
+export interface PushSubscriptionResponse {
+  id: UUID
+  merchant_id: UUID
+  endpoint: string
+  created_at: string
+}
+
+export interface PushSubscriptionStatus {
+  enabled: boolean
+}
+
 function parseWithBigInts<T>(text: string): T {
   const quoted = text.replace(/"(amount_stroops|available|pending)"\s*:\s*(-?\d+)/g, '"$1":"$2"')
   return JSON.parse(quoted, (key, value) =>
@@ -316,4 +333,17 @@ export const api = {
 
   deleteAccount: (token: string) =>
     request<DeleteAccountResponse>('/me', { method: 'DELETE', token }),
+
+  registerPushSubscription: (token: string, subscription: PushSubscriptionRequest) =>
+    request<PushSubscriptionResponse>('/push/subscribe', {
+      method: 'POST',
+      token,
+      body: subscription,
+    }),
+
+  unregisterPushSubscription: (token: string) =>
+    request<void>('/push/unsubscribe', { method: 'DELETE', token }),
+
+  getPushSubscriptionStatus: (token: string, signal?: AbortSignal) =>
+    request<PushSubscriptionStatus>('/push/status', { token, signal }),
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, Mail, Pencil, Save, Trash2, User, X } from 'lucide-react'
+import { AlertTriangle, Bell, Mail, Save, Trash2, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { PushNotificationToggle } from '@/components/push-notification-toggle'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -274,6 +275,15 @@ export default function ProfilePage() {
             </div>
           </form>
         )}
+      </section>
+
+      {/* Push notifications */}
+      <section className="bg-panel border-hairline rounded-2xl border p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Bell className="size-4 text-dim" aria-hidden />
+          <h3 className="font-bold text-white">Notifications</h3>
+        </div>
+        <PushNotificationToggle />
       </section>
 
       <Separator />
