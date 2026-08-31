@@ -119,10 +119,12 @@ export function SendPageClient() {
         {/* ── Header ── */}
         <header className="flex items-center gap-3 px-5 pt-6 pb-3">
           <button
+            type="button"
             onClick={handleBack}
+            aria-label="Back"
             className="p-2 -ml-2 rounded-full hover:bg-muted transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5" aria-hidden />
           </button>
 
           <h1 className="text-base font-semibold tracking-tight">
@@ -167,11 +169,13 @@ export function SendPageClient() {
                   className="pl-9 pr-12 font-mono text-sm h-12 bg-muted/40 border-border/60 focus-visible:ring-emerald-500/30 focus-visible:border-emerald-500/60"
                 />
                 <button
+                  type="button"
                   onClick={() => setScannerOpen(true)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-emerald-500 transition-colors"
                   title="Scan QR code"
+                  aria-label="Scan QR code"
                 >
-                  <QrCode className="w-5 h-5" />
+                  <QrCode className="w-5 h-5" aria-hidden />
                 </button>
               </div>
               {recipientInput && !isRecipientValid && (
@@ -280,7 +284,9 @@ export function SendPageClient() {
               {NUMPAD_KEYS.flat().map((key) => (
                 <button
                   key={key}
+                  type="button"
                   onClick={() => handleNumpad(key)}
+                  aria-label={key === '⌫' ? 'Delete last digit' : undefined}
                   className={cn(
                     'h-14 rounded-xl font-semibold text-lg transition-all duration-100 active:scale-95',
                     key === '⌫'
