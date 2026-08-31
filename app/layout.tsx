@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Atkinson_Hyperlegible, Manrope, Outfit, Space_Mono } from 'next/font/google'
 import { ThemeProvider } from '@/components/theme-provider'
 import { SessionProvider } from '@/components/session-provider'
+import { DemoModeProvider } from '@/components/demo-mode-provider'
 import { InstallPromptBanner } from '@/components/pwa/install-prompt-banner'
 import './globals.css'
 
@@ -64,10 +65,12 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <SessionProvider>
-            {children}
-            <InstallPromptBanner />
-          </SessionProvider>
+          <DemoModeProvider>
+            <SessionProvider>
+              {children}
+              <InstallPromptBanner />
+            </SessionProvider>
+          </DemoModeProvider>
         </ThemeProvider>
       </body>
     </html>

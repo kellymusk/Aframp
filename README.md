@@ -106,6 +106,37 @@ npm run dev
 
 Access the app at `http://localhost:3001` ✅
 
+### Demo Mode (No Backend Required)
+
+New contributors don't need a running Rust backend to work on the frontend. Demo mode
+intercepts every `api.*` call with [Mock Service Worker](https://mswjs.io) and serves
+realistic mock data instead — a pre-seeded merchant, wallet, balances, transactions, and
+so on.
+
+```bash
+npm install
+cp .env.example .env.local
+```
+
+Add this to `.env.local`:
+
+```bash
+NEXT_PUBLIC_DEMO_MODE=true
+```
+
+Then:
+
+```bash
+npm run dev
+```
+
+Access the app at `http://localhost:3001` ✅ — you'll land straight in the dashboard
+already "signed in" as a demo merchant, with mock balances, payments, and payment
+requests to click through. No `NEXT_PUBLIC_API_URL` needs to point anywhere real.
+
+Mock handlers live in `lib/msw/handlers.ts` — extend them there if you add a new `api.*`
+call. Leave `NEXT_PUBLIC_DEMO_MODE` unset (the default) to develop against a real backend.
+
 ---
 
 ## 🔧 Environment Variables
