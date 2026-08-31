@@ -31,7 +31,7 @@ export function WalletSidebar() {
   const router = useRouter()
 
   return (
-    <aside className="bg-rail border-hairline sticky top-0 flex h-dvh w-[260px] shrink-0 flex-col border-r p-4 pb-6">
+    <aside className="bg-rail border-hairline sticky top-0 hidden h-dvh w-[260px] shrink-0 flex-col border-r p-4 pb-6 md:flex">
       <div className="flex items-center gap-2.5 px-1 pt-1">
         <AframpMark className="size-8" />
         <span className="text-xl font-bold tracking-tight text-white">Aframp</span>
