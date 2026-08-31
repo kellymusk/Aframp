@@ -2,16 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { api, setUnauthorizedHandler, type AuthResponse, type Session } from '@/lib/api'
-import { api, setUnauthorizedHandler, type AuthResponse } from '@/lib/api'
 import { connectFreighter, signChallengeTransaction } from '@/lib/freighter'
-
-const STORAGE_KEY = 'aframp.session'
-
-interface Session {
-  token: string
-  userId: string
-  merchantId: string | null
-}
 
 interface SessionContextValue {
   session: Session | null
@@ -34,17 +25,6 @@ function toSession(response: AuthResponse): Session {
   }
 }
 
-function isValidSession(value: unknown): value is Session {
-  if (typeof value !== 'object' || value === null) return false
-  const obj = value as Record<string, unknown>
-  return (
-    typeof obj.token === 'string' &&
-    obj.token.length > 0 &&
-    typeof obj.userId === 'string' &&
-    obj.userId.length > 0
-  )
-}
-
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [ready, setReady] = useState(false)
@@ -60,42 +40,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         // Session restoration failed, user will need to log in
       }
       setReady(true)
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        if (isValidSession(parsed)) {
-          setSession(parsed)
-        } else {
-          window.localStorage.removeItem(STORAGE_KEY)
-        }
-      }
-    } catch {
-      window.localStorage.removeItem(STORAGE_KEY)
     }
     restoreSession()
   }, [])
 
-  const signIn = useCallback(
-    async (email: string, password: string) => {
-      setSession(toSession(await api.login(email, password)))
-    },
-    []
-  )
+  const signIn = useCallback(async (email: string, password: string) => {
+    setSession(toSession(await api.login(email, password)))
+  }, [])
 
-  const signUp = useCallback(
-    async (email: string, password: string, name: string) => {
-      setSession(toSession(await api.signup(email, password, name)))
-    },
-    []
-  )
+  const signUp = useCallback(async (email: string, password: string, name: string) => {
+    setSession(toSession(await api.signup(email, password, name)))
+  }, [])
 
-  const signOut = useCallback(async () => {
-    try {
-      await api.logout()
-    } catch {
-      // Logout failed, but clear session anyway
-    }
   const signInWithFreighter = useCallback(async () => {
     const address = await connectFreighter()
     const challenge = await api.getStellarChallenge(address)
@@ -103,11 +59,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       challenge.transaction,
       challenge.network_passphrase
     )
-    persist(toSession(await api.verifyStellarChallenge(signedTransaction)))
-  }, [persist])
+    setSession(toSession(await api.verifyStellarChallenge(signedTransaction)))
+  }, [])
 
   const signOut = useCallback(() => {
-    window.localStorage.removeItem(STORAGE_KEY)
+    void api.logout().catch(() => {
+      // Logout failed, but clear session anyway
+    })
     setSession(null)
   }, [])
 

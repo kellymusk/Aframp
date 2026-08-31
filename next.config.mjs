@@ -23,27 +23,18 @@ const nextConfig = {
     minimumCacheTTL: 60,
   },
   output: 'standalone',
+  // Content-Security-Policy lives in middleware.ts instead of here: it needs
+  // a fresh nonce per request for script-src, and this headers() function
+  // only runs once at build/server-init time. Setting a second, static CSP
+  // here would give the browser two Content-Security-Policy headers, which
+  // it intersects rather than overrides — that would silently break the
+  // nonce-based policy middleware sets. The rest of the security headers are
+  // static, so they stay here.
   headers() {
-    const apiUrl = new URL(process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:3000')
-    const apiOrigin = `${apiUrl.protocol}//${apiUrl.host}`
-
-    const csp = [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https:",
-      "font-src 'self' data:",
-      `connect-src 'self' ${apiOrigin} https://api.coingecko.com https://horizon.stellar.org https://horizon-testnet.stellar.org https://*.sentry.io https://*.ingest.us.sentry.io https://vitals.vercel-insights.com`,
-      "frame-ancestors 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join('; ')
-
     return [
       {
         source: '/(.*)',
         headers: [
-          { key: 'Content-Security-Policy', value: csp },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },
