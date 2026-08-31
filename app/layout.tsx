@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Atkinson_Hyperlegible, Manrope, Outfit, Space_Mono } from 'next/font/google'
 import { ThemeProvider } from '@/components/theme-provider'
 import { SessionProvider } from '@/components/session-provider'
+import { InstallPromptBanner } from '@/components/pwa/install-prompt-banner'
 import './globals.css'
 
 // The Aframp brand typeface — picked for legibility at small sizes,
@@ -51,7 +52,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${atkinson.variable} ${manrope.variable} ${outfit.variable} ${spaceMono.variable}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${atkinson.variable} ${manrope.variable} ${outfit.variable} ${spaceMono.variable}`}
+      suppressHydrationWarning
+    >
       <body className="font-sans antialiased" suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
@@ -59,7 +64,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <SessionProvider>{children}</SessionProvider>
+          <SessionProvider>
+            {children}
+            <InstallPromptBanner />
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>
