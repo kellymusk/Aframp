@@ -6,6 +6,7 @@ import { ArrowLeft, QrCode, ChevronRight, Wallet, StickyNote } from 'lucide-reac
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { isValidStellarAddress, validateStellarAddress } from '@/lib/stellar-address'
 import { RecentRecipients } from './recent-recipients'
 import { QRScanner } from './qr-scanner'
 import { TransactionConfirmation } from './transaction-confirmation'
@@ -110,7 +111,16 @@ export function SendPageClient() {
     setStep('success')
   }
 
-  const isRecipientValid = recipientInput.trim().length > 5
+  const trimmedRecipient = recipientInput.trim()
+  // Only a literal "G..." entry is checked against StrKey — "@username"
+  // lookups aren't Stellar addresses and shouldn't be validated as one. (#483)
+  const looksLikeAddress = trimmedRecipient.startsWith('G')
+  const recipientAddressError = looksLikeAddress
+    ? validateStellarAddress(trimmedRecipient)
+    : undefined
+  const isRecipientValid = looksLikeAddress
+    ? isValidStellarAddress(trimmedRecipient)
+    : trimmedRecipient.length > 0
   const isAmountValid = parseFloat(form.amount) > 0
 
   return (
@@ -174,9 +184,18 @@ export function SendPageClient() {
                   <QrCode className="w-5 h-5" />
                 </button>
               </div>
-              {recipientInput && !isRecipientValid && (
+              {recipientInput && recipientAddressError && (
+                <p
+                  className="text-xs text-destructive"
+                  role="alert"
+                  data-testid="recipient-address-error"
+                >
+                  {recipientAddressError}
+                </p>
+              )}
+              {recipientInput && !looksLikeAddress && !isRecipientValid && (
                 <p className="text-xs text-muted-foreground">
-                  Enter a valid Stellar address (starts with G)
+                  Enter a valid Stellar address or username
                 </p>
               )}
             </div>

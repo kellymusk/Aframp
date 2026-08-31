@@ -43,11 +43,20 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 export class ApiError extends Error {
   constructor(
     message: string,
-    readonly status: number
+    readonly status: number,
+    /** Seconds until a rate-limited request may be retried, from the `Retry-After` header (#482). */
+    readonly retryAfterSeconds?: number
   ) {
     super(message)
     this.name = 'ApiError'
   }
+}
+
+/** Parses a `Retry-After` header value (delay-seconds form) into a positive integer, or undefined. */
+function parseRetryAfter(value: string | null): number | undefined {
+  if (!value) return undefined
+  const seconds = Number(value)
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined
 }
 
 export interface AuthResponse {
@@ -255,7 +264,11 @@ async function requestWithCookie<T>(
       const parsed = JSON.parse(text) as { error?: string }
       if (parsed.error) message = parsed.error
     } catch {}
-    throw new ApiError(message, response.status)
+    throw new ApiError(
+      message,
+      response.status,
+      parseRetryAfter(response.headers.get('Retry-After'))
+    )
   }
 
   return text ? JSON.parse(text) : (undefined as T)
@@ -274,7 +287,8 @@ export const api = {
       body: { email, password },
     }),
 
-  getSession: () => fetch('/api/auth/session').then(r => r.json() as Promise<{ session: Session | null }>),
+  getSession: () =>
+    fetch('/api/auth/session').then((r) => r.json() as Promise<{ session: Session | null }>),
 
   logout: () =>
     requestWithCookie<{ success: boolean }>('/api/auth/logout', {
@@ -285,7 +299,10 @@ export const api = {
     request<{ message: string }>('/password-reset/request', { method: 'POST', body: { email } }),
 
   resetPassword: (token: string, password: string) =>
-    request<{ message: string }>('/password-reset/confirm', { method: 'POST', body: { token, password } }),
+    request<{ message: string }>('/password-reset/confirm', {
+      method: 'POST',
+      body: { token, password },
+    }),
 
   /** SEP-0010 step 1: fetch a challenge transaction for a Stellar address to sign. */
   getStellarChallenge: (address: string) =>
@@ -347,12 +364,7 @@ export const api = {
    * secret key never touches the browser. Rejects with a 404 ApiError when
    * the account number/bank code pair doesn't resolve to a real account.
    */
-  resolveAccount: (
-    token: string,
-    bankCode: string,
-    accountNumber: string,
-    signal?: AbortSignal
-  ) =>
+  resolveAccount: (token: string, bankCode: string, accountNumber: string, signal?: AbortSignal) =>
     request<ResolvedAccount>('/accounts/resolve', {
       method: 'POST',
       token,

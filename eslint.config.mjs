@@ -2,6 +2,7 @@ import nextPlugin from '@next/eslint-plugin-next'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
 import prettierConfig from 'eslint-config-prettier'
 import tseslint from 'typescript-eslint'
+import storybook from 'eslint-plugin-storybook'
 
 // `eslint-config-next`'s package only ships a legacy eslintrc-format config,
 // which unconditionally loads @rushstack/eslint-patch on require and breaks
@@ -53,6 +54,7 @@ const config = [
     },
   },
   prettierConfig,
+  ...storybook.configs['flat/recommended'],
 ]
 
 export default config

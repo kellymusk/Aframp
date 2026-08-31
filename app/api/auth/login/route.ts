@@ -20,7 +20,12 @@ export async function POST(request: NextRequest) {
         const parsed = JSON.parse(text) as { error?: string }
         if (parsed.error) message = parsed.error
       } catch {}
-      return NextResponse.json({ error: message }, { status: response.status })
+      // Forwarded so the client can show a lockout countdown (#482).
+      const retryAfter = response.headers.get('Retry-After')
+      return NextResponse.json(
+        { error: message },
+        { status: response.status, headers: retryAfter ? { 'Retry-After': retryAfter } : {} }
+      )
     }
 
     const data = JSON.parse(text) as { token: string; user_id: string; merchant_id: string | null }
