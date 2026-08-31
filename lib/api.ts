@@ -135,6 +135,31 @@ export interface ApiKey {
   revoked_at: string | null
 }
 
+export interface UpdateProfileRequest {
+  name?: string
+  merchant_name?: string
+}
+
+export interface UpdateProfileResponse {
+  user_id: UUID
+  email: string
+  name: string
+  merchant_id: UUID | null
+  merchant_name: string | null
+}
+
+export interface ChangeEmailRequest {
+  new_email: string
+}
+
+export interface ChangeEmailResponse {
+  message: string
+}
+
+export interface DeleteAccountResponse {
+  message: string
+}
+
 function parseWithBigInts<T>(text: string): T {
   const quoted = text.replace(/"(amount_stroops|available|pending)"\s*:\s*(-?\d+)/g, '"$1":"$2"')
   return JSON.parse(quoted, (key, value) =>
@@ -278,4 +303,17 @@ export const api = {
 
   revokeApiKey: (token: string, id: UUID) =>
     request<void>(`/api-keys/${id}`, { method: 'DELETE', token }),
+
+  updateProfile: (token: string, body: UpdateProfileRequest) =>
+    request<UpdateProfileResponse>('/me', { method: 'POST', token, body }),
+
+  changeEmail: (token: string, newEmail: string) =>
+    request<ChangeEmailResponse>('/me/email', {
+      method: 'POST',
+      token,
+      body: { new_email: newEmail },
+    }),
+
+  deleteAccount: (token: string) =>
+    request<DeleteAccountResponse>('/me', { method: 'DELETE', token }),
 }

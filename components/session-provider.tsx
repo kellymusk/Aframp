@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { api, setUnauthorizedHandler, type AuthResponse } from '@/lib/api'
+import { api, setUnauthorizedHandler, type AuthResponse, type Me } from '@/lib/api'
 
 const STORAGE_KEY = 'aframp.session'
 
@@ -18,6 +18,10 @@ interface SessionContextValue {
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, name: string) => Promise<void>
   signOut: () => void
+  /** Re-fetches /me and updates any cached profile data. */
+  refreshMe: () => Promise<Me | null>
+  /** Latest profile data from /me, if fetched. */
+  me: Me | null
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null)
@@ -33,6 +37,7 @@ function toSession(response: AuthResponse): Session {
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [ready, setReady] = useState(false)
+  const [me, setMe] = useState<Me | null>(null)
 
   useEffect(() => {
     try {
@@ -71,7 +76,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(() => {
     window.localStorage.removeItem(STORAGE_KEY)
     setSession(null)
+    setMe(null)
   }, [])
+
+  const refreshMe = useCallback(async () => {
+    if (!session) return null
+    try {
+      const data = await api.getMe(session.token)
+      setMe(data)
+      return data
+    } catch {
+      return null
+    }
+  }, [session])
 
   // Tokens expire after 24h with no refresh path, so drop the session on any
   // 401 from an authenticated call — the route guards handle the redirect.
@@ -81,8 +98,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [signOut])
 
   const value = useMemo(
-    () => ({ session, ready, signIn, signUp, signOut }),
-    [session, ready, signIn, signUp, signOut]
+    () => ({ session, ready, signIn, signUp, signOut, refreshMe, me }),
+    [session, ready, signIn, signUp, signOut, refreshMe, me]
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
