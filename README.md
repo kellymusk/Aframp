@@ -110,24 +110,27 @@ Access the app at `http://localhost:3001` ✅
 
 ## 🔧 Environment Variables
 
-Copy `.env.example` to `.env.local` and configure the following:
+Copy `.env.example` to `.env.local` and configure the following. This table
+is generated from `.env.example` — run `npm run docs:env` after editing that
+file to regenerate it, rather than hand-editing the table below; CI fails if
+the two ever drift apart.
 
-### Required Variables
+<!-- ENV_VARS_TABLE:START -->
 
-| Variable               | Description                            | Example               |
-| ---------------------- | -------------------------------------- | --------------------- |
-| `NEXT_PUBLIC_API_URL`  | Backend service URL (default: :3000)   | `http://127.0.0.1:3000` |
+| Variable | Type | Required | Default | Example |
+| --- | --- | --- | --- | --- |
+| `NEXT_PUBLIC_API_URL` | string (URL) | Yes | — | `http://127.0.0.1:3000` |
+| `NEXT_PUBLIC_STELLAR_NETWORK` | string (enum: testnet | public) | No | `testnet` | `testnet` |
+| `NEXT_PUBLIC_SENTRY_DSN` | string (Sentry DSN URL) | No | `(unset — client-side error reporting disabled)` | `https://examplePublicKey@o0.ingest.sentry.io/0` |
+| `SENTRY_DSN` | string (Sentry DSN URL) | No | `(falls back to NEXT_PUBLIC_SENTRY_DSN, then disabled)` | `https://examplePrivateKey@o0.ingest.sentry.io/1` |
+| `SENTRY_AUTH_TOKEN` | string (Sentry auth token) | No | `(unset — source map upload skipped)` | `sntrys_eyJpYXQiOjE3MDAwMDAwMDAuMCwidXJsIjoiaHR0cHM6Ly9zZW50cnkuaW8ifQ==` |
+| `SENTRY_ORG` | string | No | `(unset — source map upload skipped)` | `aframp` |
+| `SENTRY_PROJECT` | string | No | `(unset — source map upload skipped)` | `aframp-pay` |
+| `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY` | string (Paystack public key) | No | `(unset — Paystack hidden from the onramp provider selector)` | `pk_test_examplekey1234567890` |
+| `NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY` | string (Flutterwave public key) | No | `(unset — Flutterwave hidden from the onramp provider selector)` | `FLWPUBK_TEST-1234567890abcdef1234567890abcdef-X` |
+| `NEXT_PUBLIC_CNGN_ISSUER` | string (Stellar account address, G...) | No | `(unset — cNGN charges disabled, shown as "Coming soon")` | `GCNGNEXAMPLE234567890234567890234567890234567890234` |
 
-### Optional Variables
-
-| Variable                     | Description                    |
-| ---------------------------- | ------------------------------ |
-| `NEXT_PUBLIC_SENTRY_DSN`     | Sentry error tracking endpoint |
-| `SENTRY_AUTH_TOKEN`          | Sentry authentication token    |
-| `SENTRY_ORG`                 | Sentry organization slug       |
-| `SENTRY_PROJECT`             | Sentry project slug            |
-
----
+<!-- ENV_VARS_TABLE:END -->
 
 ## 🐳 Docker Deployment
 
