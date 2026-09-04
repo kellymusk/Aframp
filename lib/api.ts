@@ -174,13 +174,18 @@ function parseWithBigInts<T>(text: string): T {
  *
  * The marker is a control character (\x00) that cannot appear in JSON strings
  * or user input, preventing collisions with string fields that happen to match
- * a numeric pattern.
+ * a numeric pattern. JSON.stringify always escapes a literal \x00 in a string
+ * value as the six characters `\u0000` in its output, so the cleanup pass
+ * below matches that escaped text, not the raw byte — matching the raw byte
+ * (as this used to) never finds anything, silently leaving every bigint
+ * field as a quoted `"\u0000<digits>\u0000"` string instead of a bare
+ * integer, which then fails to parse back into a bigint on the way in.
  */
 function stringifyWithBigInts(value: unknown): string {
   const json = JSON.stringify(value, (_key, raw) =>
     typeof raw === 'bigint' ? `${BIGINT_MARKER}${raw.toString()}${BIGINT_MARKER}` : raw
   )
-  return json.replace(new RegExp(`"${BIGINT_MARKER}(-?\\d+)${BIGINT_MARKER}"`, 'g'), '$1')
+  return json.replace(/"\\u0000(-?\d+)\\u0000"/g, '$1')
 }
 
 interface RequestOptions {
