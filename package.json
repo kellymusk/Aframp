@@ -87,7 +87,7 @@
     "ts-jest": "^29.4.6",
     "tw-animate-css": "1.3.3",
     "typescript": "^5",
-    "typescript-eslint": "^8.54.0",
+    "typescript-eslint": "^8.69.0",
     "undici": "^8.3.0"
   },
   "msw": {
