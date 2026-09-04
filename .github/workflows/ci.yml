@@ -17,23 +17,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Build test image
+        run: docker-compose -f docker-compose.test.yml build
+        env:
+          BUILDKIT_INLINE_CACHE: 1
 
-      - name: ESLint
-        run: npm run lint
+      - name: Run Lint
+        run: docker-compose -f docker-compose.test.yml run --rm aframp-lint
 
-      - name: Prettier Check
-        run: npm run format:check
+      - name: Run TypeScript Check
+        run: docker-compose -f docker-compose.test.yml run --rm aframp-typecheck
 
-      - name: TypeScript Check
-        run: npm run type-check
+      - name: Run Prettier Check
+        run: docker-compose -f docker-compose.test.yml run --rm aframp-test npm run format:check
 
   security:
     name: Security Audit
@@ -74,17 +81,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build test image
+        run: docker-compose -f docker-compose.test.yml build
+        env:
+          BUILDKIT_INLINE_CACHE: 1
 
       - name: Run tests with coverage
-        run: npm run test:coverage -- --watchAll=false
+        run: docker-compose -f docker-compose.test.yml run --rm aframp-test
+
+      - name: Check route bundle budget
+        run: |
+          npm run build:analyze
+          node scripts/check-bundle-budget.mjs
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -172,21 +191,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build test image
+        run: docker-compose -f docker-compose.test.yml build
+        env:
+          BUILDKIT_INLINE_CACHE: 1
 
       - name: Run tests with coverage
-        run: npm run test:coverage -- --watchAll=false
+        run: docker-compose -f docker-compose.test.yml run --rm aframp-test
 
       - name: Require 80% coverage on changed files
         run: |
-          node scripts/check-diff-coverage.js \
+          docker-compose -f docker-compose.test.yml run --rm aframp-test \
+            node scripts/check-diff-coverage.js \
             "${{ github.event.pull_request.base.sha }}" \
             "${{ github.event.pull_request.head.sha }}"
 

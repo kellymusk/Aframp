@@ -2,6 +2,7 @@ version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -43,6 +44,9 @@ updates:
       - dependency-name: "@nuxt/kit"
       - dependency-name: "next"
         update-types: ["version-update:semver-major"]
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
 
   - package-ecosystem: "docker"
     directory: "/"

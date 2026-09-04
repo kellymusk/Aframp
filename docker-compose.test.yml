@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  aframp-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: test
+    container_name: aframp-test
+    environment:
+      - NODE_ENV=test
+      - NEXT_PUBLIC_DEMO_MODE=true
+      - NEXT_PUBLIC_STELLAR_NETWORK=TESTNET
+      - NEXT_PUBLIC_API_URL=http://127.0.0.1:3000
+      - CI=true
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+      - ./coverage:/app/coverage
+    command: npm test -- --watchAll=false --coverage
+    networks:
+      - test-network
+
+  aframp-typecheck:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: test
+    container_name: aframp-typecheck
+    environment:
+      - NODE_ENV=test
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run type-check
+    networks:
+      - test-network
+
+  aframp-lint:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      target: test
+    container_name: aframp-lint
+    environment:
+      - NODE_ENV=test
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run lint
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge

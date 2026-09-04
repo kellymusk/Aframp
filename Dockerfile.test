@@ -1,0 +1,28 @@
+# Test-specific Dockerfile with caching optimizations
+FROM node:22-alpine AS deps
+
+WORKDIR /app
+
+RUN apk add --no-cache libc6-compat python3 make g++
+
+COPY package*.json ./
+RUN npm ci
+
+FROM node:22-alpine AS test
+
+WORKDIR /app
+
+RUN apk add --no-cache libc6-compat
+
+ENV NODE_ENV=test
+ENV NEXT_PUBLIC_DEMO_MODE=true
+ENV NEXT_PUBLIC_STELLAR_NETWORK=TESTNET
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+RUN mkdir -p coverage && chmod 777 coverage
+
+EXPOSE 3001
+
+CMD ["npm", "test", "--", "--watchAll=false", "--coverage"]

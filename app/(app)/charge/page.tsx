@@ -23,6 +23,7 @@ export default function ChargePage() {
   const { token } = useAuthenticatedSession()
   const router = useRouter()
   const [input, setInput] = useState('')
+  const [allowPartial, setAllowPartial] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -47,7 +48,7 @@ export default function ChargePage() {
     setSubmitting(true)
     setError(null)
     try {
-      const request = await api.createPaymentRequest(token, stroops, ASSET)
+      const request = await api.createPaymentRequest(token, stroops, ASSET, undefined, allowPartial)
       router.push(`/request/${request.id}`)
     } catch (cause) {
       if (cause instanceof ApiError && cause.message.includes('create a wallet')) {
@@ -91,6 +92,17 @@ export default function ChargePage() {
           </Button>
         ))}
       </div>
+
+      <label className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/40 px-3 py-2 text-sm text-dim">
+        <span>Allow partial payment</span>
+        <input
+          type="checkbox"
+          checked={allowPartial}
+          onChange={(event) => setAllowPartial(event.target.checked)}
+          aria-label="Allow partial payment"
+          className="h-4 w-4 accent-primary"
+        />
+      </label>
 
       <Button size="lg" className="h-14 text-base" disabled={!canCharge} onClick={charge}>
         {submitting ? 'Creating charge…' : 'Show payment code'}

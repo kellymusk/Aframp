@@ -25,6 +25,8 @@ Thank you for your interest in contributing to AFRAMP! This guide will help you 
 
 ### Setup
 
+For the backend client contract used by the frontend, see the OpenAPI spec in [openapi.yaml](openapi.yaml). It documents the endpoints surfaced by [lib/api.ts](lib/api.ts) and is kept in sync with API changes.
+
 1. **Fork the repository**
 
    ```bash
@@ -288,6 +290,12 @@ npm run test:coverage
 - **Minimum:** 70% across all metrics
 - **Target:** 80%+ for new code
 - **Metrics:** Lines, Statements, Functions, Branches
+
+### Codecov Setup
+
+This repository uploads coverage reports to Codecov in CI. Before opening or updating a PR, add the repository secret `CODECOV_TOKEN` in the GitHub repository settings under `Settings -> Secrets and variables -> Actions`.
+
+The token is required for the `codecov/codecov-action` step in the CI workflow to publish results to Codecov after `npm run test:coverage` completes.
 
 ---
 

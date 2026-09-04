@@ -1,7 +1,8 @@
 # 🌍 AFRAMP: Africa's Financial Bridge
 
-[![CI](https://github.com/aframp/aframp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aframp/aframp/actions/workflows/ci.yml)
-[![codecov](https://img.shields.io/badge/coverage-70%25-brightgreen)](https://codecov.io/gh/aframp/aframp)
+[![CI](https://github.com/kellymusk/Aframp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kellymusk/Aframp/actions/workflows/ci.yml)
+[![Uptime](https://github.com/kellymusk/Aframp/actions/workflows/uptime-monitor.yml/badge.svg?branch=main)](https://github.com/kellymusk/Aframp/actions/workflows/uptime-monitor.yml)
+[![codecov](https://img.shields.io/badge/coverage-70%25-brightgreen)](https://codecov.io/gh/kellymusk/Aframp)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/typescript-5.0-blue)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/next.js-16.1-black)](https://nextjs.org/)
@@ -44,7 +45,15 @@ Aframp/
 
 ---
 
-## 🚀 Quick Start (5 Minutes)
+## � API Reference
+
+The client-side contract is documented in the repository root OpenAPI file:
+
+- [openapi.yaml](openapi.yaml)
+
+This spec covers the backend endpoints used by the frontend in [lib/api.ts](lib/api.ts).
+
+## �🚀 Quick Start (5 Minutes)
 
 Get AFRAMP running locally in under 5 minutes with our automated setup script or manual installation.
 

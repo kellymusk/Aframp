@@ -24,9 +24,16 @@ export default function LoginPage() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter both your email and password.')
+      setSubmitting(false)
+      return
+    }
+
     setSubmitting(true)
     try {
-      await signIn(email, password)
+      await signIn(email.trim(), password)
       router.replace('/charge')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Sign in failed')
@@ -41,7 +48,7 @@ export default function LoginPage() {
         <p className="text-muted-foreground text-sm">Sign in to start taking payments.</p>
       </header>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>

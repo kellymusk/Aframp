@@ -16,7 +16,7 @@ const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:3000').re
  * Amount fields are `i64` on the wire. JSON.parse would silently round anything
  * past 2^53, so these keys are re-quoted before parsing and revived as bigint.
  */
-const BIGINT_KEYS = new Set(['amount_stroops', 'available', 'pending'])
+const BIGINT_KEYS = new Set(['amount_stroops', 'available', 'pending', 'fee_stroops', 'network_fee_stroops', 'total_stroops'])
 
 /**
  * There are no refresh tokens — a 24h expiry just starts returning 401. The
@@ -99,13 +99,29 @@ export interface PaymentRequest {
   address: string
   network: string
   amount_stroops: bigint
+  amount_paid_stroops?: bigint
   asset: string
   memo: string
   status: PaymentRequestStatus
+  allow_partial?: boolean
   expires_at: string
   created_at: string
   /** null for any asset with no configured issuer — currently everything but XLM. */
   sep7_uri: string | null
+}
+
+export type RefundStatus = 'pending' | 'completed' | 'failed'
+
+export interface Refund {
+  id: UUID
+  payment_id: UUID
+  merchant_id: UUID
+  amount_stroops: bigint
+  asset: string
+  status: RefundStatus
+  recipient: string | null
+  created_at: string
+  updated_at: string
 }
 
 export type WithdrawalStatus = 'pending' | 'processing' | 'completed' | 'failed'
@@ -188,7 +204,7 @@ function parseWithBigInts<T>(text: string): T {
  * JSON.stringify throws on bigint, and `Number(stroops)` would silently round
  * past 2^53. This emits bigints as unquoted JSON integers instead.
  */
-function stringifyWithBigInts(value: unknown): string {
+export function stringifyWithBigInts(value: unknown): string {
   const marker = ' bigint '
   const json = JSON.stringify(value, (_key, raw) =>
     typeof raw === 'bigint' ? `${marker}${raw.toString()}${marker}` : raw
@@ -203,7 +219,8 @@ interface RequestOptions {
   signal?: AbortSignal
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+/** Exported for tests: the single fetch wrapper every `api.*` call funnels through. */
+export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, token, signal } = options
 
   let response: Response
@@ -268,7 +285,8 @@ export const api = {
     token: string,
     amountStroops: bigint,
     asset?: string,
-    expiresInSecs?: number
+    expiresInSecs?: number,
+    allowPartial = false
   ) =>
     request<PaymentRequest>('/payment-requests', {
       method: 'POST',
@@ -277,6 +295,7 @@ export const api = {
         amount_stroops: amountStroops,
         ...(asset ? { asset } : {}),
         ...(expiresInSecs ? { expires_in_secs: expiresInSecs } : {}),
+        ...(allowPartial ? { allow_partial: true } : {}),
       },
     }),
 
@@ -286,6 +305,26 @@ export const api = {
   /** Deliberately public — a customer's wallet reads this without an account. */
   getPaymentRequest: (id: string, signal?: AbortSignal) =>
     request<PaymentRequest>(`/payment-requests/${id}`, { signal }),
+
+  createRefund: (
+    token: string,
+    paymentId: string,
+    amountStroops: bigint,
+    recipientAddress: string,
+    reason?: string
+  ) =>
+    request<Refund>(`/payments/${paymentId}/refund`, {
+      method: 'POST',
+      token,
+      body: {
+        amount_stroops: amountStroops,
+        recipient: recipientAddress,
+        ...(reason ? { reason } : {}),
+      },
+    }),
+
+  listRefunds: (token: string, limit = 50, signal?: AbortSignal) =>
+    request<Refund[]>(`/refunds?limit=${limit}`, { token, signal }),
 
   createWithdrawal: (
     token: string,

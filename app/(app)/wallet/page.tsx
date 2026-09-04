@@ -25,7 +25,8 @@ export default function WalletPage() {
     } catch (cause) {
       // 400 "no wallet created yet" is the expected state for a new merchant.
       if (cause instanceof ApiError && cause.status === 400) setWallet(null)
-      else if (cause instanceof ApiError && cause.status === 0) throw cause
+      else if (cause instanceof ApiError && cause.status === 0)
+        setError('backend-down')
       else setError(cause instanceof Error ? cause.message : 'Could not load your account')
     } finally {
       setLoading(false)
@@ -75,7 +76,11 @@ export default function WalletPage() {
       <div className="mt-6 max-w-xl space-y-5">
         {error && (
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>
+              {error === 'backend-down'
+                ? "We can't connect to the payment server right now. Please try again in a moment."
+                : error}
+            </AlertDescription>
           </Alert>
         )}
 
@@ -103,7 +108,7 @@ export default function WalletPage() {
               charge — you never need to share it directly.
             </p>
           </section>
-        ) : (
+        ) : !error ? (
           <section className="bg-panel border-hairline space-y-3 rounded-2xl border p-5">
             <h2 className="text-lg font-bold">Set up your payment address</h2>
             <p className="text-dim text-sm">
@@ -113,7 +118,7 @@ export default function WalletPage() {
               {creating ? 'Setting up…' : 'Create payment address'}
             </Button>
           </section>
-        )}
+        ) : null}
       </div>
     </div>
   )

@@ -1,0 +1,519 @@
+openapi: 3.0.3
+info:
+  title: Aframp Pay API
+  version: 1.0.0
+  description: |
+    OpenAPI spec for the backend endpoints used by the Aframp frontend client in lib/api.ts.
+servers:
+  - url: https://api.aframp.com
+    description: Production API
+  - url: http://127.0.0.1:3000
+    description: Local development API
+paths:
+  /signup:
+    post:
+      summary: Create a merchant account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, name]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Authenticated user and merchant session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /login:
+    post:
+      summary: Sign in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Authenticated user and merchant session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /me:
+    get:
+      summary: Fetch current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+  /wallet/create:
+    post:
+      summary: Create a merchant wallet
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: New wallet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Wallet'
+  /wallet:
+    get:
+      summary: Read merchant wallet
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Wallet detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Wallet'
+  /balance:
+    get:
+      summary: List balances
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Account balances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Balance'
+  /transactions:
+    get:
+      summary: List transactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Payment history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment'
+  /payment-requests:
+    post:
+      summary: Create a payment request
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_stroops]
+              properties:
+                amount_stroops:
+                  type: integer
+                  format: int64
+                  description: Amount in stroops
+                asset:
+                  type: string
+                  example: XLM
+                expires_in_secs:
+                  type: integer
+                  minimum: 1
+                allow_partial:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Created payment request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentRequest'
+    get:
+      summary: List payment requests
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Payment requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentRequest'
+  /payment-requests/{id}:
+    get:
+      summary: Fetch payment request by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment request detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentRequest'
+  /payments/{payment_id}/refund:
+    post:
+      summary: Create a refund for a confirmed payment
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: payment_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_stroops, recipient]
+              properties:
+                amount_stroops:
+                  type: integer
+                  format: int64
+                recipient:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Refund record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+  /refunds:
+    get:
+      summary: List refunds
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Refund records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Refund'
+  /withdraw:
+    post:
+      summary: Create a withdrawal
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_stroops, asset, bank_code, account_number]
+              properties:
+                amount_stroops:
+                  type: integer
+                  format: int64
+                asset:
+                  type: string
+                bank_code:
+                  type: string
+                account_number:
+                  type: string
+      responses:
+        '200':
+          description: Withdrawal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Withdrawal'
+  /withdrawals:
+    get:
+      summary: List withdrawals
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Withdrawals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Withdrawal'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    AuthResponse:
+      type: object
+      required: [token, user_id, merchant_id]
+      properties:
+        token:
+          type: string
+        user_id:
+          type: string
+          format: uuid
+        merchant_id:
+          type: string
+          format: uuid
+          nullable: true
+    Me:
+      type: object
+      required: [user_id, email, name, created_at, merchant_id, merchant_name]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        merchant_id:
+          type: string
+          format: uuid
+          nullable: true
+        merchant_name:
+          type: string
+          nullable: true
+    Wallet:
+      type: object
+      required: [id, merchant_id, address, network, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        merchant_id:
+          type: string
+          format: uuid
+        address:
+          type: string
+        network:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    Balance:
+      type: object
+      required: [merchant_id, asset, available, pending, updated_at]
+      properties:
+        merchant_id:
+          type: string
+          format: uuid
+        asset:
+          type: string
+        available:
+          type: integer
+          format: int64
+        pending:
+          type: integer
+          format: int64
+        updated_at:
+          type: string
+          format: date-time
+    Payment:
+      type: object
+      required: [id, merchant_id, wallet_id, wallet_address, tx_hash, amount_stroops, asset, network, status, confirmations, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        merchant_id:
+          type: string
+          format: uuid
+        wallet_id:
+          type: string
+          format: uuid
+        wallet_address:
+          type: string
+        tx_hash:
+          type: string
+        amount_stroops:
+          type: integer
+          format: int64
+        asset:
+          type: string
+        network:
+          type: string
+        status:
+          type: string
+          enum: [detected, verified, confirmed, failed]
+        confirmations:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    PaymentRequest:
+      type: object
+      required: [id, merchant_id, address, network, amount_stroops, asset, memo, status, expires_at, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        merchant_id:
+          type: string
+          format: uuid
+        address:
+          type: string
+        network:
+          type: string
+        amount_stroops:
+          type: integer
+          format: int64
+        amount_paid_stroops:
+          type: integer
+          format: int64
+          nullable: true
+        asset:
+          type: string
+        memo:
+          type: string
+        status:
+          type: string
+          enum: [pending, paid, expired]
+        allow_partial:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        sep7_uri:
+          type: string
+          nullable: true
+    Refund:
+      type: object
+      required: [id, payment_id, merchant_id, amount_stroops, asset, status, recipient, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        payment_id:
+          type: string
+          format: uuid
+        merchant_id:
+          type: string
+          format: uuid
+        amount_stroops:
+          type: integer
+          format: int64
+        asset:
+          type: string
+        status:
+          type: string
+          enum: [pending, completed, failed]
+        recipient:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Withdrawal:
+      type: object
+      required: [id, merchant_id, amount_stroops, asset, status, provider, provider_reference, bank_code, account_number, failure_reason, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        merchant_id:
+          type: string
+          format: uuid
+        amount_stroops:
+          type: integer
+          format: int64
+        asset:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        provider:
+          type: string
+          nullable: true
+        provider_reference:
+          type: string
+          nullable: true
+        bank_code:
+          type: string
+          nullable: true
+        account_number:
+          type: string
+          nullable: true
+        failure_reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time

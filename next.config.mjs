@@ -1,6 +1,7 @@
 import withPWAInit from 'next-pwa'
 import defaultRuntimeCaching from 'next-pwa/cache.js'
 import { withSentryConfig } from '@sentry/nextjs'
+import withBundleAnalyzer from '@next/bundle-analyzer'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -94,5 +95,9 @@ const withPWA = withPWAInit({
 })
 
 const configWithPWA = withPWA(nextConfig)
+const withAnalyzer = withBundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+  openAnalyzer: false,
+})
 
-export default withSentryConfig(configWithPWA)
+export default withSentryConfig(withAnalyzer(configWithPWA))

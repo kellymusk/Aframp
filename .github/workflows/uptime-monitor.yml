@@ -2,124 +2,156 @@ name: Uptime Monitor
 
 on:
   schedule:
-    - cron: '*/15 * * * *' # Every 15 minutes (reduced from 1 min to avoid noise)
+    - cron: '*/5 * * * *'
   workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
 
 jobs:
   monitor:
     name: Check Production Uptime
     runs-on: ubuntu-latest
-    continue-on-error: true
+    permissions:
+      contents: read
+      issues: write
     steps:
+      - name: Restore prior failure count
+        uses: actions/cache@v4
+        with:
+          path: .uptime-monitor-state.json
+          key: uptime-monitor-state-${{ github.repository }}
+          restore-keys: uptime-monitor-state-
+
       - name: Check homepage
         id: homepage
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/ || echo "000")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://app.aframp.com/ || echo "000")
           if [ "$STATUS" != "200" ]; then
-            echo "status=down" >> $GITHUB_OUTPUT
+            echo "status=down" >> "$GITHUB_OUTPUT"
             echo "⚠️ Homepage returned HTTP $STATUS"
           else
-            echo "status=up" >> $GITHUB_OUTPUT
+            echo "status=up" >> "$GITHUB_OUTPUT"
             echo "✅ Homepage up"
           fi
 
-      - name: Check onramp page
-        id: onramp
+      - name: Check login page
+        id: login
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/onramp || echo "000")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://app.aframp.com/login || echo "000")
           if [ "$STATUS" != "200" ]; then
-            echo "status=down" >> $GITHUB_OUTPUT
-            echo "⚠️ Onramp page returned HTTP $STATUS"
+            echo "status=down" >> "$GITHUB_OUTPUT"
+            echo "⚠️ Login page returned HTTP $STATUS"
           else
-            echo "status=up" >> $GITHUB_OUTPUT
-            echo "✅ Onramp page up"
+            echo "status=up" >> "$GITHUB_OUTPUT"
+            echo "✅ Login page up"
           fi
 
-      - name: Check offramp page
-        id: offramp
+      - name: Check wallet dashboard
+        id: wallet
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/offramp || echo "000")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://app.aframp.com/wallet || echo "000")
           if [ "$STATUS" != "200" ]; then
-            echo "status=down" >> $GITHUB_OUTPUT
-            echo "⚠️ Offramp page returned HTTP $STATUS"
+            echo "status=down" >> "$GITHUB_OUTPUT"
+            echo "⚠️ Wallet page returned HTTP $STATUS"
           else
-            echo "status=up" >> $GITHUB_OUTPUT
-            echo "✅ Offramp page up"
+            echo "status=up" >> "$GITHUB_OUTPUT"
+            echo "✅ Wallet page up"
           fi
 
-      - name: Check bills page
-        id: bills
+      - name: Track consecutive failures
+        id: failures
+        shell: bash
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/bills || echo "000")
-          if [ "$STATUS" != "200" ]; then
-            echo "status=down" >> $GITHUB_OUTPUT
-            echo "⚠️ Bills page returned HTTP $STATUS"
+          STATE_FILE=.uptime-monitor-state.json
+          if [ -f "$STATE_FILE" ]; then
+            FAILURES=$(jq -r '.failures // 0' "$STATE_FILE")
           else
-            echo "status=up" >> $GITHUB_OUTPUT
-            echo "✅ Bills page up"
+            FAILURES=0
           fi
 
-      - name: Check swap page
-        id: swap
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/swap || echo "000")
-          if [ "$STATUS" != "200" ]; then
-            echo "status=down" >> $GITHUB_OUTPUT
-            echo "⚠️ Swap page returned HTTP $STATUS"
-          else
-            echo "status=up" >> $GITHUB_OUTPUT
-            echo "✅ Swap page up"
+          DOWN=false
+          if [ "${{ steps.homepage.outputs.status }}" = "down" ] || \
+             [ "${{ steps.login.outputs.status }}" = "down" ] || \
+             [ "${{ steps.wallet.outputs.status }}" = "down" ]; then
+            DOWN=true
           fi
 
-      - name: Check exchange-rate API
-        id: exchange_rate_api
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/api/exchange-rate || echo "000")
-          if [ "$STATUS" != "200" ]; then
-            echo "status=down" >> $GITHUB_OUTPUT
-            echo "⚠️ Exchange-rate API returned HTTP $STATUS"
+          if [ "$DOWN" = "true" ]; then
+            FAILURES=$((FAILURES + 1))
           else
-            echo "status=up" >> $GITHUB_OUTPUT
-            echo "✅ Exchange-rate API up"
+            FAILURES=0
           fi
 
-      - name: Check rates API
-        id: rates_api
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://aframp.vercel.app/api/rates || echo "000")
-          if [ "$STATUS" != "200" ]; then
-            echo "status=down" >> $GITHUB_OUTPUT
-            echo "⚠️ Rates API returned HTTP $STATUS"
-          else
-            echo "status=up" >> $GITHUB_OUTPUT
-            echo "✅ Rates API up"
-          fi
+          printf '{"failures": %s}\n' "$FAILURES" > "$STATE_FILE"
+          echo "count=$FAILURES" >> "$GITHUB_OUTPUT"
+          echo "down=$DOWN" >> "$GITHUB_OUTPUT"
+
+      - name: Create outage issue after 3 failures
+        if: ${{ steps.failures.outputs.count == '3' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '🚨 AFRAMP production uptime alert';
+            const body = [
+              'The production site has failed the uptime checks for three consecutive runs.',
+              '',
+              'Affected endpoints:',
+              `- Homepage: ${{ steps.homepage.outputs.status }}`,
+              `- Login: ${{ steps.login.outputs.status }}`,
+              `- Wallet: ${{ steps.wallet.outputs.status }}`,
+              '',
+              'This issue will be auto-closed when the site responds again.'
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const { data: issues } = await github.rest.issues.listForRepo({ owner, repo, state: 'open', per_page: 100 });
+            const existing = issues.find((issue) => issue.title === title);
+
+            if (!existing) {
+              await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                body,
+                labels: ['bug', 'uptime'],
+              });
+            }
+
+      - name: Close outage issue when restored
+        if: ${{ steps.failures.outputs.count == '0' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '🚨 AFRAMP production uptime alert';
+            const { owner, repo } = context.repo;
+            const { data: issues } = await github.rest.issues.listForRepo({ owner, repo, state: 'open', per_page: 100 });
+            const openIssue = issues.find((issue) => issue.title === title);
+
+            if (openIssue) {
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: openIssue.number,
+                state: 'closed',
+              });
+            }
 
       - name: Alert on downtime
-        if: |
-          steps.homepage.outputs.status == 'down' ||
-          steps.onramp.outputs.status == 'down' ||
-          steps.offramp.outputs.status == 'down' ||
-          steps.bills.outputs.status == 'down' ||
-          steps.swap.outputs.status == 'down' ||
-          steps.exchange_rate_api.outputs.status == 'down' ||
-          steps.rates_api.outputs.status == 'down'
+        if: ${{ steps.failures.outputs.down == 'true' }}
         uses: actions/github-script@v7
         with:
           script: |
             const statuses = {
-              Homepage:       '${{ steps.homepage.outputs.status }}',
-              Onramp:         '${{ steps.onramp.outputs.status }}',
-              Offramp:        '${{ steps.offramp.outputs.status }}',
-              Bills:          '${{ steps.bills.outputs.status }}',
-              Swap:           '${{ steps.swap.outputs.status }}',
-              'Exchange-rate API': '${{ steps.exchange_rate_api.outputs.status }}',
-              'Rates API':    '${{ steps.rates_api.outputs.status }}',
+              Homepage: '${{ steps.homepage.outputs.status }}',
+              Login: '${{ steps.login.outputs.status }}',
+              Wallet: '${{ steps.wallet.outputs.status }}',
             };
             const down = Object.entries(statuses)
               .filter(([, v]) => v === 'down')
               .map(([k]) => `  • ${k}`)
               .join('\n');
             console.log(
-              `🚨 ALERT: AFRAMP endpoints are DOWN\n\nTime: ${new Date().toISOString()}\n\nAffected:\n${down}\n\nCheck: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`
+              `🚨 ALERT: AFRAMP production endpoints are DOWN\n\nTime: ${new Date().toISOString()}\n\nAffected:\n${down}\n\nCheck: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`
             );

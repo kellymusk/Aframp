@@ -28,15 +28,22 @@ export default function SignupPage() {
     event.preventDefault()
     setError(null)
 
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      setError('Please fill in your business name, email, and password.')
+      setSubmitting(false)
+      return
+    }
+
     // Mirrors the server's own check so the error lands next to the field.
     if (password.length < MIN_PASSWORD_LENGTH) {
       setError(`Use at least ${MIN_PASSWORD_LENGTH} characters for your password.`)
+      setSubmitting(false)
       return
     }
 
     setSubmitting(true)
     try {
-      await signUp(email, password, name)
+      await signUp(email.trim(), password, name.trim())
       router.replace('/charge')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not create your account')
@@ -53,7 +60,7 @@ export default function SignupPage() {
         </p>
       </header>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>

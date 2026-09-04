@@ -38,7 +38,12 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
         return next
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return null
-        if (cause instanceof ApiError && cause.status === 0) throw cause
+        if (cause instanceof ApiError && cause.status === 0) {
+          // Backend is temporarily unreachable — surface the error but do NOT
+          // throw, so the polling loop can schedule another tick and recover.
+          setError('backend-down')
+          return null
+        }
         setError(cause instanceof Error ? cause.message : 'Could not load this charge')
         return null
       }
@@ -77,7 +82,14 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
   if (error && !request) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md items-center justify-center px-6">
-        <ErrorState message={error} onRetry={() => void load()} />
+        <ErrorState
+          message={
+            error === 'backend-down'
+              ? "We can't connect to the payment server right now. Please try again in a moment."
+              : error
+          }
+          onRetry={() => void load()}
+        />
       </main>
     )
   }
@@ -91,6 +103,9 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
   }
 
   const amount = `${formatStroops(request.amount_stroops)} ${request.asset}`
+  const paidAmount = request.amount_paid_stroops ?? 0n
+  const paidRatio = request.amount_stroops > 0n ? Number((paidAmount * 100n) / request.amount_stroops) : 0
+  const hasPartialPayment = request.allow_partial || paidAmount > 0n
 
   if (request.status === 'paid') {
     return (
@@ -137,6 +152,17 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
         <p className="font-display text-4xl font-semibold tracking-tight tabular-nums">{amount}</p>
       </header>
 
+      {error && (
+        <Alert>
+          <TriangleAlert className="size-4" aria-hidden />
+          <AlertDescription>
+            {error === 'backend-down'
+              ? "Can't reach the payment server — retrying automatically. The QR code is still valid."
+              : error}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {request.sep7_uri ? (
         <div className="flex justify-center">
           <div className="rounded-3xl bg-white p-5 shadow-sm">
@@ -156,6 +182,23 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
             address below and include the reference exactly.
           </AlertDescription>
         </Alert>
+      )}
+
+      {hasPartialPayment && (
+        <div className="bg-muted/50 rounded-2xl p-4 text-sm">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span className="text-muted-foreground">Paid so far</span>
+            <span className="font-semibold tabular-nums">
+              {formatStroops(paidAmount)} / {formatStroops(request.amount_stroops)} {request.asset}
+            </span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-background">
+            <div
+              className="h-full rounded-full bg-primary"
+              style={{ width: `${Math.min(100, Math.max(0, paidRatio))}%` }}
+            />
+          </div>
+        </div>
       )}
 
       <dl className="bg-muted/50 space-y-3 rounded-2xl p-4 text-sm">

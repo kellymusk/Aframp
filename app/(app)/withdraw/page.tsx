@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,14 +16,13 @@ import {
 } from '@/components/ui/select'
 import { api, ApiError, type Balance, type Withdrawal, type WithdrawalStatus } from '@/lib/api'
 import { formatStroops, isWholeKobo, parseAmountToStroops } from '@/lib/money'
-import { BANKS } from '@/lib/banks'
 import { useAuthenticatedSession } from '@/components/session-provider'
-
-/** Withdrawals are cNGN-only server-side; XLM balances have no cash-out path. */
-const ASSET = 'cNGN'
-const ACCOUNT_NUMBER_LENGTH = 10
-/** Paystack's own floor is NGN 50. */
-const MINIMUM_STROOPS = 500_000_000n
+import {
+  getBankOptions,
+  getWithdrawableAssets,
+  getWithdrawalAssetConfig,
+  type WithdrawalAsset,
+} from '@/lib/withdraw'
 
 const STATUS_LABEL: Record<WithdrawalStatus, string> = {
   pending: 'Pending',
@@ -36,6 +35,7 @@ export default function WithdrawPage() {
   const { token } = useAuthenticatedSession()
   const [balances, setBalances] = useState<Balance[] | null>(null)
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
+  const [asset, setAsset] = useState<WithdrawalAsset>('cNGN')
   const [amount, setAmount] = useState('')
   const [bankCode, setBankCode] = useState('')
   const [accountNumber, setAccountNumber] = useState('')
@@ -53,7 +53,11 @@ export default function WithdrawPage() {
         setWithdrawals(nextWithdrawals)
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return
-        if (cause instanceof ApiError && cause.status === 0) throw cause
+        if (cause instanceof ApiError && cause.status === 0) {
+          setError('backend-down')
+          setBalances([])
+          return
+        }
         setError(cause instanceof Error ? cause.message : 'Could not load your cash-out details')
         setBalances([])
       }
@@ -67,18 +71,34 @@ export default function WithdrawPage() {
     return () => controller.abort()
   }, [load])
 
-  const available = balances?.find((balance) => balance.asset === ASSET)?.available ?? 0n
+  const withdrawableAssets = useMemo(() => getWithdrawableAssets(balances ?? []), [balances])
+  const config = getWithdrawalAssetConfig(asset)
+  const available = balances?.find((balance) => balance.asset === asset)?.available ?? 0n
   const stroops = parseAmountToStroops(amount)
+
+  const selectAsset = useCallback((next: WithdrawalAsset) => {
+    setAsset(next)
+    setAmount('')
+    setBankCode('')
+    setAccountNumber('')
+  }, [])
+
+  // If the selected asset no longer has a balance (e.g. after a cash-out), fall
+  // back to the first asset the merchant can still cash out.
+  useEffect(() => {
+    if (withdrawableAssets.length === 0 || withdrawableAssets.includes(asset)) return
+    selectAsset(withdrawableAssets[0])
+  }, [withdrawableAssets, asset, selectAsset])
 
   function validate(): string | null {
     if (stroops === null || stroops <= 0n) return 'Enter an amount to cash out.'
-    if (!isWholeKobo(stroops)) return 'Amount must be a whole number of kobo.'
-    if (stroops < MINIMUM_STROOPS)
-      return `The smallest cash-out is ${formatStroops(MINIMUM_STROOPS)} ${ASSET}.`
+    if (!isWholeKobo(stroops)) return 'Amount must have at most 2 decimal places.'
+    if (stroops < config.minimumStroops)
+      return `The smallest cash-out is ${formatStroops(config.minimumStroops)} ${asset}.`
     if (stroops > available) return 'That is more than your available balance.'
     if (!bankCode) return 'Choose your bank.'
-    if (accountNumber.length !== ACCOUNT_NUMBER_LENGTH) {
-      return `Account numbers are ${ACCOUNT_NUMBER_LENGTH} digits.`
+    if (accountNumber.length !== config.accountNumberLength) {
+      return `Account numbers are ${config.accountNumberLength} digits.`
     }
     return null
   }
@@ -94,8 +114,10 @@ export default function WithdrawPage() {
     setSubmitting(true)
     setError(null)
     try {
-      await api.createWithdrawal(token, stroops!, bankCode, accountNumber, ASSET)
+      await api.createWithdrawal(token, stroops!, bankCode, accountNumber, asset)
       setAmount('')
+      setBankCode('')
+      setAccountNumber('')
       await load()
     } catch (cause) {
       // A 502 carries Paystack's own message — show it rather than a generic one.
@@ -118,16 +140,16 @@ export default function WithdrawPage() {
       <header>
         <h1 className="text-2xl font-bold tracking-tight">Cash out</h1>
         <p className="text-dim mt-1 text-sm">
-          {formatStroops(available)} {ASSET} available
+          {formatStroops(available)} {asset} available
         </p>
       </header>
 
       <div className="mt-6 max-w-xl space-y-5">
-        {available === 0n && (
+        {withdrawableAssets.length === 0 && (
           <Alert>
             <AlertDescription>
-              You have no {ASSET} to cash out yet. Payments currently arrive as XLM, which
-              doesn&apos;t have a cash-out route — that opens up once {ASSET} payments go live.
+              You have no balance to cash out yet. Payments currently arrive as XLM, which
+              doesn&apos;t have a cash-out route — that opens up once your payments go live.
             </AlertDescription>
           </Alert>
         )}
@@ -138,12 +160,37 @@ export default function WithdrawPage() {
         >
           {error && (
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>
+                {error === 'backend-down'
+                  ? "We can't connect to the payment server right now. Please try again in a moment."
+                  : error}
+              </AlertDescription>
             </Alert>
           )}
 
+          {withdrawableAssets.length > 1 && (
+            <div className="space-y-2">
+              <Label htmlFor="asset">Asset</Label>
+              <Select
+                value={asset}
+                onValueChange={(value) => selectAsset(value as WithdrawalAsset)}
+              >
+                <SelectTrigger id="asset">
+                  <SelectValue placeholder="Choose an asset" />
+                </SelectTrigger>
+                <SelectContent>
+                  {withdrawableAssets.map((withdrawable) => (
+                    <SelectItem key={withdrawable} value={withdrawable}>
+                      {withdrawable}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="space-y-2">
-            <Label htmlFor="amount">Amount ({ASSET})</Label>
+            <Label htmlFor="amount">Amount ({asset})</Label>
             <Input
               id="amount"
               inputMode="decimal"
@@ -161,7 +208,7 @@ export default function WithdrawPage() {
                 <SelectValue placeholder="Choose your bank" />
               </SelectTrigger>
               <SelectContent>
-                {BANKS.map((bank) => (
+                {getBankOptions(asset).map((bank) => (
                   <SelectItem key={bank.code} value={bank.code}>
                     {bank.name}
                   </SelectItem>
@@ -175,13 +222,13 @@ export default function WithdrawPage() {
             <Input
               id="account"
               inputMode="numeric"
-              maxLength={ACCOUNT_NUMBER_LENGTH}
+              maxLength={config.accountNumberLength}
               placeholder="0123456789"
               value={accountNumber}
               disabled={available === 0n}
               onChange={(event) =>
                 setAccountNumber(
-                  event.target.value.replace(/\D/g, '').slice(0, ACCOUNT_NUMBER_LENGTH)
+                  event.target.value.replace(/\D/g, '').slice(0, config.accountNumberLength)
                 )
               }
             />
