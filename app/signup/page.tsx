@@ -7,9 +7,26 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { useSession } from '@/components/session-provider'
 
 const MIN_PASSWORD_LENGTH = 8
+
+function calculatePasswordStrength(password: string): 'weak' | 'fair' | 'strong' {
+  if (password.length < 8) return 'weak'
+  if (password.length < 12) return 'fair'
+
+  const hasUppercase = /[A-Z]/.test(password)
+  const hasLowercase = /[a-z]/.test(password)
+  const hasNumbers = /\d/.test(password)
+  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+
+  const diversity = [hasUppercase, hasLowercase, hasNumbers, hasSpecial].filter(Boolean).length
+
+  if (password.length >= 16 && diversity >= 3) return 'strong'
+  if (password.length >= 12 && diversity >= 2) return 'fair'
+  return 'weak'
+}
 
 export default function SignupPage() {
   const { session, ready, signUp } = useSession()
@@ -19,6 +36,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const passwordStrength = calculatePasswordStrength(password)
 
   useEffect(() => {
     if (ready && session) router.replace('/charge')
@@ -84,7 +102,27 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Password</Label>
+            {password && (
+              <Badge
+                variant={
+                  passwordStrength === 'strong'
+                    ? 'default'
+                    : passwordStrength === 'fair'
+                      ? 'secondary'
+                      : 'destructive'
+                }
+                className="text-xs"
+              >
+                {passwordStrength === 'strong'
+                  ? 'Strong'
+                  : passwordStrength === 'fair'
+                    ? 'Fair'
+                    : 'Weak'}
+              </Badge>
+            )}
+          </div>
           <Input
             id="password"
             type="password"
@@ -94,9 +132,16 @@ export default function SignupPage() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
-          <p className="text-muted-foreground text-xs">
-            At least {MIN_PASSWORD_LENGTH} characters.
-          </p>
+          {password.length > 0 && password.length < MIN_PASSWORD_LENGTH && (
+            <p className="text-destructive text-xs">
+              Use at least {MIN_PASSWORD_LENGTH} characters for your password.
+            </p>
+          )}
+          {password.length === 0 && (
+            <p className="text-muted-foreground text-xs">
+              At least {MIN_PASSWORD_LENGTH} characters.
+            </p>
+          )}
         </div>
 
         <Button type="submit" size="lg" disabled={submitting} className="mt-2">

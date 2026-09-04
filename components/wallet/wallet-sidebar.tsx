@@ -21,6 +21,7 @@ const LINKS = [
   { label: 'Charge', icon: Banknote, href: '/charge' },
   { label: 'Payments', icon: Receipt, href: '/transactions' },
   { label: 'Cash out', icon: ArrowDownToLine, href: '/withdraw' },
+  { label: 'Sell', icon: TrendingDown, href: '/offramp' },
   { label: 'Wallet', icon: WalletIcon, href: '/wallet' },
   { label: 'Settings', icon: Settings, href: '/settings' },
 ]
@@ -31,7 +32,7 @@ export function WalletSidebar() {
   const router = useRouter()
 
   return (
-    <aside className="bg-rail border-hairline sticky top-0 flex h-dvh w-[260px] shrink-0 flex-col border-r p-4 pb-6">
+    <aside className="bg-rail border-hairline sticky top-0 hidden h-dvh w-[260px] shrink-0 flex-col border-r p-4 pb-6 md:flex">
       <div className="flex items-center gap-2.5 px-1 pt-1">
         <AframpMark className="size-8" />
         <span className="text-xl font-bold tracking-tight text-white">Aframp</span>
@@ -72,7 +73,7 @@ export function WalletSidebar() {
           <LogOut className="size-4 shrink-0" strokeWidth={1.75} />
           Sign out
         </button>
-        <p className="text-dim px-1 text-xs">Secure. Non-custodial. Always on.</p>
+        <p className="text-dim px-1 text-xs">Secure. Always on.</p>
       </div>
     </aside>
   )

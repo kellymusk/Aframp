@@ -46,7 +46,7 @@ check_optional() {
     local var_value=${!var_name}
 
     if [ -z "$var_value" ]; then
-        echo "⚠️  $var_name is not set (optional for some features)"
+        echo "⚠️  $var_name is not set (optional)"
         ((WARNINGS++))
     else
         echo "✅ $var_name is set"
@@ -55,113 +55,13 @@ check_optional() {
 
 # ── Core / Next.js ────────────────────────────────────────────────────────────
 echo "📋 Checking core variables..."
-check_required "NEXT_PUBLIC_DEMO_MODE"
-check_required "NEXT_PUBLIC_CNGN_ISSUER"
 check_optional "NEXT_PUBLIC_API_URL"
 
-# ── Upstash Redis (required — middleware crashes without these) ───────────────
+# ── Sentry (optional error tracking) ──────────────────────────────────────────
 echo ""
-echo "📋 Checking Upstash Redis variables (required for API rate-limiting)..."
-check_required "UPSTASH_REDIS_REST_URL"
-check_required "UPSTASH_REDIS_REST_TOKEN"
-
-# ── M-Pesa (Daraja API) ───────────────────────────────────────────────────────
-echo ""
-echo "📋 Checking M-Pesa variables..."
-check_optional "MPESA_CONSUMER_KEY"
-check_optional "MPESA_CONSUMER_SECRET"
-check_optional "MPESA_SHORTCODE"
-check_optional "MPESA_PASSKEY"
-check_optional "MPESA_ENV"
-
-# ── MTN Mobile Money ──────────────────────────────────────────────────────────
-echo ""
-echo "📋 Checking MTN MoMo variables..."
-check_optional "MTN_MOMO_SUBSCRIPTION_KEY"
-check_optional "MTN_MOMO_API_USER"
-check_optional "MTN_MOMO_API_KEY"
-check_optional "MTN_MOMO_ENV"
-
-# ── Paystack ──────────────────────────────────────────────────────────────────
-echo ""
-echo "📋 Checking Paystack variables..."
-check_optional "NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY"
-check_optional "PAYSTACK_SECRET_KEY"
-
-# ── Flutterwave ───────────────────────────────────────────────────────────────
-echo ""
-echo "📋 Checking Flutterwave variables..."
-check_optional "NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY"
-check_optional "FLUTTERWAVE_SECRET_KEY"
-check_optional "FLUTTERWAVE_ENCRYPTION_KEY"
-
-# ── Sentry ────────────────────────────────────────────────────────────────────
-echo ""
-echo "📋 Checking Sentry variables..."
+echo "📋 Checking Sentry variables (optional)..."
 check_optional "NEXT_PUBLIC_SENTRY_DSN"
-check_optional "SENTRY_DSN"
 check_optional "SENTRY_AUTH_TOKEN"
-check_optional "SENTRY_ORG"
-check_optional "SENTRY_PROJECT"
-
-# ── Vercel CI/CD ──────────────────────────────────────────────────────────────
-echo ""
-echo "📋 Checking Vercel CI/CD variables..."
-check_optional "VERCEL_TOKEN"
-check_optional "VERCEL_ORG_ID"
-check_optional "VERCEL_PROJECT_ID"
-
-# ── Miscellaneous ─────────────────────────────────────────────────────────────
-echo ""
-echo "📋 Checking miscellaneous variables..."
-check_optional "NEXT_PUBLIC_BILLS_WS_URL"
-check_optional "LHCI_GITHUB_APP_TOKEN"
-
-# ── Security / format checks ─────────────────────────────────────────────────
-echo ""
-echo "🔐 Security checks..."
-
-# DEMO_MODE should be false in production
-if [ "$NEXT_PUBLIC_DEMO_MODE" = "true" ]; then
-    echo "⚠️  DEMO_MODE is enabled — DO NOT use in production!"
-    ((WARNINGS++))
-else
-    echo "✅ DEMO_MODE is disabled"
-fi
-
-# Paystack test key warning
-if [[ "$NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY" == *"test"* ]]; then
-    echo "⚠️  Using Paystack TEST keys"
-    ((WARNINGS++))
-fi
-
-# Flutterwave test key warning
-if [[ "$NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY" == *"TEST"* ]]; then
-    echo "⚠️  Using Flutterwave TEST keys"
-    ((WARNINGS++))
-fi
-
-# M-Pesa sandbox warning
-if [ "$MPESA_ENV" = "sandbox" ]; then
-    echo "⚠️  M-Pesa is running in SANDBOX mode"
-    ((WARNINGS++))
-fi
-
-# MTN MoMo sandbox warning
-if [ "$MTN_MOMO_ENV" = "sandbox" ]; then
-    echo "⚠️  MTN MoMo is running in SANDBOX mode"
-    ((WARNINGS++))
-fi
-
-# Validate Stellar address format
-if [ -n "$NEXT_PUBLIC_CNGN_ISSUER" ]; then
-    if [[ ! "$NEXT_PUBLIC_CNGN_ISSUER" =~ ^G[A-Z0-9]{55}$ ]]; then
-        echo "❌ NEXT_PUBLIC_CNGN_ISSUER has invalid format (should be 56 chars starting with G)"
-        ((ERRORS++))
-    else
-        echo "✅ NEXT_PUBLIC_CNGN_ISSUER format is valid"
-    fi
-fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 echo ""

@@ -12,6 +12,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --passWithNoTests",
     "test:diff-coverage": "node scripts/check-diff-coverage.js",
+    "check:env-docs": "node scripts/check-env-docs.js",
+    "docs:env": "node scripts/check-env-docs.js --write",
     "format": "prettier --write .",
     "format:check": "prettier --check '**/*.{ts,tsx,css,json,md}'",
     "type-check": "tsc --noEmit",
@@ -46,9 +48,11 @@
     "next": "^15.3.0",
     "next-pwa": "^5.6.0",
     "next-themes": "^0.4.6",
+    "qrcode": "1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-qr-code": "^2.0.18",
+    "recharts": "^3.10.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7"
   },
@@ -63,6 +67,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^22",
+    "@types/qrcode": "1.5.5",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
@@ -75,6 +80,7 @@
     "husky": "^9.1.7",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^30.4.1",
+    "msw": "^2.15.0",
     "postcss": "^8.5",
     "prettier": "^3.9.4",
     "tailwindcss": "^4.1.9",
@@ -83,5 +89,10 @@
     "typescript": "^5",
     "typescript-eslint": "^8.54.0",
     "undici": "^8.3.0"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
   }
 }

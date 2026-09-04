@@ -7,6 +7,10 @@
  * Errors always come back as `{ "error": "message" }`.
  */
 
+import type { KycInitiateRequest, KycInitiateResponse, KycStatusResponse } from '@/types/kyc'
+import type { OfframpFeeBreakdown, OfframpOrder } from '@/types/offramp'
+import type { FiatCurrency } from '@/types/onramp'
+
 /** Backend ids are UUIDs; aliased for readability, not validated here. */
 type UUID = string
 
@@ -17,6 +21,13 @@ const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:3000').re
  * past 2^53, so these keys are re-quoted before parsing and revived as bigint.
  */
 const BIGINT_KEYS = new Set(['amount_stroops', 'available', 'pending'])
+
+/**
+ * A control character that can never appear in user-controlled JSON strings,
+ * used as a marker for bigint fields during serialization. Unlike a string
+ * marker, this cannot collide with user input.
+ */
+const BIGINT_MARKER = '\x00'
 
 /**
  * There are no refresh tokens — a 24h expiry just starts returning 401. The
@@ -47,6 +58,18 @@ export interface AuthResponse {
    * account without one gets 400 — not 401 — from every merchant-scoped call.
    */
   merchant_id: UUID | null
+}
+
+export interface Session {
+  token: string
+  userId: string
+  merchantId: string | null
+}
+
+/** SEP-0010 challenge transaction, ready to be signed client-side. */
+export interface Sep10Challenge {
+  transaction: string
+  network_passphrase: string
 }
 
 export interface Me {
@@ -108,6 +131,12 @@ export interface PaymentRequest {
   sep7_uri: string | null
 }
 
+export interface ResolvedAccount {
+  account_number: string
+  account_name: string
+  bank_code: string
+}
+
 export type WithdrawalStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
 export interface Withdrawal {
@@ -137,21 +166,36 @@ export interface ApiKey {
 
 function parseWithBigInts<T>(text: string): T {
   const quoted = text.replace(/"(amount_stroops|available|pending)"\s*:\s*(-?\d+)/g, '"$1":"$2"')
-  return JSON.parse(quoted, (key, value) =>
-    BIGINT_KEYS.has(key) && typeof value === 'string' ? BigInt(value) : value
-  ) as T
+  try {
+    return JSON.parse(quoted, (key, value) =>
+      BIGINT_KEYS.has(key) && typeof value === 'string' ? BigInt(value) : value
+    ) as T
+  } catch (error) {
+    if (error instanceof SyntaxError || error instanceof RangeError) {
+      throw new ApiError(`Invalid JSON response: ${error.message}`, 500)
+    }
+    throw error
+  }
 }
 
 /**
  * JSON.stringify throws on bigint, and `Number(stroops)` would silently round
  * past 2^53. This emits bigints as unquoted JSON integers instead.
+ *
+ * The marker is a control character (\x00) that cannot appear in JSON strings
+ * or user input, preventing collisions with string fields that happen to match
+ * a numeric pattern. JSON.stringify always escapes a literal \x00 in a string
+ * value as the six characters `\u0000` in its output, so the cleanup pass
+ * below matches that escaped text, not the raw byte — matching the raw byte
+ * (as this used to) never finds anything, silently leaving every bigint
+ * field as a quoted `"\u0000<digits>\u0000"` string instead of a bare
+ * integer, which then fails to parse back into a bigint on the way in.
  */
 function stringifyWithBigInts(value: unknown): string {
-  const marker = ' bigint '
   const json = JSON.stringify(value, (_key, raw) =>
-    typeof raw === 'bigint' ? `${marker}${raw.toString()}${marker}` : raw
+    typeof raw === 'bigint' ? `${BIGINT_MARKER}${raw.toString()}${BIGINT_MARKER}` : raw
   )
-  return json.replace(new RegExp(`"${marker}(-?\\d+)${marker}"`, 'g'), '$1')
+  return json.replace(/"\\u0000(-?\d+)\\u0000"/g, '$1')
 }
 
 interface RequestOptions {
@@ -201,12 +245,73 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return text ? parseWithBigInts<T>(text) : (undefined as T)
 }
 
+/**
+ * Calls through Next.js API route to set httpOnly cookie
+ */
+async function requestWithCookie<T>(
+  path: string,
+  options: { method?: 'GET' | 'POST'; body?: unknown } = {}
+): Promise<T> {
+  const { method = 'GET', body } = options
+
+  const response = await fetch(path, {
+    method,
+    headers: {
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+
+  const text = await response.text()
+
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`
+    try {
+      const parsed = JSON.parse(text) as { error?: string }
+      if (parsed.error) message = parsed.error
+    } catch {}
+    throw new ApiError(message, response.status)
+  }
+
+  return text ? JSON.parse(text) : (undefined as T)
+}
+
 export const api = {
   signup: (email: string, password: string, name: string) =>
-    request<AuthResponse>('/signup', { method: 'POST', body: { email, password, name } }),
+    requestWithCookie<AuthResponse>('/api/auth/signup', {
+      method: 'POST',
+      body: { email, password, name },
+    }),
 
   login: (email: string, password: string) =>
-    request<AuthResponse>('/login', { method: 'POST', body: { email, password } }),
+    requestWithCookie<AuthResponse>('/api/auth/login', {
+      method: 'POST',
+      body: { email, password },
+    }),
+
+  getSession: () => fetch('/api/auth/session').then(r => r.json() as Promise<{ session: Session | null }>),
+
+  logout: () =>
+    requestWithCookie<{ success: boolean }>('/api/auth/logout', {
+      method: 'POST',
+    }),
+
+  resetPasswordRequest: (email: string) =>
+    request<{ message: string }>('/password-reset/request', { method: 'POST', body: { email } }),
+
+  resetPassword: (token: string, password: string) =>
+    request<{ message: string }>('/password-reset/confirm', { method: 'POST', body: { token, password } }),
+
+  /** SEP-0010 step 1: fetch a challenge transaction for a Stellar address to sign. */
+  getStellarChallenge: (address: string) =>
+    request<Sep10Challenge>(`/auth/stellar/challenge?address=${encodeURIComponent(address)}`),
+
+  /** SEP-0010 step 2: hand back the wallet-signed challenge, receive a session JWT. */
+  verifyStellarChallenge: (signedTransaction: string) =>
+    request<AuthResponse>('/auth/stellar/verify', {
+      method: 'POST',
+      body: { transaction: signedTransaction },
+    }),
 
   /** The JWT carries only ids; this is how anything human-readable is rendered. */
   getMe: (token: string, signal?: AbortSignal) => request<Me>('/me', { token, signal }),
@@ -219,14 +324,20 @@ export const api = {
   getBalances: (token: string, signal?: AbortSignal) =>
     request<Balance[]>('/balance', { token, signal }),
 
-  listTransactions: (token: string, limit = 50, signal?: AbortSignal) =>
-    request<Payment[]>(`/transactions?limit=${limit}`, { token, signal }),
+  /**
+   * The backend paginates by offset, not cursor — there is no `next_cursor`
+   * in the response, just a flat array. Callers infer `hasMore` by comparing
+   * the returned length against `limit`.
+   */
+  listTransactions: (token: string, limit = 50, offset = 0, signal?: AbortSignal) =>
+    request<Payment[]>(`/transactions?limit=${limit}&offset=${offset}`, { token, signal }),
 
   createPaymentRequest: (
     token: string,
     amountStroops: bigint,
     asset?: string,
-    expiresInSecs?: number
+    expiresInSecs?: number,
+    memo?: string
   ) =>
     request<PaymentRequest>('/payment-requests', {
       method: 'POST',
@@ -235,6 +346,7 @@ export const api = {
         amount_stroops: amountStroops,
         ...(asset ? { asset } : {}),
         ...(expiresInSecs ? { expires_in_secs: expiresInSecs } : {}),
+        ...(memo ? { memo } : {}),
       },
     }),
 
@@ -245,12 +357,31 @@ export const api = {
   getPaymentRequest: (id: string, signal?: AbortSignal) =>
     request<PaymentRequest>(`/payment-requests/${id}`, { signal }),
 
+  /**
+   * Proxies to Paystack's account resolution API server-side so the Paystack
+   * secret key never touches the browser. Rejects with a 404 ApiError when
+   * the account number/bank code pair doesn't resolve to a real account.
+   */
+  resolveAccount: (
+    token: string,
+    bankCode: string,
+    accountNumber: string,
+    signal?: AbortSignal
+  ) =>
+    request<ResolvedAccount>('/accounts/resolve', {
+      method: 'POST',
+      token,
+      signal,
+      body: { bank_code: bankCode, account_number: accountNumber },
+    }),
+
   createWithdrawal: (
     token: string,
     amountStroops: bigint,
-    bankCode: string,
+    bankCode: string | undefined,
     accountNumber: string,
-    asset = 'cNGN'
+    asset = 'cNGN',
+    currency: FiatCurrency = 'NGN'
   ) =>
     request<Withdrawal>('/withdraw', {
       method: 'POST',
@@ -258,7 +389,8 @@ export const api = {
       body: {
         amount_stroops: amountStroops,
         asset,
-        bank_code: bankCode,
+        currency,
+        ...(bankCode ? { bank_code: bankCode } : {}),
         account_number: accountNumber,
       },
     }),

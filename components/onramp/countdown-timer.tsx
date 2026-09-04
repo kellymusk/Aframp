@@ -9,38 +9,35 @@ interface CountdownTimerProps {
   onExpire?: () => void
 }
 
+/** Below this many seconds remaining, the timer turns amber as a heads-up. */
+const URGENT_THRESHOLD_SECONDS = 60
+
+function secondsUntil(expiresAt: Date): number {
+  return Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000))
+}
+
 export function CountdownTimer({ expiresAt, onExpire }: CountdownTimerProps) {
-  const [timeLeft, setTimeLeft] = useState<{ minutes: number; seconds: number }>({
-    minutes: 0,
-    seconds: 0,
-  })
-  const [isExpired, setIsExpired] = useState(false)
+  const [secondsLeft, setSecondsLeft] = useState(() => secondsUntil(expiresAt))
+  const isExpired = secondsLeft <= 0
 
   useEffect(() => {
-    const calculateTimeLeft = () => {
-      const difference = expiresAt.getTime() - new Date().getTime()
-
-      if (difference <= 0) {
-        setIsExpired(true)
-        onExpire?.()
-        return { minutes: 0, seconds: 0 }
-      }
-
-      return {
-        minutes: Math.floor((difference / 1000 / 60) % 60),
-        seconds: Math.floor((difference / 1000) % 60),
-      }
-    }
+    setSecondsLeft(secondsUntil(expiresAt))
 
     const timer = setInterval(() => {
-      const newTime = calculateTimeLeft()
-      setTimeLeft(newTime)
+      const next = secondsUntil(expiresAt)
+      setSecondsLeft(next)
+      if (next <= 0) {
+        clearInterval(timer)
+        onExpire?.()
+      }
     }, 1000)
 
     return () => clearInterval(timer)
   }, [expiresAt, onExpire])
 
-  const isUrgent = timeLeft.minutes < 5
+  const isUrgent = !isExpired && secondsLeft < URGENT_THRESHOLD_SECONDS
+  const minutes = Math.floor(secondsLeft / 60)
+  const seconds = secondsLeft % 60
 
   return (
     <div
@@ -58,8 +55,7 @@ export function CountdownTimer({ expiresAt, onExpire }: CountdownTimerProps) {
         <span>Expired</span>
       ) : (
         <span>
-          Expires in {String(timeLeft.minutes).padStart(2, '0')}:
-          {String(timeLeft.seconds).padStart(2, '0')}
+          Expires in {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
         </span>
       )}
     </div>
