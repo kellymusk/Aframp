@@ -8,6 +8,7 @@ import { ActivityHighlights } from '@/components/wallet/activity-highlights'
 import { BalanceFigure } from '@/components/wallet/balance-figure'
 import { QuickActions } from '@/components/wallet/quick-actions'
 import { QuickConvert } from '@/components/wallet/quick-convert'
+import { RevenueChart } from '@/components/wallet/revenue-chart'
 import { TopAssets } from '@/components/wallet/top-assets'
 import { ErrorState } from '@/components/ui/error-state'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
@@ -27,7 +28,7 @@ export default function HomePage() {
       try {
         const [nextBalances, nextPayments, requests] = await Promise.all([
           api.getBalances(token, signal),
-          api.listTransactions(token, 50, signal),
+          api.listTransactions(token, 50, 0, signal),
           api.listPaymentRequests(token, 20, signal),
         ])
         setBalances(nextBalances)
@@ -106,6 +107,10 @@ export default function HomePage() {
           <QuickConvert openRequests={openRequests} />
           <ActivityHighlights payments={payments} openRequestCount={openRequests.length} />
         </div>
+      </div>
+
+      <div className="mt-5">
+        <RevenueChart payments={payments} />
       </div>
     </div>
   )
