@@ -141,27 +141,59 @@ export interface Withdrawal {
   updated_at: string
 }
 
-export interface FeeEstimate {
-  fee_stroops: bigint
-  network_fee_stroops: bigint
-  total_stroops: bigint
-}
-
-export interface Remittance {
+export interface ApiKey {
   id: UUID
   merchant_id: UUID
-  destination_address: string
-  amount_stroops: bigint
-  asset: string
-  memo: string | null
-  status: 'pending' | 'submitted' | 'confirmed' | 'failed'
-  tx_hash: string | null
-  failure_reason: string | null
+  name: string
+  key_preview: string // e.g. "ak_live_••••••••••••••••"
   created_at: string
-  updated_at: string
+  last_used_at: string | null
+  revoked_at: string | null
 }
 
-export function parseWithBigInts<T>(text: string): T {
+export interface UpdateProfileRequest {
+  name?: string
+  merchant_name?: string
+}
+
+export interface UpdateProfileResponse {
+  user_id: UUID
+  email: string
+  name: string
+  merchant_id: UUID | null
+  merchant_name: string | null
+}
+
+export interface ChangeEmailRequest {
+  new_email: string
+}
+
+export interface ChangeEmailResponse {
+  message: string
+}
+
+export interface DeleteAccountResponse {
+  message: string
+}
+
+export interface PushSubscriptionRequest {
+  endpoint: string
+  p256dh: string
+  auth: string
+}
+
+export interface PushSubscriptionResponse {
+  id: UUID
+  merchant_id: UUID
+  endpoint: string
+  created_at: string
+}
+
+export interface PushSubscriptionStatus {
+  enabled: boolean
+}
+
+function parseWithBigInts<T>(text: string): T {
   const quoted = text.replace(/"(amount_stroops|available|pending)"\s*:\s*(-?\d+)/g, '"$1":"$2"')
   return JSON.parse(quoted, (key, value) =>
     BIGINT_KEYS.has(key) && typeof value === 'string' ? BigInt(value) : value
@@ -181,7 +213,7 @@ export function stringifyWithBigInts(value: unknown): string {
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'DELETE'
   body?: unknown
   token?: string
   signal?: AbortSignal
@@ -315,33 +347,42 @@ export const api = {
   listWithdrawals: (token: string, limit = 50, signal?: AbortSignal) =>
     request<Withdrawal[]>(`/withdrawals?limit=${limit}`, { token, signal }),
 
-  closeMerchantAccount: (token: string, destinationAddress: string) =>
-    request<{ success: boolean }>('/merchant/close', {
+  listApiKeys: (token: string, signal?: AbortSignal) =>
+    request<ApiKey[]>('/api-keys', { token, signal }),
+
+  createApiKey: (token: string, name: string) =>
+    request<{ api_key: ApiKey; full_key: string }>('/api-keys', {
       method: 'POST',
       token,
-      body: { destination_address: destinationAddress },
+      body: { name },
     }),
 
-  // ZAR onramp via Ozow
-  createOzowPayment: (
-    token: string,
-    amountZAR: number,
-    bankCode: string,
-    returnUrl: string
-  ) =>
-    request<{ payment_url: string; transaction_id: string }>('/onramp/ozow/initiate', {
+  revokeApiKey: (token: string, id: UUID) =>
+    request<void>(`/api-keys/${id}`, { method: 'DELETE', token }),
+
+  updateProfile: (token: string, body: UpdateProfileRequest) =>
+    request<UpdateProfileResponse>('/me', { method: 'POST', token, body }),
+
+  changeEmail: (token: string, newEmail: string) =>
+    request<ChangeEmailResponse>('/me/email', {
       method: 'POST',
       token,
-      body: {
-        amount: amountZAR,
-        bank_code: bankCode,
-        return_url: returnUrl,
-      },
+      body: { new_email: newEmail },
     }),
 
-  verifyOzowPayment: (token: string, transactionId: string) =>
-    request<{ status: 'pending' | 'completed' | 'failed'; tx_hash?: string }>(
-      `/onramp/ozow/verify/${transactionId}`,
-      { token }
-    ),
+  deleteAccount: (token: string) =>
+    request<DeleteAccountResponse>('/me', { method: 'DELETE', token }),
+
+  registerPushSubscription: (token: string, subscription: PushSubscriptionRequest) =>
+    request<PushSubscriptionResponse>('/push/subscribe', {
+      method: 'POST',
+      token,
+      body: subscription,
+    }),
+
+  unregisterPushSubscription: (token: string) =>
+    request<void>('/push/unsubscribe', { method: 'DELETE', token }),
+
+  getPushSubscriptionStatus: (token: string, signal?: AbortSignal) =>
+    request<PushSubscriptionStatus>('/push/status', { token, signal }),
 }

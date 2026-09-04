@@ -5,13 +5,13 @@ import { Check, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
-import { api, ApiError, type Me, type Wallet } from '@/lib/api'
-import { useAuthenticatedSession } from '@/components/session-provider'
+import { api, ApiError, type Wallet } from '@/lib/api'
+import { useAuthenticatedSession, useSession } from '@/components/session-provider'
 
 export default function WalletPage() {
   const { token } = useAuthenticatedSession()
+  const { me } = useSession()
   const [wallet, setWallet] = useState<Wallet | null>(null)
-  const [me, setMe] = useState<Me | null>(null)
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -19,12 +19,6 @@ export default function WalletPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    try {
-      // The JWT holds only ids, so identity comes from /me on every load.
-      setMe(await api.getMe(token))
-    } catch {
-      // Non-fatal: the address below is the part that matters.
-    }
     try {
       setWallet(await api.getWallet(token))
       setError(null)
