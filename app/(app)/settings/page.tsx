@@ -106,7 +106,7 @@ export default function ProfilePage() {
         name: name.trim() || undefined,
         merchant_name: merchantName.trim() || undefined,
       })
-      setMe(updated)
+      setMe((prev) => (prev ? { ...prev, ...updated } : prev))
       await refreshMe()
       showSuccess('Profile updated successfully.')
     } catch (cause) {

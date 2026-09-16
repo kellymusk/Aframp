@@ -141,6 +141,26 @@ export interface Withdrawal {
   updated_at: string
 }
 
+export interface FeeEstimate {
+  fee_stroops: bigint
+  network_fee_stroops: bigint
+  total_stroops: bigint
+}
+
+export interface Remittance {
+  id: UUID
+  merchant_id: UUID
+  destination_address: string
+  amount_stroops: bigint
+  asset: string
+  memo: string | null
+  status: 'pending' | 'submitted' | 'confirmed' | 'failed'
+  tx_hash: string | null
+  failure_reason: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface ApiKey {
   id: UUID
   merchant_id: UUID
@@ -193,7 +213,7 @@ export interface PushSubscriptionStatus {
   enabled: boolean
 }
 
-function parseWithBigInts<T>(text: string): T {
+export function parseWithBigInts<T>(text: string): T {
   const quoted = text.replace(/"(amount_stroops|available|pending)"\s*:\s*(-?\d+)/g, '"$1":"$2"')
   return JSON.parse(quoted, (key, value) =>
     BIGINT_KEYS.has(key) && typeof value === 'string' ? BigInt(value) : value
@@ -385,4 +405,54 @@ export const api = {
 
   getPushSubscriptionStatus: (token: string, signal?: AbortSignal) =>
     request<PushSubscriptionStatus>('/push/status', { token, signal }),
+
+  getRemittanceFeeEstimate: (
+    token: string,
+    amountStroops: bigint,
+    asset = 'XLM',
+    signal?: AbortSignal
+  ) =>
+    request<FeeEstimate>(`/remittance/estimate?amount_stroops=${amountStroops}&asset=${asset}`, {
+      token,
+      signal,
+    }),
+
+  createRemittance: (
+    token: string,
+    destinationAddress: string,
+    amountStroops: bigint,
+    asset = 'XLM',
+    memo?: string
+  ) =>
+    request<Remittance>('/remittance', {
+      method: 'POST',
+      token,
+      body: {
+        destination_address: destinationAddress,
+        amount_stroops: amountStroops,
+        asset,
+        ...(memo ? { memo } : {}),
+      },
+    }),
+
+  listRemittances: (token: string, limit = 50, signal?: AbortSignal) =>
+    request<Remittance[]>(`/remittances?limit=${limit}`, { token, signal }),
+
+  // ZAR onramp via Ozow
+  createOzowPayment: (token: string, amountZAR: number, bankCode: string, returnUrl: string) =>
+    request<{ payment_url: string; transaction_id: string }>('/onramp/ozow/initiate', {
+      method: 'POST',
+      token,
+      body: {
+        amount: amountZAR,
+        bank_code: bankCode,
+        return_url: returnUrl,
+      },
+    }),
+
+  verifyOzowPayment: (token: string, transactionId: string) =>
+    request<{ status: 'pending' | 'completed' | 'failed'; tx_hash?: string }>(
+      `/onramp/ozow/verify/${transactionId}`,
+      { token }
+    ),
 }

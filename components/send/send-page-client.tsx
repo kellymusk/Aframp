@@ -153,7 +153,10 @@ export function SendPageClient() {
           <div className="flex flex-col flex-1 px-5 gap-5 pb-8">
             {/* Address input */}
             <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <label
+                htmlFor="recipient-address"
+                className="text-xs font-medium text-muted-foreground uppercase tracking-wider"
+              >
                 Wallet address or username
               </label>
               <div className="relative">
@@ -161,6 +164,7 @@ export function SendPageClient() {
                   <Wallet className="w-4 h-4" />
                 </div>
                 <Input
+                  id="recipient-address"
                   value={recipientInput}
                   onChange={(e) => setRecipientInput(e.target.value)}
                   placeholder="G... or @username"
@@ -221,7 +225,7 @@ export function SendPageClient() {
             </button>
 
             {/* Amount display */}
-            <div className="flex flex-col items-center justify-center gap-2 min-h-[140px] max-h-[280px]">
+            <div className="flex-1 flex flex-col items-center justify-center gap-2 min-h-[120px] md:min-h-[140px] max-h-[280px] shrink-0 overflow-hidden">
               <div className="flex items-baseline gap-2">
                 <span
                   className={cn(

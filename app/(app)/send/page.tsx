@@ -328,7 +328,7 @@ export default function SendPage() {
               )}
               <div className="border-hairline border-t pt-2 flex justify-between font-bold">
                 <span>Total</span>
-                <span>{formatStroops(totalAmount)} {state.asset}</span>
+                <span>{formatStroops(totalAmount ?? 0n)} {state.asset}</span>
               </div>
             </div>
           )}

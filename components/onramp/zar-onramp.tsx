@@ -22,7 +22,7 @@ interface ZarOnrampProps {
   onSuccess?: (txHash: string) => void
 }
 
-export function ZarOnramp({ token, onSuccess }: ZarOnrampProps) {
+export function ZarOnramp({ token }: ZarOnrampProps) {
   const [amount, setAmount] = useState('')
   const [selectedBank, setSelectedBank] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)

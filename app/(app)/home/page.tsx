@@ -5,13 +5,15 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 
 import { ActivityHighlights } from '@/components/wallet/activity-highlights'
+import { BalanceFigure } from '@/components/wallet/balance-figure'
 import { QuickActions } from '@/components/wallet/quick-actions'
 import { QuickConvert } from '@/components/wallet/quick-convert'
+import { RevenueChart } from '@/components/wallet/revenue-chart'
 import { TopAssets } from '@/components/wallet/top-assets'
 import { ErrorState } from '@/components/ui/error-state'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { OnboardingChecklist } from '@/components/onboarding/onboarding-checklist'
 import { api, type Balance, type Payment, type PaymentRequest } from '@/lib/api'
-import { formatStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
 
 export default function HomePage() {
@@ -72,6 +74,10 @@ export default function HomePage() {
         </Link>
       </header>
 
+      <div className="mt-6">
+        <OnboardingChecklist />
+      </div>
+
       <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
         <section className="bg-panel border-hairline rounded-2xl border p-5">
           <p className="text-dim text-xs">Available to cash out</p>
@@ -80,13 +86,14 @@ export default function HomePage() {
               0.00 <span className="text-dim text-base font-medium">XLM</span>
             </p>
           ) : (
-            <ul className="mt-1 space-y-1">
+            <ul className="mt-1 space-y-3">
               {balances.map((balance) => (
-                <li key={balance.asset} className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold tracking-tight tabular-nums">
-                    {formatStroops(balance.available)}
-                  </span>
-                  <span className="text-dim text-base font-medium">{balance.asset}</span>
+                <li key={balance.asset}>
+                  <BalanceFigure
+                    asset={balance.asset}
+                    available={balance.available}
+                    pending={balance.pending}
+                  />
                 </li>
               ))}
             </ul>
@@ -105,6 +112,10 @@ export default function HomePage() {
           <QuickConvert openRequests={openRequests} />
           <ActivityHighlights payments={payments} openRequestCount={openRequests.length} />
         </div>
+      </div>
+
+      <div className="mt-5">
+        <RevenueChart payments={payments} />
       </div>
     </div>
   )

@@ -5,13 +5,15 @@ import { Check, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
-import { api, ApiError, type Wallet } from '@/lib/api'
+import { BalanceFigure } from '@/components/wallet/balance-figure'
+import { api, ApiError, type Balance, type Wallet } from '@/lib/api'
 import { useAuthenticatedSession, useSession } from '@/components/session-provider'
 
 export default function WalletPage() {
   const { token } = useAuthenticatedSession()
   const { me } = useSession()
   const [wallet, setWallet] = useState<Wallet | null>(null)
+  const [balances, setBalances] = useState<Balance[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -30,6 +32,11 @@ export default function WalletPage() {
       else setError(cause instanceof Error ? cause.message : 'Could not load your account')
     } finally {
       setLoading(false)
+    }
+    try {
+      setBalances(await api.getBalances(token))
+    } catch {
+      // Non-fatal: the address above is what matters if this fails.
     }
   }, [token])
 
@@ -82,6 +89,24 @@ export default function WalletPage() {
                 : error}
             </AlertDescription>
           </Alert>
+        )}
+
+        {wallet && balances.length > 0 && (
+          <section className="bg-panel border-hairline space-y-4 rounded-2xl border p-5">
+            <h2 className="text-dim text-xs font-bold tracking-widest uppercase">Balances</h2>
+            <ul className="space-y-4">
+              {balances.map((balance) => (
+                <li key={balance.asset}>
+                  <BalanceFigure
+                    asset={balance.asset}
+                    available={balance.available}
+                    pending={balance.pending}
+                    size="sm"
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         {wallet ? (

@@ -16,7 +16,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Separator } from '@/components/ui/separator'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
 import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration'
@@ -161,7 +160,6 @@ export default function ApiKeysPage() {
                   placeholder="e.g. Production server"
                   value={newKeyName}
                   onChange={(e) => setNewKeyName(e.target.value)}
-                  autoFocus
                 />
               </div>
               <DialogFooter>

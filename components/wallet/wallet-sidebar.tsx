@@ -10,6 +10,7 @@ import {
   LogOut,
   Receipt,
   Settings,
+  Users,
   Wallet as WalletIcon,
 } from 'lucide-react'
 

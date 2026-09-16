@@ -46,7 +46,7 @@ const config = [
   {
     // CLI scripts: console output is the interface, and they run directly
     // via `node`, so CommonJS require() is the point rather than a mistake.
-    files: ['scripts/**/*.js'],
+    files: ['scripts/**/*.js', 'scripts/**/*.mjs'],
     rules: {
       'no-console': 'off',
       '@typescript-eslint/no-require-imports': 'off',
