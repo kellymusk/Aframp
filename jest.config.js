@@ -11,7 +11,7 @@ const customJestConfig = {
   testEnvironmentOptions: {
     customExportConditions: [''],
   },
-  modulePathIgnorePatterns: ['<rootDir>/helpcenter/', '<rootDir>/.claude/'],
+  modulePathIgnorePatterns: ['<rootDir>/helpcenter/', '<rootDir>/.claude/', '<rootDir>/.kilo/'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
@@ -31,7 +31,7 @@ const customJestConfig = {
   // requires 80% coverage only on files a PR actually adds or changes.
   coverageReporters: ['json-summary', 'json', 'lcov', 'text'],
   testMatch: ['**/__tests__/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
-  testPathIgnorePatterns: ['/node_modules/', '/.next/', '/helpcenter/'],
+  testPathIgnorePatterns: ['/node_modules/', '/.next/', '/helpcenter/', '/.kilo/'],
 }
 
 module.exports = async () => {
