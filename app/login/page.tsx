@@ -85,6 +85,12 @@ export default function LoginPage() {
       </form>
 
       <p className="text-muted-foreground text-center text-sm">
+        <Link href="/login/otp" className="text-primary font-medium hover:underline">
+          Sign in with a code instead
+        </Link>
+      </p>
+
+      <p className="text-muted-foreground text-center text-sm">
         New here?{' '}
         <Link href="/signup" className="text-primary font-medium hover:underline">
           Create a merchant account

@@ -17,6 +17,8 @@ interface SessionContextValue {
   ready: boolean
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, name: string) => Promise<void>
+  requestOtp: (email: string) => Promise<void>
+  verifyOtp: (email: string, code: string) => Promise<void>
   signOut: () => void
   /** Re-fetches /me and updates any cached profile data. */
   refreshMe: () => Promise<Me | null>
@@ -73,6 +75,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [persist]
   )
 
+  const requestOtp = useCallback(async (email: string) => {
+    await api.requestOtp(email)
+  }, [])
+
+  const verifyOtp = useCallback(
+    async (email: string, code: string) => {
+      persist(toSession(await api.verifyOtp(email, code)))
+    },
+    [persist]
+  )
+
   const signOut = useCallback(() => {
     window.localStorage.removeItem(STORAGE_KEY)
     setSession(null)
@@ -98,8 +111,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [signOut])
 
   const value = useMemo(
-    () => ({ session, ready, signIn, signUp, signOut, refreshMe, me }),
-    [session, ready, signIn, signUp, signOut, refreshMe, me]
+    () => ({ session, ready, signIn, signUp, requestOtp, verifyOtp, signOut, refreshMe, me }),
+    [session, ready, signIn, signUp, requestOtp, verifyOtp, signOut, refreshMe, me]
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
