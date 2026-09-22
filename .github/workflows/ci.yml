@@ -236,7 +236,7 @@ jobs:
       - name: Build production
         run: npm run build
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_API_URL: ${{ secrets.NEXT_API_URL }}
           NEXT_PUBLIC_STELLAR_NETWORK: TESTNET
 
   lighthouse:
@@ -258,7 +258,7 @@ jobs:
       - name: Build production
         run: npm run build
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_API_URL: ${{ secrets.NEXT_API_URL }}
           NEXT_PUBLIC_STELLAR_NETWORK: TESTNET
 
       - name: Install Lighthouse CI

@@ -129,7 +129,7 @@ Set in GitHub repository settings → Secrets and variables:
 
 ```
 CODECOV_TOKEN           # Codecov integration
-NEXT_PUBLIC_API_URL     # API endpoint
+NEXT_API_URL     # API endpoint
 NEXT_PUBLIC_STELLAR_NETWORK  # Stellar network
 VERCEL_TOKEN            # Vercel deployment
 VERCEL_ORG_ID           # Vercel organization

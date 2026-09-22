@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { WifiOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useSession } from '@/components/session-provider'
+import { isOffline } from '@/lib/api'
 
 const MIN_PASSWORD_LENGTH = 8
 
@@ -17,7 +19,9 @@ export default function SignupPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [phone, setPhone] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [offline, setOffline] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -27,9 +31,10 @@ export default function SignupPage() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    setOffline(false)
 
-    if (!name.trim() || !email.trim() || !password.trim()) {
-      setError('Please fill in your business name, email, and password.')
+    if (!name.trim() || !email.trim() || !password.trim() || !phone.trim()) {
+      setError('Please fill in your business name, email, password, and phone number.')
       setSubmitting(false)
       return
     }
@@ -43,10 +48,11 @@ export default function SignupPage() {
 
     setSubmitting(true)
     try {
-      await signUp(email.trim(), password, name.trim())
-      router.replace('/charge')
+      const challenge = await signUp(email.trim(), password, name.trim(), phone.trim())
+      router.push(`/verify?challenge_id=${challenge.challenge_id}&flow=signup`)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not create your account')
+      setOffline(isOffline(cause))
       setSubmitting(false)
     }
   }
@@ -62,7 +68,8 @@ export default function SignupPage() {
 
       <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
         {error && (
-          <Alert variant="destructive">
+          <Alert variant={offline ? 'notice' : 'destructive'}>
+            {offline && <WifiOff className="size-4" aria-hidden />}
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -88,6 +95,22 @@ export default function SignupPage() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="phone">Phone number</Label>
+          <Input
+            id="phone"
+            type="tel"
+            autoComplete="tel"
+            placeholder="0801 234 5678"
+            required
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+          />
+          <p className="text-muted-foreground text-xs">
+            We&apos;ll text you a code to verify it — every sign-in after this uses it too.
+          </p>
         </div>
 
         <div className="space-y-2">

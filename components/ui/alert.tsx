@@ -11,6 +11,8 @@ const alertVariants = cva(
         default: 'bg-background text-foreground',
         destructive:
           'border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive',
+        /** A connectivity blip, not a mistake — calm and muted, not alarm-red. */
+        notice: 'border-border bg-muted/40 text-muted-foreground [&>svg]:text-muted-foreground',
       },
     },
     defaultVariants: {

@@ -35,6 +35,19 @@ const nextConfig = {
     minimumCacheTTL: 60,
   },
   output: 'standalone',
+  // The browser only ever calls this app's own origin at `/backend/*`; this
+  // forwards those requests server-side to the real backend. NEXT_API_URL
+  // (deliberately not NEXT_PUBLIC_*) never reaches client-side code — it
+  // can't leak via devtools, a bundle diff, or CSP `connect-src`.
+  rewrites() {
+    const backendUrl = (process.env.NEXT_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
+    return [
+      {
+        source: '/backend/:path*',
+        destination: `${backendUrl}/:path*`,
+      },
+    ]
+  },
   headers() {
     const csp = [
       "default-src 'self'",

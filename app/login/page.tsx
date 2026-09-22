@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { WifiOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useSession } from '@/components/session-provider'
+import { isOffline } from '@/lib/api'
 
 export default function LoginPage() {
   const { session, ready, signIn } = useSession()
@@ -15,6 +17,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [offline, setOffline] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -24,6 +27,7 @@ export default function LoginPage() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    setOffline(false)
 
     if (!email.trim() || !password.trim()) {
       setError('Please enter both your email and password.')
@@ -33,10 +37,15 @@ export default function LoginPage() {
 
     setSubmitting(true)
     try {
-      await signIn(email.trim(), password)
-      router.replace('/charge')
+      const result = await signIn(email.trim(), password)
+      if ('challenge_id' in result) {
+        router.push(`/verify?challenge_id=${result.challenge_id}&flow=login`)
+      } else {
+        router.replace('/charge')
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Sign in failed')
+      setOffline(isOffline(cause))
       setSubmitting(false)
     }
   }
@@ -50,7 +59,8 @@ export default function LoginPage() {
 
       <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
         {error && (
-          <Alert variant="destructive">
+          <Alert variant={offline ? 'notice' : 'destructive'}>
+            {offline && <WifiOff className="size-4" aria-hidden />}
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -83,12 +93,6 @@ export default function LoginPage() {
           {submitting ? 'Signing in…' : 'Sign in'}
         </Button>
       </form>
-
-      <p className="text-muted-foreground text-center text-sm">
-        <Link href="/login/otp" className="text-primary font-medium hover:underline">
-          Sign in with a code instead
-        </Link>
-      </p>
 
       <p className="text-muted-foreground text-center text-sm">
         New here?{' '}

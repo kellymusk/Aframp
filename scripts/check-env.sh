@@ -57,7 +57,7 @@ check_optional() {
 echo "📋 Checking core variables..."
 check_required "NEXT_PUBLIC_DEMO_MODE"
 check_required "NEXT_PUBLIC_CNGN_ISSUER"
-check_optional "NEXT_PUBLIC_API_URL"
+check_optional "NEXT_API_URL"
 
 # ── Upstash Redis (required — middleware crashes without these) ───────────────
 echo ""

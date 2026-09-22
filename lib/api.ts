@@ -1,8 +1,9 @@
 /**
  * Typed client for the Aframp Pay backend (Rust/Axum, see Aframp-backend).
  *
- * The backend is a separate origin, so every call goes straight from the browser
- * to it with a bearer token — there is no Next.js API layer in between.
+ * Every call goes through this app's own `/backend/*` rewrite (see
+ * next.config.mjs), which forwards it server-side to the real backend origin
+ * (`NEXT_API_URL`) — the browser never learns that origin directly.
  *
  * Errors always come back as `{ "error": "message" }`.
  */
@@ -10,7 +11,7 @@
 /** Backend ids are UUIDs; aliased for readability, not validated here. */
 type UUID = string
 
-const BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
+const BASE_URL = '/backend'
 
 /**
  * Amount fields are `i64` on the wire. JSON.parse would silently round anything
@@ -32,11 +33,25 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 export class ApiError extends Error {
   constructor(
     message: string,
-    readonly status: number
+    readonly status: number,
+    /** Machine-readable error code from the backend, e.g. `OTP_EXPIRED`. */
+    readonly code?: string,
+    /** Which request field the error applies to, for field-level validation errors. */
+    readonly field?: string
   ) {
     super(message)
     this.name = 'ApiError'
   }
+}
+
+/**
+ * True for a network failure or CORS rejection (see `request()`'s catch
+ * block) — as opposed to a real validation/auth error the backend actually
+ * responded to. Callers use this to pick a calmer, non-alarming
+ * presentation: it's a connectivity blip, not something the user did wrong.
+ */
+export function isOffline(cause: unknown): boolean {
+  return cause instanceof ApiError && cause.status === 0
 }
 
 export interface AuthResponse {
@@ -50,13 +65,23 @@ export interface AuthResponse {
 }
 
 /**
- * Not implemented on the backend yet — no `/otp/*` route exists today, so
- * these calls 404 until that lands. Kept as a real request (not a mock) so
- * the frontend flow is ready to work the moment it does.
+ * What `/signup` always returns, and what `/login` returns for any account
+ * with a verified phone (i.e. every account created since OTP shipped) —
+ * neither endpoint issues a session directly anymore. `/verify-otp` is the
+ * only call that ever turns this into an `AuthResponse`.
  */
-export interface OtpRequestResponse {
-  message: string
+export interface OtpChallengeResponse {
+  challenge_id: UUID
+  expires_in_secs: number
 }
+
+/**
+ * `/login`'s response is conditional: a challenge for any phone-verified
+ * account (the normal case), or a session directly for a legacy account
+ * with no phone on file (only possible pre-OTP-rollout). Narrow with
+ * `'challenge_id' in result`.
+ */
+export type LoginResult = AuthResponse | OtpChallengeResponse
 
 export interface Me {
   user_id: UUID
@@ -361,8 +386,11 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     })
   } catch (cause) {
     if (cause instanceof DOMException && cause.name === 'AbortError') throw cause
-    // Also what a CORS rejection looks like from the browser's side.
-    throw new ApiError(`Can't reach the payment server at ${BASE_URL}.`, 0)
+    // Also what a CORS rejection looks like from the browser's side. Every
+    // page that doesn't special-case `status === 0` falls back to showing
+    // this message as-is, so it stays generic — no backend URL, nothing
+    // that reads like a stack trace.
+    throw new ApiError("We can't reach the server right now. Check your connection and try again.", 0)
   }
 
   const text = await response.text()
@@ -373,30 +401,44 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     if (response.status === 401 && token) onUnauthorized?.()
 
     let message = `Request failed (${response.status})`
+    let code: string | undefined
+    let field: string | undefined
     try {
-      const parsed = JSON.parse(text) as { error?: string }
+      const parsed = JSON.parse(text) as { error?: string; code?: string; field?: string }
       if (parsed.error) message = parsed.error
+      code = parsed.code
+      field = parsed.field
     } catch {
       // Non-JSON body (proxy error page, panic); keep the status-code message.
     }
-    throw new ApiError(message, response.status)
+    throw new ApiError(message, response.status, code, field)
   }
 
   return text ? parseWithBigInts<T>(text) : (undefined as T)
 }
 
 export const api = {
-  signup: (email: string, password: string, name: string) =>
-    request<AuthResponse>('/signup', { method: 'POST', body: { email, password, name } }),
+  /** Never returns a session directly — always a challenge. The account is
+   * only created once `verifyOtp` succeeds. */
+  signup: (email: string, password: string, name: string, phoneNumber: string) =>
+    request<OtpChallengeResponse>('/signup', {
+      method: 'POST',
+      body: { email, password, name, phone_number: phoneNumber },
+    }),
 
+  /** A challenge for any phone-verified account, or a session directly for
+   * a legacy no-phone account — see `LoginResult`. */
   login: (email: string, password: string) =>
-    request<AuthResponse>('/login', { method: 'POST', body: { email, password } }),
+    request<LoginResult>('/login', { method: 'POST', body: { email, password } }),
 
-  requestOtp: (email: string) =>
-    request<OtpRequestResponse>('/otp/request', { method: 'POST', body: { email } }),
+  /** The only call that ever turns a challenge into a session. */
+  verifyOtp: (challengeId: string, code: string) =>
+    request<AuthResponse>('/verify-otp', {
+      method: 'POST',
+      body: { challenge_id: challengeId, code },
+    }),
 
-  verifyOtp: (email: string, code: string) =>
-    request<AuthResponse>('/otp/verify', { method: 'POST', body: { email, code } }),
+  logout: (token?: string) => request<void>('/logout', { method: 'POST', token }),
 
   /** The JWT carries only ids; this is how anything human-readable is rendered. */
   getMe: (token: string, signal?: AbortSignal) => request<Me>('/me', { token, signal }),

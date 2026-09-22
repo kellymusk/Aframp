@@ -199,7 +199,7 @@ Push #2 ────────────────────────
 GitHub Secrets
         │
         ├─ CODECOV_TOKEN
-        ├─ NEXT_PUBLIC_API_URL
+        ├─ NEXT_API_URL
         ├─ NEXT_PUBLIC_STELLAR_NETWORK
         ├─ VERCEL_TOKEN
         ├─ VERCEL_ORG_ID
@@ -209,13 +209,13 @@ GitHub Secrets
 GitHub Actions Workflow
         │
         ├─ Code Quality Job
-        │  └─ Uses: NEXT_PUBLIC_API_URL
+        │  └─ Uses: NEXT_API_URL
         │
         ├─ Tests Job
         │  └─ Uses: CODECOV_TOKEN
         │
         └─ Build Job
-           ├─ Uses: NEXT_PUBLIC_API_URL
+           ├─ Uses: NEXT_API_URL
            ├─ Uses: NEXT_PUBLIC_STELLAR_NETWORK
            └─ Uses: VERCEL_TOKEN (if deploying)
 ```

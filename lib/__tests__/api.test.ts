@@ -105,7 +105,7 @@ describe('request', () => {
     fetchMock.mockResolvedValue(new Response('', { status: 200 }))
     await request('/withdraw', { method: 'POST', body: { amount_stroops: 9007199254740993n } })
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('http://127.0.0.1:3000/withdraw')
+    expect(url).toBe('/backend/withdraw')
     expect(init.method).toBe('POST')
     expect(init.body).toBe('{"amount_stroops":9007199254740993}')
     expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
@@ -154,7 +154,7 @@ describe('request', () => {
   it('throws ApiError(status 0) on network failure', async () => {
     fetchMock.mockRejectedValue(new TypeError('fetch failed'))
     await expect(request('/balance')).rejects.toMatchObject({
-      message: "Can't reach the payment server at http://127.0.0.1:3000.",
+      message: "We can't reach the server right now. Check your connection and try again.",
       status: 0,
     })
   })
@@ -169,20 +169,39 @@ describe('request', () => {
 })
 
 describe('api', () => {
-  it('signup posts credentials', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ token: 't', user_id: 'u', merchant_id: null }))
-    await api.signup('a@b.c', 'pw', 'Name')
+  it('signup posts credentials and a phone number, and never gets a session back', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ challenge_id: 'chal-1', expires_in_secs: 600 }))
+    const result = await api.signup('a@b.c', 'pw', 'Name', '08011122233')
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('http://127.0.0.1:3000/signup')
+    expect(url).toBe('/backend/signup')
     expect(init.method).toBe('POST')
-    expect(init.body).toBe('{"email":"a@b.c","password":"pw","name":"Name"}')
+    expect(init.body).toBe('{"email":"a@b.c","password":"pw","name":"Name","phone_number":"08011122233"}')
+    expect(result).toEqual({ challenge_id: 'chal-1', expires_in_secs: 600 })
   })
 
   it('login posts credentials', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ token: 't', user_id: 'u', merchant_id: null }))
     await api.login('a@b.c', 'pw')
-    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:3000/login')
+    expect(fetchMock.mock.calls[0][0]).toBe('/backend/login')
     expect(fetchMock.mock.calls[0][1].method).toBe('POST')
+  })
+
+  it('verifyOtp posts the challenge id and code, not an email', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ token: 't', user_id: 'u', merchant_id: 'm' }))
+    await api.verifyOtp('chal-1', '482913')
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/backend/verify-otp')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe('{"challenge_id":"chal-1","code":"482913"}')
+  })
+
+  it('logout posts to /logout with the token', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+    await api.logout('tok')
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/backend/logout')
+    expect(init.method).toBe('POST')
+    expect(init.headers).toEqual({ Authorization: 'Bearer tok' })
   })
 
   it('getMe GETs /me with a token', async () => {
@@ -197,14 +216,14 @@ describe('api', () => {
       })
     )
     await api.getMe('tok')
-    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:3000/me')
+    expect(fetchMock.mock.calls[0][0]).toBe('/backend/me')
     expect(fetchMock.mock.calls[0][1].headers).toEqual({ Authorization: 'Bearer tok' })
   })
 
   it('createWallet posts an empty body', async () => {
     fetchMock.mockResolvedValue(jsonResponse({}))
     await api.createWallet('tok')
-    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:3000/wallet/create')
+    expect(fetchMock.mock.calls[0][0]).toBe('/backend/wallet/create')
     expect(fetchMock.mock.calls[0][1].method).toBe('POST')
     expect(fetchMock.mock.calls[0][1].body).toBe('{}')
   })
@@ -212,25 +231,25 @@ describe('api', () => {
   it('getWallet GETs /wallet', async () => {
     fetchMock.mockResolvedValue(jsonResponse({}))
     await api.getWallet('tok')
-    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:3000/wallet')
+    expect(fetchMock.mock.calls[0][0]).toBe('/backend/wallet')
   })
 
   it('getBalances GETs /balance', async () => {
     fetchMock.mockResolvedValue(jsonResponse([]))
     await api.getBalances('tok')
-    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:3000/balance')
+    expect(fetchMock.mock.calls[0][0]).toBe('/backend/balance')
   })
 
   it('listTransactions builds the limit query', async () => {
     fetchMock.mockResolvedValue(jsonResponse([]))
     await api.listTransactions('tok', 20)
-    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:3000/transactions?limit=20')
+    expect(fetchMock.mock.calls[0][0]).toBe('/backend/transactions?limit=20')
   })
 
   it('createPaymentRequest posts amount_stroops', async () => {
     fetchMock.mockResolvedValue(jsonResponse({}))
     await api.createPaymentRequest('tok', 5n)
-    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:3000/payment-requests')
+    expect(fetchMock.mock.calls[0][0]).toBe('/backend/payment-requests')
     expect(fetchMock.mock.calls[0][1].body).toBe('{"amount_stroops":5}')
   })
 
@@ -245,13 +264,13 @@ describe('api', () => {
   it('listPaymentRequests builds the limit query', async () => {
     fetchMock.mockResolvedValue(jsonResponse([]))
     await api.listPaymentRequests('tok')
-    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:3000/payment-requests?limit=50')
+    expect(fetchMock.mock.calls[0][0]).toBe('/backend/payment-requests?limit=50')
   })
 
   it('getPaymentRequest fetches without a token', async () => {
     fetchMock.mockResolvedValue(jsonResponse({}))
     await api.getPaymentRequest('abc')
-    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:3000/payment-requests/abc')
+    expect(fetchMock.mock.calls[0][0]).toBe('/backend/payment-requests/abc')
     expect(fetchMock.mock.calls[0][1].headers).toEqual({})
   })
 
@@ -274,6 +293,6 @@ describe('api', () => {
   it('listWithdrawals builds the limit query', async () => {
     fetchMock.mockResolvedValue(jsonResponse([]))
     await api.listWithdrawals('tok')
-    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:3000/withdrawals?limit=50')
+    expect(fetchMock.mock.calls[0][0]).toBe('/backend/withdrawals?limit=50')
   })
 })
