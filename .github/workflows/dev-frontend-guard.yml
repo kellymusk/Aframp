@@ -1,0 +1,108 @@
+name: Dev-Frontend Guard
+
+# This workflow runs ONLY on the dev-frontend branch.
+# It enforces that contributors working in dev-frontend
+# do NOT touch any files that belong to the production/main frontend.
+#
+# Protected paths (main frontend — off-limits on this branch):
+#   app/            – Next.js App Router pages
+#   components/     – Shared production UI components
+#   lib/            – Production library code (api.ts, money.ts, etc.)
+#   hooks/          – Production React hooks
+#   styles/         – Global stylesheets
+#   public/         – Static assets
+#   types/          – Shared TypeScript type declarations
+#   next.config.mjs – Main Next.js configuration
+#   next-env.d.ts   – Next.js ambient types
+#
+# Contributors on dev-frontend should only add files inside:
+#   dev-frontend/   – The sandbox workspace for this branch
+
+on:
+  push:
+    branches:
+      - dev-frontend
+  pull_request:
+    branches:
+      - dev-frontend
+
+jobs:
+  guard-main-frontend:
+    name: "Guard — No changes to main frontend"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect forbidden changes
+        id: detect
+        shell: bash
+        run: |
+          # Determine the comparison base.
+          # On a PR, compare the PR head against its base branch.
+          # On a direct push, compare against the previous commit.
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+
+          # List files changed between base and head.
+          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || \
+                    git diff --name-only HEAD~1 HEAD)
+
+          echo "=== Changed files ==="
+          echo "$CHANGED"
+          echo "====================="
+
+          # Protected path prefixes and exact files — main frontend.
+          FORBIDDEN_PATTERNS=(
+            "^app/"
+            "^components/"
+            "^lib/"
+            "^hooks/"
+            "^styles/"
+            "^public/"
+            "^types/"
+            "^next\.config\.mjs$"
+            "^next-env\.d\.ts$"
+          )
+
+          VIOLATIONS=""
+          while IFS= read -r file; do
+            for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
+              if echo "$file" | grep -qE "$pattern"; then
+                VIOLATIONS="${VIOLATIONS}  - ${file}\n"
+                break
+              fi
+            done
+          done <<< "$CHANGED"
+
+          if [ -n "$VIOLATIONS" ]; then
+            echo "VIOLATIONS_FOUND=true" >> "$GITHUB_OUTPUT"
+            printf "VIOLATIONS_LIST=%s" "$VIOLATIONS" >> "$GITHUB_OUTPUT"
+          else
+            echo "VIOLATIONS_FOUND=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fail if main frontend was touched
+        if: steps.detect.outputs.VIOLATIONS_FOUND == 'true'
+        run: |
+          echo "::error::❌ dev-frontend contributors must NOT modify the main frontend."
+          echo ""
+          echo "The following protected files were changed:"
+          printf "${{ steps.detect.outputs.VIOLATIONS_LIST }}"
+          echo ""
+          echo "Please move your work into the dev-frontend/ directory."
+          echo "See CONTRIBUTING.md for workspace layout guidelines."
+          exit 1
+
+      - name: All clear
+        if: steps.detect.outputs.VIOLATIONS_FOUND == 'false'
+        run: |
+          echo "✅ No main-frontend files were touched. Good to go."
