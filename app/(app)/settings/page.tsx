@@ -107,8 +107,12 @@ export default function ProfilePage() {
         merchant_name: merchantName.trim() || undefined,
       })
       setMe((prev) => (prev ? { ...prev, ...updated } : prev))
-      await refreshMe()
-      showSuccess('Profile updated successfully.')
+      const result = await refreshMe()
+      if (result.success) {
+        showSuccess('Profile updated successfully.')
+      }
+      // Network errors are handled silently here - the UI already shows the
+      // updated local state, and the next render will retry.
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not update profile')
     } finally {

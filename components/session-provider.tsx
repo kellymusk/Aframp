@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import {
   api,
+  isOffline,
   setUnauthorizedHandler,
   type AuthResponse,
   type LoginResult,
@@ -26,11 +27,19 @@ interface SessionContextValue {
    * no-phone accounts) vs a challenge (everyone else) that needs `/verify`. */
   signIn: (email: string, password: string) => Promise<LoginResult>
   /** Always a challenge — the account doesn't exist until `completeOtp` succeeds. */
-  signUp: (email: string, password: string, name: string, phoneNumber: string) => Promise<OtpChallengeResponse>
+  signUp: (
+    email: string,
+    password: string,
+    name: string,
+    phoneNumber: string
+  ) => Promise<OtpChallengeResponse>
   completeOtp: (challengeId: string, code: string) => Promise<void>
   signOut: () => void
-  /** Re-fetches /me and updates any cached profile data. */
-  refreshMe: () => Promise<Me | null>
+  /** Re-fetches /me and updates any cached profile data. Returns a discriminated
+   * union so callers can distinguish between success, network errors, and auth
+   * failures (401). Auth failures are not caught — they propagate to trigger
+   * signOut via the unauthorized handler. */
+  refreshMe: () => Promise<{ success: true; data: Me } | { success: false; reason: 'network' }>
   /** Latest profile data from /me, if fetched. */
   me: Me | null
 }
@@ -81,9 +90,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [persist]
   )
 
-  const signUp = useCallback((email: string, password: string, name: string, phoneNumber: string) => {
-    return api.signup(email, password, name, phoneNumber)
-  }, [])
+  const signUp = useCallback(
+    (email: string, password: string, name: string, phoneNumber: string) => {
+      return api.signup(email, password, name, phoneNumber)
+    },
+    []
+  )
 
   const completeOtp = useCallback(
     async (challengeId: string, code: string) => {
@@ -102,13 +114,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [session])
 
   const refreshMe = useCallback(async () => {
-    if (!session) return null
+    if (!session) {
+      throw new Error('refreshMe called without a session')
+    }
     try {
       const data = await api.getMe(session.token)
       setMe(data)
-      return data
-    } catch {
-      return null
+      return { success: true, data }
+    } catch (cause) {
+      // Network errors (status 0) are recoverable — report them without sign-out.
+      // Auth errors (401) are not caught here; they propagate to trigger the
+      // unauthorized handler in lib/api.ts, which calls signOut.
+      if (isOffline(cause)) {
+        return { success: false, reason: 'network' as const }
+      }
+      throw cause
     }
   }, [session])
 
