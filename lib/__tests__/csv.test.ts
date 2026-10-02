@@ -1,4 +1,4 @@
-import { toCsv } from '@/lib/csv'
+import { downloadCsv, toCsv } from '@/lib/csv'
 
 describe('toCsv', () => {
   it('joins a header and rows with CRLF', () => {
@@ -27,5 +27,24 @@ describe('toCsv', () => {
         ]
       )
     ).toBe('n,empty\r\n-5,\r\n10,')
+  })
+})
+
+describe('downloadCsv', () => {
+  it('downloads the content as a named CSV file', () => {
+    const createObjectURL = jest.fn(() => 'blob:csv')
+    const revokeObjectURL = jest.fn()
+    Object.assign(URL, { createObjectURL, revokeObjectURL })
+    const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    downloadCsv('payments.csv', 'a,b')
+
+    const link = click.mock.instances[0] as unknown as HTMLAnchorElement
+    expect(link.download).toBe('payments.csv')
+    expect(link.href).toBe('blob:csv')
+    expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob))
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:csv')
+    expect(document.querySelector('a[download]')).toBeNull()
+    click.mockRestore()
   })
 })

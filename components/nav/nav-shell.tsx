@@ -103,7 +103,12 @@ export function NavShell({ subtitle, links, badge, footer }: NavShellProps) {
       </header>
 
       {open && (
-        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+        <div
+          className="fixed inset-0 z-50 lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu"
+        >
           <button
             type="button"
             aria-label="Close menu"
