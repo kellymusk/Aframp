@@ -31,7 +31,7 @@ export function RevenueChart({ payments }: { payments: Payment[] }) {
       : [...assets].sort((a, b) => (weeklyTotals[b] ?? 0) - (weeklyTotals[a] ?? 0))[0]
 
   return (
-    <section className="bg-panel border-hairline rounded-2xl border p-5">
+    <section className="bg-panel border-hairline relative overflow-hidden rounded-2xl border p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-dim text-xs">Last 7 days</p>

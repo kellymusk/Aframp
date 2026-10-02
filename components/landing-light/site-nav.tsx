@@ -12,8 +12,8 @@ export function SiteNav() {
   const signedIn = ready && Boolean(session)
 
   return (
-    <div className="px-6 pt-6">
-      <nav className="bg-white dark:bg-surface mx-auto flex max-w-5xl items-center gap-8 rounded-2xl px-5 py-3 shadow-sm">
+    <div className="px-4 pt-6 sm:px-6">
+      <nav className="bg-white dark:bg-surface mx-auto flex max-w-5xl items-center gap-3 rounded-2xl px-3 py-3 shadow-sm sm:gap-8 sm:px-5">
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <AframpMark className="size-7" />
           <span className="text-charcoal dark:text-white text-lg font-bold tracking-tight">
@@ -38,12 +38,12 @@ export function SiteNav() {
           )}
         </ul>
 
-        <div className="ml-auto flex shrink-0 items-center gap-2.5 md:ml-0">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2.5 md:ml-0">
           <ThemeToggle />
           {signedIn ? (
             <Link
               href="/home"
-              className="bg-brand rounded-full px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+              className="bg-brand rounded-full px-3 py-2 text-sm font-medium sm:px-5 text-white transition-opacity hover:opacity-90"
             >
               Open App
             </Link>
@@ -51,13 +51,13 @@ export function SiteNav() {
             <>
               <Link
                 href="/signup"
-                className="bg-charcoal rounded-full px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                className="bg-charcoal rounded-full px-3 py-2 text-sm font-medium sm:px-5 text-white transition-opacity hover:opacity-90"
               >
                 Get Started
               </Link>
               <Link
                 href="/login"
-                className="bg-brand rounded-full px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                className="bg-brand rounded-full px-3 py-2 text-sm font-medium sm:px-5 text-white transition-opacity hover:opacity-90"
               >
                 Login
               </Link>
