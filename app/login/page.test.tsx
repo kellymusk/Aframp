@@ -37,7 +37,7 @@ describe('LoginPage', () => {
   it('renders an accessible sign-in form', async () => {
     const { container } = render(<LoginPage />)
 
-    expect(screen.getByRole('heading', { name: /aframp pay/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /sign in/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
     expect(await axe(container)).toHaveNoViolations()
   })
@@ -58,7 +58,7 @@ describe('LoginPage', () => {
     render(<LoginPage />)
 
     await user.type(screen.getByLabelText(/email/i), 'merchant@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'secret-pass')
+    await user.type(screen.getByLabelText('Password'), 'secret-pass')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     expect(signIn).toHaveBeenCalledWith('merchant@example.com', 'secret-pass')
@@ -72,7 +72,7 @@ describe('LoginPage', () => {
     render(<LoginPage />)
 
     await user.type(screen.getByLabelText(/email/i), 'merchant@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'secret-pass')
+    await user.type(screen.getByLabelText('Password'), 'secret-pass')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     // challenge_id must be in sessionStorage, NOT in the URL
@@ -88,7 +88,7 @@ describe('LoginPage', () => {
     render(<LoginPage />)
 
     await user.type(screen.getByLabelText(/email/i), 'merchant@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'wrong-pass')
+    await user.type(screen.getByLabelText('Password'), 'wrong-pass')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     expect(await screen.findByText('Invalid credentials')).toBeInTheDocument()
@@ -100,7 +100,7 @@ describe('LoginPage', () => {
     render(<LoginPage />)
 
     await user.type(screen.getByLabelText(/email/i), 'merchant@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'wrong-pass')
+    await user.type(screen.getByLabelText('Password'), 'wrong-pass')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     expect(await screen.findByText(/too many sign-in attempts/i)).toBeInTheDocument()
@@ -113,7 +113,7 @@ describe('LoginPage', () => {
     render(<LoginPage />)
 
     await user.type(screen.getByLabelText(/email/i), 'merchant@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'wrong-pass')
+    await user.type(screen.getByLabelText('Password'), 'wrong-pass')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     expect(await screen.findByText(/60 seconds/i)).toBeInTheDocument()
@@ -125,7 +125,7 @@ describe('LoginPage', () => {
     render(<LoginPage />)
 
     await user.type(screen.getByLabelText(/email/i), 'merchant@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'wrong-pass')
+    await user.type(screen.getByLabelText('Password'), 'wrong-pass')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     expect(await screen.findByText(/too many sign-in attempts/i)).toBeInTheDocument()
@@ -138,7 +138,7 @@ describe('LoginPage', () => {
     render(<LoginPage />)
 
     await user.type(screen.getByLabelText(/email/i), 'merchant@example.com')
-    await user.type(screen.getByLabelText(/password/i), 'wrong-pass')
+    await user.type(screen.getByLabelText('Password'), 'wrong-pass')
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     expect(await screen.findByText(/60 seconds/i)).toBeInTheDocument()
