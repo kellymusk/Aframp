@@ -19,6 +19,10 @@ describe('formatStroops', () => {
     expect(formatStroops(-25_000_000n)).toBe('-2.5')
   })
 
+  it('formats one negative unit', () => {
+    expect(formatStroops(-10_000_000n)).toBe('-1')
+  })
+
   it('formats zero', () => {
     expect(formatStroops(0n)).toBe('0')
   })
