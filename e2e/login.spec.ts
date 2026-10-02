@@ -28,7 +28,7 @@ test('signs in and redirects to the home dashboard', async ({ page }) => {
   // Don't interact with the server-rendered form before React hydrates it.
   await page.waitForLoadState('networkidle')
   await page.getByLabel('Email').fill('merchant@example.com')
-  await page.getByLabel('Password').fill('correct-horse-battery-staple')
+  await page.getByLabel('Password', { exact: true }).fill('correct-horse-battery-staple')
   await page.getByRole('button', { name: 'Sign in' }).click()
   await page.getByLabel('6-digit code').fill('123456')
   await page.getByRole('button', { name: 'Verify' }).click()

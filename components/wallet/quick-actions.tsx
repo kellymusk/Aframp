@@ -10,17 +10,20 @@ const actions = [
 
 export function QuickActions() {
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="grid grid-cols-4 gap-2 sm:flex sm:flex-wrap sm:gap-5">
       {actions.map(({ label, icon: Icon, tint, href }) => (
         <Link
           key={label}
           href={href}
-          title={label}
-          aria-label={label}
-          style={{ backgroundColor: tint }}
-          className="flex size-11 items-center justify-center rounded-full text-white transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:outline-none"
+          className="group flex flex-col items-center gap-1.5 rounded-lg focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:outline-none"
         >
-          <Icon className="size-5" strokeWidth={2.25} />
+          <span
+            style={{ backgroundColor: tint }}
+            className="flex size-11 items-center justify-center rounded-full text-white transition-transform group-hover:scale-105"
+          >
+            <Icon className="size-5" strokeWidth={2.25} aria-hidden />
+          </span>
+          <span className="text-dim group-hover:text-bright text-xs">{label}</span>
         </Link>
       ))}
     </div>

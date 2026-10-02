@@ -12,18 +12,27 @@ jest.mock('@/lib/api', () => ({
     getBalances: jest.fn(),
     listTransactions: jest.fn(),
     listPaymentRequests: jest.fn(),
+    getWallet: jest.fn(),
+    listWithdrawals: jest.fn(),
   },
 }))
 
 // The page's own logic is under test; its widgets have their own suites.
 jest.mock('@/components/onboarding/onboarding-checklist', () => ({
-  OnboardingChecklist: () => null,
+  OnboardingChecklist: ({ progress }: { progress: Record<string, boolean> }) => (
+    <span>
+      checklist{' '}
+      {Object.entries(progress)
+        .filter(([, done]) => done)
+        .map(([step]) => step)
+        .join(',')}
+    </span>
+  ),
 }))
 jest.mock('@/components/wallet/balance-figure', () => ({
   BalanceFigure: ({ asset }: { asset: string }) => <span>balance {asset}</span>,
 }))
 jest.mock('@/components/wallet/quick-actions', () => ({ QuickActions: () => null }))
-jest.mock('@/components/wallet/top-assets', () => ({ TopAssets: () => null }))
 jest.mock('@/components/wallet/quick-convert', () => ({
   QuickConvert: ({ openRequests }: { openRequests: PaymentRequest[] }) => (
     <span>{openRequests.length} open requests</span>
@@ -62,6 +71,8 @@ beforeEach(() => {
     request('paid'),
     request('pending'),
   ])
+  mockApi.getWallet.mockResolvedValue({ id: 'w-1' } as never)
+  mockApi.listWithdrawals.mockResolvedValue([])
 })
 
 describe('HomePage', () => {
@@ -86,6 +97,19 @@ describe('HomePage', () => {
   it('lazy-loads the revenue chart with the payments', async () => {
     render(<HomePage />)
     expect(await screen.findByText('revenue chart for 2 payments')).toBeInTheDocument()
+  })
+
+  it('ticks off the getting-started steps from real activity', async () => {
+    mockApi.listTransactions.mockResolvedValue([{ status: 'confirmed' } as Payment])
+    render(<HomePage />)
+    expect(await screen.findByText('checklist wallet,charge,payment')).toBeInTheDocument()
+  })
+
+  it('still loads the dashboard when the wallet or cash-outs cannot be fetched', async () => {
+    mockApi.getWallet.mockRejectedValue(new Error('not found'))
+    mockApi.listWithdrawals.mockRejectedValue(new Error('offline'))
+    render(<HomePage />)
+    expect(await screen.findByText('checklist charge')).toBeInTheDocument()
   })
 
   it('shows a zero balance when the merchant has no balances yet', async () => {

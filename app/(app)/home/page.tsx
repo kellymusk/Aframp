@@ -8,11 +8,10 @@ import { ActivityHighlights } from '@/components/wallet/activity-highlights'
 import { BalanceFigure } from '@/components/wallet/balance-figure'
 import { QuickActions } from '@/components/wallet/quick-actions'
 import { QuickConvert } from '@/components/wallet/quick-convert'
-import { TopAssets } from '@/components/wallet/top-assets'
 import { ErrorState } from '@/components/ui/error-state'
 import { HomePageSkeleton } from '@/components/wallet/home-page-skeleton'
 import { OnboardingChecklist } from '@/components/onboarding/onboarding-checklist'
-import { api, type Payment, type PaymentRequest } from '@/lib/api'
+import { api, type Payment, type PaymentRequest, type Wallet, type Withdrawal } from '@/lib/api'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { useDataLoader } from '@/hooks/use-data-loader'
 import { useMemo } from 'react'
@@ -32,6 +31,8 @@ interface DashboardData {
   balances: Awaited<ReturnType<typeof api.getBalances>>
   payments: Payment[]
   requests: PaymentRequest[]
+  wallet: Wallet | null
+  withdrawals: Withdrawal[]
 }
 
 export default function HomePage() {
@@ -39,12 +40,16 @@ export default function HomePage() {
 
   const { data, error, loading, reload } = useDataLoader<DashboardData>(
     async (signal) => {
-      const [balances, payments, requests] = await Promise.all([
+      const [balances, payments, requests, wallet, withdrawals] = await Promise.all([
         api.getBalances(token, signal),
         api.listTransactions(token, 50, signal),
         api.listPaymentRequests(token, 20, signal),
+        // Only used to tick off the getting-started steps, so a failure here
+        // shouldn't take the whole dashboard down.
+        api.getWallet(token, signal).catch(() => null),
+        api.listWithdrawals(token, 1, signal).catch(() => [] as Withdrawal[]),
       ])
-      return { balances, payments, requests }
+      return { balances, payments, requests, wallet, withdrawals }
     },
     [token]
   )
@@ -58,6 +63,12 @@ export default function HomePage() {
   if (loading || !data) return <HomePageSkeleton />
 
   const { balances, payments } = data
+  const progress = {
+    wallet: data.wallet !== null,
+    charge: data.requests.length > 0,
+    payment: payments.some((payment) => payment.status === 'confirmed'),
+    cashout: data.withdrawals.length > 0,
+  }
 
   return (
     <div>
@@ -75,7 +86,7 @@ export default function HomePage() {
       </header>
 
       <div className="mt-6">
-        <OnboardingChecklist />
+        <OnboardingChecklist progress={progress} />
       </div>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -106,10 +117,6 @@ export default function HomePage() {
 
           <div className="mt-6">
             <QuickActions />
-          </div>
-
-          <div className="mt-6">
-            <TopAssets balances={balances} />
           </div>
         </section>
 

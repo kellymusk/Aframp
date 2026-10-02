@@ -31,7 +31,9 @@ export function StatusBreakdown({ title, items }: StatusBreakdownProps) {
               <Badge variant={variantFor(item.status)} className="capitalize">
                 {item.status}
               </Badge>
-              <span className="text-sm font-semibold tabular-nums">{item.count}</span>
+              <span className="text-sm font-semibold tabular-nums">
+                {item.count.toLocaleString('en-NG')}
+              </span>
             </li>
           ))}
         </ul>

@@ -13,6 +13,8 @@ import { isOffline } from '@/lib/api'
 import { CHALLENGE_SESSION_KEY } from '@/lib/otp-challenge'
 
 import { getPasswordStrength, isCommonPassword } from '@/lib/password-strength'
+import { PasswordInput } from '@/components/ui/password-input'
+import { AuthHeader } from '@/components/brand/auth-header'
 
 const MIN_PASSWORD_LENGTH = 8
 
@@ -85,13 +87,11 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-8 px-6 py-12">
-      <header className="space-y-2">
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Create your account</h1>
-        <p className="text-muted-foreground text-sm">
-          Takes a minute. You&apos;ll get a payment address straight after.
-        </p>
-      </header>
+    <main className="font-brand mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-8 px-6 py-12">
+      <AuthHeader
+        title="Create your account"
+        subtitle="Takes a minute. You'll get a payment address straight after."
+      />
 
       <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
         {error && (
@@ -142,9 +142,8 @@ export default function SignupPage() {
 
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete="new-password"
             required
             minLength={MIN_PASSWORD_LENGTH}
@@ -177,9 +176,8 @@ export default function SignupPage() {
 
         <div className="space-y-2">
           <Label htmlFor="confirm-password">Confirm password</Label>
-          <Input
+          <PasswordInput
             id="confirm-password"
-            type="password"
             autoComplete="new-password"
             required
             value={confirmPassword}

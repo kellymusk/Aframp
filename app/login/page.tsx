@@ -11,6 +11,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useSession } from '@/components/session-provider'
 import { ApiError, isOffline } from '@/lib/api'
 import { CHALLENGE_SESSION_KEY } from '@/lib/otp-challenge'
+import { PasswordInput } from '@/components/ui/password-input'
+import { AuthHeader } from '@/components/brand/auth-header'
 
 export default function LoginPage() {
   const { session, ready, signIn } = useSession()
@@ -68,11 +70,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-8 px-6 py-12">
-      <header className="space-y-2">
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Aframp Pay</h1>
-        <p className="text-muted-foreground text-sm">Sign in to start taking payments.</p>
-      </header>
+    <main className="font-brand mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-8 px-6 py-12">
+      <AuthHeader title="Sign in" subtitle="Sign in to start taking payments." />
 
       <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
         {rateLimited && (
@@ -105,9 +104,8 @@ export default function LoginPage() {
 
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete="current-password"
             required
             value={password}

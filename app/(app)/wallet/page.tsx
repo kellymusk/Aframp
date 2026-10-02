@@ -89,10 +89,13 @@ export default function WalletPage() {
   return (
     <div>
       <header>
-        <h1 className="truncate text-2xl font-bold tracking-tight">
-          {me?.merchant_name ?? me?.name ?? 'Account'}
-        </h1>
-        {me?.email && <p className="text-dim mt-1 truncate text-sm">{me.email}</p>}
+        <h1 className="text-2xl font-bold tracking-tight">Wallet</h1>
+        {(me?.merchant_name ?? me?.name) && (
+          <p className="text-dim mt-1 truncate text-sm">
+            {me?.merchant_name ?? me?.name}
+            {me?.email && ` · ${me.email}`}
+          </p>
+        )}
       </header>
 
       <div className="mt-6 max-w-xl space-y-5">

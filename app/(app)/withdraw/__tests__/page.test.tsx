@@ -132,6 +132,29 @@ describe('WithdrawPage', () => {
     expect(screen.getByText('Paid out')).toBeInTheDocument()
   })
 
+  it('shows why a cash-out failed and where it was going', async () => {
+    mockListWithdrawals.mockResolvedValue([
+      withdrawal({ status: 'failed', failure_reason: 'Account name mismatch' }),
+    ])
+    render(<WithdrawPage />)
+
+    expect(await screen.findByText('Account name mismatch')).toBeInTheDocument()
+    expect(screen.getByText('Failed')).toHaveClass('bg-destructive')
+    expect(screen.getByText(/••••6789/)).toBeInTheDocument()
+  })
+
+  it('fills the amount with the whole available balance from Max', async () => {
+    const user = userEvent.setup()
+    mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_123_456n)])
+    render(<WithdrawPage />)
+    await screen.findByRole('heading', { name: 'Cash out' })
+
+    await user.click(screen.getByRole('button', { name: 'Max' }))
+
+    // Rounded down to whole kobo.
+    expect(screen.getByLabelText('Amount (cNGN)')).toHaveValue('1000.01')
+  })
+
   it('shows an asset selector when multiple assets have balances', async () => {
     mockGetBalances.mockResolvedValue([
       balance('cNGN', 10_000_000_000n),

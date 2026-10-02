@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { act, useState } from 'react'
 import { RevenueChart } from '@/components/wallet/revenue-chart'
 import type { Payment } from '@/lib/api'
@@ -60,6 +60,23 @@ describe('RevenueChart', () => {
     expect(within(table).getByText('5.00')).toBeInTheDocument()
   })
 
+  it('shows one currency at a time, defaulting to the largest weekly total', () => {
+    render(
+      <RevenueChart
+        payments={[
+          payment({ asset: 'XLM', amount_stroops: 10_000_000n }),
+          payment({ asset: 'cNGN', amount_stroops: 50_000_000n }),
+        ]}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: 'cNGN' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'XLM' })).toHaveAttribute('aria-pressed', 'false')
+
+    fireEvent.click(screen.getByRole('button', { name: 'XLM' }))
+    expect(screen.getByRole('button', { name: 'XLM' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('has a caption describing the table for screen readers', () => {
     render(<RevenueChart payments={[payment({})]} />)
     expect(
@@ -103,7 +120,7 @@ describe('RevenueChart', () => {
 
     // Trigger unrelated state change
     act(() => {
-      getByRole('button').click()
+      getByRole('button', { name: /toggle/i }).click()
     })
 
     // Functions should not be called again since payments didn't change

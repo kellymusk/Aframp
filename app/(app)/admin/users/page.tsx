@@ -5,16 +5,7 @@ import { AdminTable } from '@/components/admin/admin-table'
 import { Badge } from '@/components/ui/badge'
 import { api, type AdminUserRow } from '@/lib/api'
 import { useAuthenticatedSession } from '@/components/session-provider'
-
-function formatWhen(iso: string): string {
-  return new Date(iso).toLocaleString('en-NG', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+import { formatDateTime } from '@/lib/format-date'
 
 export default function AdminUsersPage() {
   const { token } = useAuthenticatedSession()
@@ -53,6 +44,8 @@ export default function AdminUsersPage() {
           error={error}
           onRetry={() => void load()}
           getRowKey={(row) => row.id}
+          searchText={(row) => `${row.name} ${row.email} ${row.merchant_name ?? ''}`}
+          searchPlaceholder="Search name, email or merchant"
           emptyMessage="No users yet."
           columns={[
             { header: 'Name', render: (row) => <span className="font-medium">{row.name}</span> },
@@ -68,7 +61,7 @@ export default function AdminUsersPage() {
             },
             {
               header: 'Created',
-              render: (row) => <span className="text-dim">{formatWhen(row.created_at)}</span>,
+              render: (row) => <span className="text-dim">{formatDateTime(row.created_at)}</span>,
             },
           ]}
         />

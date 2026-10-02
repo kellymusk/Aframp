@@ -8,6 +8,7 @@ import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration
 import { api, ApiError, type Remittance } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
+import { formatDateTime } from '@/lib/format-date'
 
 const EXPLORER_BASE = 'https://stellar.expert/explorer/public/tx'
 
@@ -22,15 +23,6 @@ function statusVariant(status: Remittance['status']) {
   if (status === 'confirmed') return 'default' as const
   if (status === 'failed') return 'destructive' as const
   return 'secondary' as const
-}
-
-function formatWhen(iso: string): string {
-  return new Date(iso).toLocaleString('en-NG', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 export default function RemittancesPage() {
@@ -106,7 +98,7 @@ export default function RemittancesPage() {
                     {remittance.destination_address}
                   </p>
                   <p className="text-dim text-xs">
-                    {formatWhen(remittance.created_at)}
+                    {formatDateTime(remittance.created_at)}
                     {remittance.tx_hash && (
                       <>
                         {' '}

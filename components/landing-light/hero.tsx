@@ -9,8 +9,8 @@ export function Hero() {
     <section className="bg-brand">
       <SiteNav />
 
-      <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 pt-16 pb-24 lg:grid-cols-[1fr_auto]">
-        <div>
+      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 px-6 pt-16 pb-24 lg:grid-cols-[1fr_auto]">
+        <div className="min-w-0">
           <h1 className="text-4xl leading-[1.15] font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
             {hero.titleBefore}{' '}
             <span className="bg-brand-deep box-decoration-clone px-3 py-1">

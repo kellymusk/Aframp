@@ -12,6 +12,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { useSession } from '@/components/session-provider'
 import { ApiError, isOffline } from '@/lib/api'
 import { CHALLENGE_SESSION_KEY } from '@/lib/otp-challenge'
+import { AuthHeader } from '@/components/brand/auth-header'
 
 const CODE_LENGTH = 6
 
@@ -115,15 +116,15 @@ function VerifyOtpForm() {
   const restartHref = flow === 'signup' ? '/signup' : '/login'
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-8 px-6 py-12">
-      <header className="space-y-2">
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Aframp Pay</h1>
-        <p className="text-muted-foreground text-sm">
-          {flow === 'signup'
+    <main className="font-brand mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-8 px-6 py-12">
+      <AuthHeader
+        title="Check your phone"
+        subtitle={
+          flow === 'signup'
             ? 'Enter the code we texted you to finish creating your account.'
-            : 'Enter the code we texted you to finish signing in.'}
-        </p>
-      </header>
+            : 'Enter the code we texted you to finish signing in.'
+        }
+      />
 
       <form noValidate onSubmit={handleVerify} className="flex flex-col gap-4">
         {error && (
