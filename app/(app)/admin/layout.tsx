@@ -78,9 +78,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="dark bg-ink font-brand flex min-h-dvh text-white">
+    <div className="dark bg-ink font-brand flex min-h-dvh flex-col text-white lg:flex-row">
       <AdminSidebar />
-      <main className="min-w-0 flex-1 p-6 lg:p-8">{children}</main>
+      <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
     </div>
   )
 }

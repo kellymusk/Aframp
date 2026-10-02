@@ -381,6 +381,42 @@
 
 /* Landing page surfaces, sampled from designs/Aframp landing Page.png.
    Same brand green as the dashboard (#33cc33) — only the section and
-   card grou
+   card grounds differ, so they get their own names. */
+@theme {
+  --color-band: #0f0b09;
+  --color-surface: #110c09;
+  --color-edge: #2d2824;
+}
 
-/* … truncated 928 chars — edit only what you need near the top … */
+/* Partner logo marquee on the home page. Halts for reduced-motion users. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* The lane renders the list twice, so half a lane is one full loop. */
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 32s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
+}
+
+/* Light landing page, sampled from designs/1920w light(1).png.
+   Brand green matches the other designs (#33cc33); the rest of this
+   palette is specific to the light direction. */
+@theme {
+  --color-mint: #ebffeb;
+  --color-lavender: #f5f4fc;
+  --color-charcoal: #1e1e1e;
+  --color-accent-purple: #7146eb;
+  --color-accent-pink: #ee7fc4;
+  --color-accent-teal: #18bac0;
+}
