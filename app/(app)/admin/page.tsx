@@ -50,9 +50,12 @@ export default function AdminOverviewPage() {
       </header>
 
       <div className="mt-6 grid gap-5 sm:grid-cols-3">
-        <StatCard label="Total users" value={overview.total_users.toLocaleString()} />
-        <StatCard label="Total merchants" value={overview.total_merchants.toLocaleString()} />
-        <StatCard label="Total wallets" value={overview.total_wallets.toLocaleString()} />
+        <StatCard label="Total users" value={overview.total_users.toLocaleString('en-NG')} />
+        <StatCard
+          label="Total merchants"
+          value={overview.total_merchants.toLocaleString('en-NG')}
+        />
+        <StatCard label="Total wallets" value={overview.total_wallets.toLocaleString('en-NG')} />
       </div>
 
       <div className="mt-5">

@@ -378,7 +378,15 @@ export default function SendPage() {
 
         {state.remittances.length > 0 && (
           <section className="space-y-3">
-            <h2 className="text-dim text-xs font-bold tracking-widest uppercase">Recent sends</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-dim text-xs font-bold tracking-widest uppercase">Recent sends</h2>
+              <Link
+                href="/remittances"
+                className="text-brand text-xs font-semibold hover:underline"
+              >
+                View all
+              </Link>
+            </div>
             <ul className="border-hairline divide-y">
               {state.remittances.map((remittance) => (
                 <li key={remittance.id} className="space-y-1 py-3">

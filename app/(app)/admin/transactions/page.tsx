@@ -12,8 +12,8 @@ import { formatDateTime } from '@/lib/format-date'
 const EXPLORER_BASE = 'https://stellar.expert/explorer/testnet/tx'
 
 const STATUS_LABEL: Record<PaymentStatus, string> = {
-  detected: 'Detected',
-  verified: 'Verifying',
+  detected: 'Incoming',
+  verified: 'Confirming',
   confirmed: 'Confirmed',
   failed: 'Failed',
 }
@@ -56,7 +56,7 @@ export default function AdminTransactionsPage() {
     <div>
       <header>
         <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
-        <p className="text-dim mt-1 text-sm">Detected deposits across every merchant.</p>
+        <p className="text-dim mt-1 text-sm">Incoming payments across every merchant.</p>
       </header>
 
       <div className="mt-6">

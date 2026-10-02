@@ -105,8 +105,8 @@ describe('WalletPage', () => {
       render(<WalletPage />)
 
       await waitFor(() => {
-        expect(screen.getByText('Test Merchant')).toBeInTheDocument()
-        expect(screen.getByText('test@example.com')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Wallet' })).toBeInTheDocument()
+        expect(screen.getByText('Test Merchant · test@example.com')).toBeInTheDocument()
         expect(screen.getByText(mockWallet.address)).toBeInTheDocument()
       })
 

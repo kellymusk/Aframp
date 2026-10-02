@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Download } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,14 +18,7 @@ import {
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
 import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration'
-import {
-  api,
-  ApiError,
-  type Balance,
-  type Payment,
-  type PaymentStatus,
-  type Refund,
-} from '@/lib/api'
+import { api, ApiError, type Payment, type PaymentStatus, type Refund } from '@/lib/api'
 import { formatStroops, parseAmountToStroops } from '@/lib/money'
 import {
   filterPaymentsByDateRange,
@@ -33,14 +27,15 @@ import {
 } from '@/lib/transaction-filters'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { formatDateTime } from '@/lib/format-date'
+import { downloadCsv, toCsv } from '@/lib/csv'
 
 const EXPLORER_BASE = `https://stellar.expert/explorer/${
   process.env.NEXT_PUBLIC_STELLAR_NETWORK === 'PUBLIC' ? 'public' : 'testnet'
 }/tx`
 
 const STATUS_LABEL: Record<PaymentStatus, string> = {
-  detected: 'Detected',
-  verified: 'Verifying',
+  detected: 'Incoming',
+  verified: 'Confirming',
   confirmed: 'Paid',
   failed: 'Failed',
 }
@@ -75,7 +70,6 @@ function statusVariant(status: PaymentStatus) {
 export default function TransactionsPage() {
   const { token } = useAuthenticatedSession()
   const [payments, setPayments] = useState<Payment[] | null>(null)
-  const [balances, setBalances] = useState<Balance[]>([])
   const [refunds, setRefunds] = useState<Refund[]>([])
   const [refundingId, setRefundingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -95,13 +89,11 @@ export default function TransactionsPage() {
     async (signal?: AbortSignal) => {
       setError(null)
       try {
-        const [nextPayments, nextBalances, nextRefunds] = await Promise.all([
+        const [nextPayments, nextRefunds] = await Promise.all([
           api.listTransactions(token, 50, signal),
-          api.getBalances(token, signal),
           api.listRefunds(token, 20, signal),
         ])
         setPayments(nextPayments)
-        setBalances(nextBalances)
         setRefunds(nextRefunds)
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return
@@ -198,6 +190,21 @@ export default function TransactionsPage() {
     return filterPaymentsByDateRange(statusFiltered, fromDate, toDate)
   }, [payments, searchQuery, statusFilter, fromDate, toDate])
 
+  const exportCsv = () => {
+    const csv = toCsv(
+      ['Date', 'Amount', 'Asset', 'Status', 'Transaction hash', 'From wallet'],
+      filteredPayments.map((payment) => [
+        payment.created_at,
+        formatStroops(payment.amount_stroops).replace(/,/g, ''),
+        payment.asset,
+        STATUS_LABEL[payment.status] ?? payment.status,
+        payment.tx_hash,
+        payment.wallet_address,
+      ])
+    )
+    downloadCsv(`aframp-payments-${new Date().toISOString().slice(0, 10)}.csv`, csv)
+  }
+
   if (error)
     return (
       <ErrorState
@@ -220,26 +227,19 @@ export default function TransactionsPage() {
   return (
     <div>
       <header className="space-y-3">
-        <h1 className="text-2xl font-bold tracking-tight">Payments</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold tracking-tight">Payments</h1>
+          {filteredPayments.length > 0 && (
+            <Button type="button" variant="outline" size="sm" onClick={exportCsv}>
+              <Download className="size-4" aria-hidden />
+              Export CSV
+            </Button>
+          )}
+        </div>
         {refundNotice && (
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
             {refundNotice}
           </div>
-        )}
-        {balances.length > 0 && (
-          <ul aria-live="polite" aria-atomic="true" className="grid gap-2 sm:grid-cols-2">
-            {balances.map((balance) => (
-              <li
-                key={balance.asset}
-                className="bg-panel border-hairline flex items-baseline justify-between rounded-2xl border px-4 py-3"
-              >
-                <span className="text-dim text-sm">{balance.asset} available</span>
-                <span className="text-lg font-bold tabular-nums">
-                  {formatStroops(balance.available)}
-                </span>
-              </li>
-            ))}
-          </ul>
         )}
       </header>
 
@@ -319,8 +319,9 @@ export default function TransactionsPage() {
                 {payment.status === 'confirmed' && (
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
+                    className="text-dim"
                     onClick={() => openRefundDialog(payment)}
                     disabled={refundingId === payment.id}
                   >

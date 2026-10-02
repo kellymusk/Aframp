@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import '@testing-library/jest-dom'
 import TransactionsPage from '../page'
 import { api, ApiError } from '@/lib/api'
+import { downloadCsv } from '@/lib/csv'
 
 jest.mock('@/lib/api', () => ({
   api: {
@@ -20,6 +21,11 @@ jest.mock('@/lib/api', () => ({
       this.name = 'ApiError'
     }
   },
+}))
+
+jest.mock('@/lib/csv', () => ({
+  ...jest.requireActual('@/lib/csv'),
+  downloadCsv: jest.fn(),
 }))
 
 jest.mock('@/components/session-provider', () => ({
@@ -200,6 +206,24 @@ describe('TransactionsPage filters, refunds list and errors', () => {
 
     expect(await screen.findByText(message)).toBeInTheDocument()
     expect(mockCreateRefund).not.toHaveBeenCalled()
+  })
+
+  it('exports the filtered payments as CSV', async () => {
+    mockListTransactions.mockResolvedValue([
+      payment(),
+      payment({ id: 'payment-2', status: 'detected', amount_stroops: 25_000_000n }),
+    ])
+    render(<TransactionsPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /export csv/i }))
+
+    const [filename, csv] = (downloadCsv as jest.Mock).mock.calls[0]
+    expect(filename).toMatch(/^aframp-payments-\d{4}-\d{2}-\d{2}\.csv$/)
+    const lines = csv.split('\r\n')
+    expect(lines[0]).toBe('Date,Amount,Asset,Status,Transaction hash,From wallet')
+    expect(lines).toHaveLength(3)
+    expect(lines[1]).toContain(',1,XLM,Paid,tx-hash,GABCDEF1234567890')
+    expect(lines[2]).toContain(',2.5,XLM,Incoming,')
   })
 
   it('lists existing refunds', async () => {

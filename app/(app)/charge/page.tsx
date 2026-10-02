@@ -152,6 +152,10 @@ export default function ChargePage() {
           </span>
           <span className="text-dim text-lg font-medium">{ASSET}</span>
         </p>
+        <p className="text-dim max-w-xs text-center text-xs">
+          Charges are in XLM for now so customers get a scannable code. Naira (cNGN) charges are
+          coming.
+        </p>
 
         {rateState.data && (
           <p className="text-dim text-sm font-medium tabular-nums" data-testid="fiat-equivalent">
