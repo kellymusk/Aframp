@@ -51,6 +51,10 @@ export default function AdminWithdrawalsPage() {
           error={error}
           onRetry={() => void load()}
           getRowKey={(row) => row.id}
+          searchText={(row) =>
+            `${row.merchant_name} ${row.asset} ${row.status} ${row.provider_reference ?? ''} ${row.account_number ?? ''}`
+          }
+          searchPlaceholder="Search merchant, status, reference or account"
           emptyMessage="No withdrawals yet."
           columns={[
             {

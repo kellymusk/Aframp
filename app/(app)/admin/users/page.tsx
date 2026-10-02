@@ -44,6 +44,8 @@ export default function AdminUsersPage() {
           error={error}
           onRetry={() => void load()}
           getRowKey={(row) => row.id}
+          searchText={(row) => `${row.name} ${row.email} ${row.merchant_name ?? ''}`}
+          searchPlaceholder="Search name, email or merchant"
           emptyMessage="No users yet."
           columns={[
             { header: 'Name', render: (row) => <span className="font-medium">{row.name}</span> },

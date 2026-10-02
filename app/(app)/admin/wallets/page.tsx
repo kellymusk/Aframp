@@ -47,6 +47,8 @@ export default function AdminWalletsPage() {
           error={error}
           onRetry={() => void load()}
           getRowKey={(row) => row.id}
+          searchText={(row) => `${row.merchant_name} ${row.address}`}
+          searchPlaceholder="Search merchant or address"
           emptyMessage="No wallets yet."
           columns={[
             {

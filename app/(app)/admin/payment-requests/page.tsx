@@ -51,6 +51,10 @@ export default function AdminPaymentRequestsPage() {
           error={error}
           onRetry={() => void load()}
           getRowKey={(row) => row.id}
+          searchText={(row) =>
+            `${row.merchant_name} ${row.memo} ${row.asset} ${row.status} ${row.id}`
+          }
+          searchPlaceholder="Search merchant, reference, asset or status"
           emptyMessage="No payment requests yet."
           columns={[
             {

@@ -65,6 +65,10 @@ export default function AdminTransactionsPage() {
           error={error}
           onRetry={() => void load()}
           getRowKey={(row) => row.id}
+          searchText={(row) =>
+            `${row.merchant_name} ${row.tx_hash} ${row.asset} ${row.status} ${row.wallet_address}`
+          }
+          searchPlaceholder="Search merchant, hash, asset or status"
           emptyMessage="No transactions yet."
           columns={[
             {

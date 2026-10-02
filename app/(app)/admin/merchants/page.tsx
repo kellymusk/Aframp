@@ -47,6 +47,8 @@ export default function AdminMerchantsPage() {
           error={error}
           onRetry={() => void load()}
           getRowKey={(row) => row.id}
+          searchText={(row) => `${row.name} ${row.owner_email} ${row.wallet_address ?? ''}`}
+          searchPlaceholder="Search name, owner email or wallet"
           emptyMessage="No merchants yet."
           columns={[
             { header: 'Name', render: (row) => <span className="font-medium">{row.name}</span> },
