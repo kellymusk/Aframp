@@ -23,16 +23,7 @@ import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration
 import { api, ApiError, type ApiKey } from '@/lib/api'
 import { formatLastUsedAt, isApiKeyUsageStale } from '@/lib/api-key-usage'
 import { useAuthenticatedSession } from '@/components/session-provider'
-
-function formatCreatedAt(iso: string): string {
-  return new Date(iso).toLocaleString('en-NG', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+import { formatDateTime } from '@/lib/format-date'
 
 export default function ApiKeysPage() {
   const { token } = useAuthenticatedSession()
@@ -320,7 +311,7 @@ export default function ApiKeysPage() {
                   </div>
                   <p className="text-dim text-xs font-mono">{key.key_preview}</p>
                   <p className="text-dim text-xs">
-                    Created {formatCreatedAt(key.created_at)} · Last used{' '}
+                    Created {formatDateTime(key.created_at)} · Last used{' '}
                     {formatLastUsedAt(key.last_used_at)}
                   </p>
                 </div>

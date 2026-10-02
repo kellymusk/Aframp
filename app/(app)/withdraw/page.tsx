@@ -43,12 +43,20 @@ import {
   type WithdrawalAsset,
 } from '@/lib/withdraw'
 import { BANKS, type Bank } from '@/lib/banks'
+import { formatDateTime } from '@/lib/format-date'
 
 const STATUS_LABEL: Record<WithdrawalStatus, string> = {
   pending: 'Pending',
   processing: 'Processing',
   completed: 'Paid out',
   failed: 'Failed',
+}
+
+const STATUS_VARIANT: Record<WithdrawalStatus, 'default' | 'secondary' | 'destructive'> = {
+  pending: 'secondary',
+  processing: 'secondary',
+  completed: 'default',
+  failed: 'destructive',
 }
 
 const PAGE_SIZE = 20
@@ -65,6 +73,10 @@ export default function WithdrawPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [nigeriaBanks, setNigeriaBanks] = useState<Bank[]>(BANKS)
+  const bankName = (code: string) =>
+    nigeriaBanks.find((bank) => bank.code === code)?.name ??
+    BANKS.find((bank) => bank.code === code)?.name ??
+    code
   const [banksLoading, setBanksLoading] = useState(false)
 
   useEffect(() => {
@@ -306,7 +318,25 @@ export default function WithdrawPage() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="amount">Amount ({asset})</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="amount">Amount ({asset})</Label>
+              <button
+                type="button"
+                className="text-brand text-xs font-semibold hover:underline disabled:opacity-50"
+                disabled={available === 0n}
+                onClick={() =>
+                  // Round down to the smallest unit the bank can pay out.
+                  setAmount(
+                    formatStroops(available - (available % config.minimumPrecisionStroops)).replace(
+                      /,/g,
+                      ''
+                    )
+                  )
+                }
+              >
+                Max
+              </button>
+            </div>
             <Input
               id="amount"
               inputMode="decimal"
@@ -343,7 +373,7 @@ export default function WithdrawPage() {
               id="account"
               inputMode="numeric"
               maxLength={config.accountNumberLength}
-              placeholder="0123456789"
+              placeholder={`${config.accountNumberLength}-digit account number`}
               value={accountNumber}
               disabled={available === 0n}
               onChange={(event) =>
@@ -404,17 +434,24 @@ export default function WithdrawPage() {
               {withdrawals.map((withdrawal) => (
                 <li
                   key={withdrawal.id}
-                  className="bg-panel border-hairline flex items-center justify-between rounded-xl border p-4"
+                  className="bg-panel border-hairline flex items-center justify-between gap-3 rounded-xl border p-4"
                 >
-                  <div>
+                  <div className="min-w-0">
                     <p className="font-medium">
                       {formatStroops(withdrawal.amount_stroops)} {withdrawal.asset}
                     </p>
                     <p className="text-dim text-xs">
-                      {new Date(withdrawal.created_at).toLocaleString()}
+                      {formatDateTime(withdrawal.created_at)}
+                      {withdrawal.bank_code && ` · ${bankName(withdrawal.bank_code)}`}
+                      {withdrawal.account_number && ` ••••${withdrawal.account_number.slice(-4)}`}
                     </p>
+                    {withdrawal.status === 'failed' && withdrawal.failure_reason && (
+                      <p className="text-neg mt-1 text-xs">{withdrawal.failure_reason}</p>
+                    )}
                   </div>
-                  <Badge>{STATUS_LABEL[withdrawal.status]}</Badge>
+                  <Badge variant={STATUS_VARIANT[withdrawal.status]} className="shrink-0">
+                    {STATUS_LABEL[withdrawal.status]}
+                  </Badge>
                 </li>
               ))}
             </ul>

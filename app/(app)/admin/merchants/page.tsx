@@ -4,19 +4,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { AdminTable } from '@/components/admin/admin-table'
 import { api, type AdminMerchantRow } from '@/lib/api'
 import { useAuthenticatedSession } from '@/components/session-provider'
+import { formatDateTime } from '@/lib/format-date'
 
 function shortenAddress(address: string) {
   return address.length <= 12 ? address : `${address.slice(0, 6)}…${address.slice(-4)}`
-}
-
-function formatWhen(iso: string): string {
-  return new Date(iso).toLocaleString('en-NG', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 export default function AdminMerchantsPage() {
@@ -71,7 +62,7 @@ export default function AdminMerchantsPage() {
             },
             {
               header: 'Created',
-              render: (row) => <span className="text-dim">{formatWhen(row.created_at)}</span>,
+              render: (row) => <span className="text-dim">{formatDateTime(row.created_at)}</span>,
             },
           ]}
         />

@@ -6,20 +6,12 @@ import { Badge } from '@/components/ui/badge'
 import { api, type AdminPaymentRequestRow, type PaymentRequestStatus } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
+import { formatDateTime } from '@/lib/format-date'
 
 function statusVariant(status: PaymentRequestStatus) {
   if (status === 'paid') return 'default' as const
   if (status === 'expired') return 'destructive' as const
   return 'secondary' as const
-}
-
-function formatWhen(iso: string): string {
-  return new Date(iso).toLocaleString('en-NG', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 export default function AdminPaymentRequestsPage() {
@@ -87,11 +79,11 @@ export default function AdminPaymentRequestsPage() {
             },
             {
               header: 'Expires',
-              render: (row) => <span className="text-dim">{formatWhen(row.expires_at)}</span>,
+              render: (row) => <span className="text-dim">{formatDateTime(row.expires_at)}</span>,
             },
             {
               header: 'Created',
-              render: (row) => <span className="text-dim">{formatWhen(row.created_at)}</span>,
+              render: (row) => <span className="text-dim">{formatDateTime(row.created_at)}</span>,
             },
           ]}
         />

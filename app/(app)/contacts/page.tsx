@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { formatDate } from '@/lib/format-date'
 
 interface Contact {
   id: string
@@ -226,9 +227,7 @@ export default function ContactsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-white">{contact.name}</p>
                     <p className="text-dim text-xs font-mono break-all">{contact.address}</p>
-                    <p className="text-dim text-xs mt-1">
-                      Added {new Date(contact.createdAt).toLocaleDateString()}
-                    </p>
+                    <p className="text-dim text-xs mt-1">Added {formatDate(contact.createdAt)}</p>
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <Button

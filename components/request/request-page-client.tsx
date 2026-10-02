@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { api, ApiError, type PaymentRequest } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
+import { formatDateTime } from '@/lib/format-date'
 
 interface RequestPageClientProps {
   requestId: string
@@ -162,7 +163,7 @@ export function RequestPageClient({ requestId }: RequestPageClientProps) {
             </div>
             <h2 className="text-lg font-semibold">Request expired</h2>
             <p className="text-sm text-muted-foreground">
-              This payment request expired on {new Date(request.expires_at).toLocaleString()}.
+              This payment request expired on {formatDateTime(request.expires_at)}.
             </p>
           </div>
         </div>
@@ -247,9 +248,7 @@ export function RequestPageClient({ requestId }: RequestPageClientProps) {
               <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">
                 Expires
               </p>
-              <p className="text-sm text-foreground">
-                {new Date(request.expires_at).toLocaleString()}
-              </p>
+              <p className="text-sm text-foreground">{formatDateTime(request.expires_at)}</p>
             </div>
           </div>
 

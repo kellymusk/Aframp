@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { api, type AdminTransactionRow, type PaymentStatus } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
+import { formatDateTime } from '@/lib/format-date'
 
 /** Testnet today; swap for `public` when the backend points at mainnet Horizon. */
 const EXPLORER_BASE = 'https://stellar.expert/explorer/testnet/tx'
@@ -25,15 +26,6 @@ function statusVariant(status: PaymentStatus) {
 
 function shorten(value: string) {
   return value.length <= 12 ? value : `${value.slice(0, 6)}…${value.slice(-4)}`
-}
-
-function formatWhen(iso: string): string {
-  return new Date(iso).toLocaleString('en-NG', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 export default function AdminTransactionsPage() {
@@ -109,7 +101,7 @@ export default function AdminTransactionsPage() {
             { header: 'Confirmations', render: (row) => row.confirmations },
             {
               header: 'Created',
-              render: (row) => <span className="text-dim">{formatWhen(row.created_at)}</span>,
+              render: (row) => <span className="text-dim">{formatDateTime(row.created_at)}</span>,
             },
           ]}
         />

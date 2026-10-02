@@ -32,6 +32,7 @@ import {
   searchPayments,
 } from '@/lib/transaction-filters'
 import { useAuthenticatedSession } from '@/components/session-provider'
+import { formatDateTime } from '@/lib/format-date'
 
 const EXPLORER_BASE = `https://stellar.expert/explorer/${
   process.env.NEXT_PUBLIC_STELLAR_NETWORK === 'PUBLIC' ? 'public' : 'testnet'
@@ -69,15 +70,6 @@ function statusVariant(status: PaymentStatus) {
   if (status === 'confirmed') return 'default' as const
   if (status === 'failed') return 'destructive' as const
   return 'secondary' as const
-}
-
-function formatWhen(iso: string): string {
-  return new Date(iso).toLocaleString('en-NG', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 export default function TransactionsPage() {
@@ -312,7 +304,7 @@ export default function TransactionsPage() {
                   {formatStroops(payment.amount_stroops)} {payment.asset}
                 </p>
                 <p className="text-dim text-xs">
-                  {formatWhen(payment.created_at)} ·{' '}
+                  {formatDateTime(payment.created_at)} ·{' '}
                   <a
                     href={`${EXPLORER_BASE}/${payment.tx_hash}`}
                     target="_blank"
