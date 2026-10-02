@@ -242,9 +242,14 @@ export default function ContactsPage() {
                       type="button"
                       size="sm"
                       variant="destructive"
-                      onClick={() => deleteContact(contact.id)}
+                      aria-label={`Delete ${contact.name}`}
+                      onClick={() => {
+                        if (window.confirm(`Delete ${contact.name} from your contacts?`)) {
+                          deleteContact(contact.id)
+                        }
+                      }}
                     >
-                      <Trash2 className="size-4" />
+                      <Trash2 className="size-4" aria-hidden />
                     </Button>
                   </div>
                 </div>
