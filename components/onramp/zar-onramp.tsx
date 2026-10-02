@@ -13,8 +13,7 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { OZOW_BANKS } from '@/lib/payment-providers'
-import { calculateFees, formatCurrency } from '@/lib/payment-providers'
+import { OZOW_BANKS, calculateFees, formatCurrency, validateOzowPaymentUrl } from '@/lib/payment-providers'
 import { api } from '@/lib/api'
 import { redirectTo } from '@/lib/navigation'
 
@@ -90,6 +89,12 @@ export function ZarOnramp({ token, onSuccess }: ZarOnrampProps) {
         returnUrl
       )
 
+      // Validate the payment URL before redirecting to prevent open-redirect
+      // and javascript: injection attacks if the backend is ever compromised.
+      validateOzowPaymentUrl(payment_url)
+
+      // Safe to redirect
+      window.location.href = payment_url
       // Validate the URL before redirecting: must be https:// and on the
       // expected Ozow domain to prevent open-redirect / javascript: attacks.
       let parsedUrl: URL
