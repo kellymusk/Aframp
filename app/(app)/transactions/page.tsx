@@ -26,12 +26,14 @@ import {
   type Refund,
 } from '@/lib/api'
 import { formatStroops, parseAmountToStroops } from '@/lib/money'
+import { exportPaymentsToCSV } from '@/lib/export'
 import {
   filterPaymentsByDateRange,
   filterPaymentsByStatus,
   searchPayments,
 } from '@/lib/transaction-filters'
 import { useAuthenticatedSession } from '@/components/session-provider'
+import { Download } from 'lucide-react'
 
 const EXPLORER_BASE = `https://stellar.expert/explorer/${
   process.env.NEXT_PUBLIC_STELLAR_NETWORK === 'PUBLIC' ? 'public' : 'testnet'
@@ -78,6 +80,18 @@ function formatWhen(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function downloadPaymentsCSV(payments: Payment[]) {
+  const blob = new Blob([exportPaymentsToCSV(payments)], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `aframp-transactions-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 export default function TransactionsPage() {
@@ -228,7 +242,19 @@ export default function TransactionsPage() {
   return (
     <div>
       <header className="space-y-3">
-        <h1 className="text-2xl font-bold tracking-tight">Payments</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold tracking-tight">Payments</h1>
+          {payments.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadPaymentsCSV(filteredPayments)}
+            >
+              <Download className="mr-2 size-4" aria-hidden="true" />
+              Export CSV
+            </Button>
+          )}
+        </div>
         {refundNotice && (
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
             {refundNotice}
