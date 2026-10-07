@@ -14,6 +14,8 @@ name: Dev-Frontend Guard
 #   types/          – Shared TypeScript type declarations
 #   next.config.mjs – Main Next.js configuration
 #   next-env.d.ts   – Next.js ambient types
+#   openapi.yaml    – API specification
+#   scripts/        – Repository scripts
 #
 # Contributors on dev-frontend should only add files inside:
 #   dev-frontend/   – The sandbox workspace for this branch
@@ -71,7 +73,24 @@ jobs:
             "^types/"
             "^next\.config\.mjs$"
             "^next-env\.d\.ts$"
+            "^openapi\.yaml$"
+            "^scripts/"
           )
+
+          # Keep the newly protected paths covered by this workflow's own guard.
+          for test_file in "openapi.yaml" "scripts/verify-guard.sh"; do
+            MATCHED=false
+            for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
+              if echo "$test_file" | grep -qE "$pattern"; then
+                MATCHED=true
+                break
+              fi
+            done
+            if [ "$MATCHED" = false ]; then
+              echo "::error::Guard pattern does not protect $test_file"
+              exit 1
+            fi
+          done
 
           VIOLATIONS=""
           while IFS= read -r file; do
