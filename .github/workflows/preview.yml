@@ -8,16 +8,20 @@ jobs:
   deploy-preview:
     name: Deploy Preview to Unique URL
     runs-on: ubuntu-latest
-    if: github.event.action != 'closed' && secrets.VERCEL_TOKEN != ''
+    # `secrets` can't be used in a job-level `if` (GitHub rejects the whole
+    # workflow), so the token is exposed as env and each step checks it.
+    if: github.event.action != 'closed'
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Skip if Vercel secrets not configured
-        if: ${{ !secrets.VERCEL_TOKEN }}
+        if: env.VERCEL_TOKEN == ''
         run: echo "⏭️ Vercel secrets not configured — skipping preview deployment"
 
       - name: Deploy to Vercel
-        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        if: env.VERCEL_TOKEN != ''
         uses: amondnet/vercel-action@v25
         id: vercel-deploy
         with:
@@ -27,7 +31,7 @@ jobs:
           scope: ${{ secrets.VERCEL_ORG_ID }}
 
       - name: Comment preview link on PR
-        if: ${{ secrets.VERCEL_TOKEN != '' && steps.vercel-deploy.outputs.preview-url != '' }}
+        if: env.VERCEL_TOKEN != '' && steps.vercel-deploy.outputs.preview-url != ''
         uses: actions/github-script@v7
         with:
           script: |
@@ -41,16 +45,18 @@ jobs:
   cleanup-preview:
     name: Auto-delete Preview
     runs-on: ubuntu-latest
-    if: github.event.action == 'closed' && secrets.VERCEL_TOKEN != ''
+    if: github.event.action == 'closed'
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - name: Delete Vercel Preview
-        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        if: env.VERCEL_TOKEN != ''
         run: |
           curl -X DELETE "https://api.vercel.com/v13/deployments/${{ github.event.pull_request.head.sha }}" \
-            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" || true
+            -H "Authorization: Bearer $VERCEL_TOKEN" || true
 
       - name: Comment cleanup
-        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        if: env.VERCEL_TOKEN != ''
         uses: actions/github-script@v7
         with:
           script: |
