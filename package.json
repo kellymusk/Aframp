@@ -89,5 +89,10 @@
     "typescript": "^5",
     "typescript-eslint": "^8.54.0",
     "undici": "^8.3.0"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "^8.5.29"
+    }
   }
 }
