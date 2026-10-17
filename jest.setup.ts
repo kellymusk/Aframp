@@ -8,25 +8,25 @@ import { toHaveNoViolations } from 'jest-axe'
 expect.extend(toHaveNoViolations)
 
 // Set TextEncoder/Decoder and Streams/Message globals first because undici needs them on load
-global.TextDecoder = TextDecoder as any
+global.TextDecoder = TextDecoder as typeof global.TextDecoder
 global.TextEncoder = TextEncoder
-globalThis.TextDecoder = TextDecoder as any
+globalThis.TextDecoder = TextDecoder as typeof globalThis.TextDecoder
 globalThis.TextEncoder = TextEncoder
 
-global.ReadableStream = ReadableStream as any
-global.TransformStream = TransformStream as any
-global.WritableStream = WritableStream as any
-globalThis.ReadableStream = ReadableStream as any
-globalThis.TransformStream = TransformStream as any
-globalThis.WritableStream = WritableStream as any
+global.ReadableStream = ReadableStream as typeof global.ReadableStream
+global.TransformStream = TransformStream as typeof global.TransformStream
+global.WritableStream = WritableStream as typeof global.WritableStream
+globalThis.ReadableStream = ReadableStream as typeof globalThis.ReadableStream
+globalThis.TransformStream = TransformStream as typeof globalThis.TransformStream
+globalThis.WritableStream = WritableStream as typeof globalThis.WritableStream
 
-global.MessageChannel = MessageChannel as any
-global.MessagePort = MessagePort as any
-globalThis.MessageChannel = MessageChannel as any
-globalThis.MessagePort = MessagePort as any
+global.MessageChannel = MessageChannel as typeof global.MessageChannel
+global.MessagePort = MessagePort as typeof global.MessagePort
+globalThis.MessageChannel = MessageChannel as typeof globalThis.MessageChannel
+globalThis.MessagePort = MessagePort as typeof globalThis.MessagePort
 
-global.BroadcastChannel = BroadcastChannel as any
-globalThis.BroadcastChannel = BroadcastChannel as any
+global.BroadcastChannel = BroadcastChannel as typeof global.BroadcastChannel
+globalThis.BroadcastChannel = BroadcastChannel as typeof globalThis.BroadcastChannel
 
 // Now load undici after globals are set
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- a static import would hoist above the globals this module reads at load time

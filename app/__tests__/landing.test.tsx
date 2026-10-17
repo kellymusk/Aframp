@@ -4,7 +4,7 @@ import { render, screen, within } from '@testing-library/react'
 jest.mock('next/image', () => ({
   __esModule: true,
   default: (props: { alt?: string; src?: string; [key: string]: unknown }) => {
-    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+    // eslint-disable-next-line @next/next/no-img-element
     return <img alt={props.alt ?? ''} src={props.src ?? ''} />
   },
 }))

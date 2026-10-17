@@ -1,7 +1,8 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { axe } from 'jest-axe'
 import userEvent from '@testing-library/user-event'
-import { api, ApiError } from '@/lib/api'
+import type { ChangeEvent, ReactElement, ReactNode } from 'react'
+import { api, ApiError, type Balance, type Withdrawal } from '@/lib/api'
 import WithdrawPage from '../page'
 
 jest.mock('@/lib/api', () => {
@@ -33,20 +34,30 @@ jest.mock('@/components/session-provider', () => ({
 // through ordinary DOM events in jsdom.
 jest.mock('@/components/ui/select', () => {
   const React = jest.requireActual('react')
+  type SelectNodeProps = { id?: string; value?: string; children?: ReactNode }
+  type SelectNode = ReactElement<SelectNodeProps>
+  type SelectMockProps = {
+    value?: string
+    onValueChange?: (value: string) => void
+    disabled?: boolean
+    children?: ReactNode
+  }
 
-  const SelectTrigger = ({ id, children }: any) =>
+  const SelectTrigger = ({ id, children }: { id?: string; children?: ReactNode }) =>
     React.createElement('div', { id, 'data-select-trigger': true }, children)
 
-  const SelectValue = ({ placeholder }: any) => React.createElement('span', null, placeholder ?? '')
+  const SelectValue = ({ placeholder }: { placeholder?: string }) =>
+    React.createElement('span', null, placeholder ?? '')
 
-  const SelectItem = ({ value, children }: any) =>
+  const SelectItem = ({ value, children }: { value: string; children?: ReactNode }) =>
     React.createElement('option', { value }, children)
 
-  const SelectContent = ({ children }: any) => React.createElement(React.Fragment, null, children)
+  const SelectContent = ({ children }: { children?: ReactNode }) =>
+    React.createElement(React.Fragment, null, children)
 
-  const flattenOptions = (nodes: any): any[] =>
-    React.Children.toArray(nodes).flatMap((node: any) => {
-      if (!React.isValidElement(node)) return []
+  const flattenOptions = (nodes: ReactNode): SelectNode[] =>
+    React.Children.toArray(nodes).flatMap((node): SelectNode[] => {
+      if (!React.isValidElement<SelectNodeProps>(node)) return []
       if (node.type === SelectItem) return [node]
       if (node.type === SelectContent) return flattenOptions(node.props.children)
       if (node.props?.children) return flattenOptions(node.props.children)
@@ -54,11 +65,12 @@ jest.mock('@/components/ui/select', () => {
     })
 
   return {
-    Select: ({ value, onValueChange, disabled, children }: any) => {
+    Select: ({ value, onValueChange, disabled, children }: SelectMockProps) => {
       const trigger = React.Children.toArray(children).find(
-        (child: any) => React.isValidElement(child) && child.type === SelectTrigger
-      ) as any
-      const options = flattenOptions(children).map((option: any) =>
+        (child): child is SelectNode =>
+          React.isValidElement<SelectNodeProps>(child) && child.type === SelectTrigger
+      )
+      const options = flattenOptions(children).map((option) =>
         React.createElement(
           'option',
           { key: option.props.value, value: option.props.value },
@@ -72,7 +84,8 @@ jest.mock('@/components/ui/select', () => {
           id: trigger?.props.id,
           value: value ?? '',
           disabled,
-          onChange: (event: any) => onValueChange?.(event.target.value),
+          onChange: (event: ChangeEvent<HTMLSelectElement>) =>
+            onValueChange?.(event.currentTarget.value),
           role: 'combobox',
           'aria-expanded': 'false',
           'aria-controls': `${trigger?.props.id ?? 'select'}-list`,
@@ -87,15 +100,16 @@ jest.mock('@/components/ui/select', () => {
   }
 })
 
-const mockGetBalances = api.getBalances as jest.Mock
-const mockListWithdrawals = api.listWithdrawals as jest.Mock
-const mockCreateWithdrawal = api.createWithdrawal as jest.Mock
+const mockGetMe = jest.mocked(api.getMe)
+const mockGetBalances = jest.mocked(api.getBalances)
+const mockListWithdrawals = jest.mocked(api.listWithdrawals)
+const mockCreateWithdrawal = jest.mocked(api.createWithdrawal)
 
-function balance(asset: string, available: bigint) {
+function balance(asset: string, available: bigint): Balance {
   return { merchant_id: 'm', asset, available, pending: 0n, updated_at: '' }
 }
 
-function withdrawal(overrides: Record<string, unknown> = {}) {
+function withdrawal(overrides: Partial<Withdrawal> = {}): Withdrawal {
   return {
     id: 'w1',
     merchant_id: 'm',
@@ -115,10 +129,19 @@ function withdrawal(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  ;(api.getMe as jest.Mock).mockResolvedValue({ kyc_status: 'approved' })
+  mockGetMe.mockResolvedValue({
+    user_id: 'u',
+    email: 'user@example.com',
+    name: 'Test User',
+    is_admin: false,
+    created_at: '',
+    merchant_id: 'm',
+    merchant_name: 'Test Merchant',
+    kyc_status: 'approved',
+  })
   mockGetBalances.mockResolvedValue([])
   mockListWithdrawals.mockResolvedValue([])
-  mockCreateWithdrawal.mockResolvedValue({})
+  mockCreateWithdrawal.mockResolvedValue(withdrawal())
 })
 
 describe('WithdrawPage', () => {

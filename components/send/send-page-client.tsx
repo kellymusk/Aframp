@@ -225,8 +225,10 @@ export function SendPageClient({ balances = [] }: SendPageClientProps) {
         cause instanceof Error ? cause.message : 'Transaction failed. Please try again.'
       // Extract failure_reason if available from API response
       const failureReasonMsg =
-        cause instanceof Error && 'failureReason' in cause
-          ? (cause as any).failureReason
+        cause instanceof Error &&
+        'failureReason' in cause &&
+        typeof cause.failureReason === 'string'
+          ? cause.failureReason
           : undefined
       setError(errorMsg)
       setFailureReason(failureReasonMsg || null)
