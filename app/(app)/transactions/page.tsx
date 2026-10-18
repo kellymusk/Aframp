@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Download } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -28,17 +29,11 @@ import {
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { formatDateTime } from '@/lib/format-date'
 import { downloadCsv, toCsv } from '@/lib/csv'
+import { PAYMENT_STATUS } from '@/lib/status'
 
 const EXPLORER_BASE = `https://stellar.expert/explorer/${
   process.env.NEXT_PUBLIC_STELLAR_NETWORK === 'PUBLIC' ? 'public' : 'testnet'
 }/tx`
-
-const STATUS_LABEL: Record<PaymentStatus, string> = {
-  detected: 'Incoming',
-  verified: 'Confirming',
-  confirmed: 'Paid',
-  failed: 'Failed',
-}
 
 const FILTERABLE_STATUSES: PaymentStatus[] = ['detected', 'verified', 'confirmed', 'failed']
 
@@ -59,12 +54,6 @@ function DebouncedSearchInput({ onSearch }: { onSearch: (query: string) => void 
       onChange={(event) => setQuery(event.target.value)}
     />
   )
-}
-
-function statusVariant(status: PaymentStatus) {
-  if (status === 'confirmed') return 'default' as const
-  if (status === 'failed') return 'destructive' as const
-  return 'secondary' as const
 }
 
 export default function TransactionsPage() {
@@ -197,7 +186,7 @@ export default function TransactionsPage() {
         payment.created_at,
         formatStroops(payment.amount_stroops).replace(/,/g, ''),
         payment.asset,
-        STATUS_LABEL[payment.status] ?? payment.status,
+        PAYMENT_STATUS.label[payment.status] ?? payment.status,
         payment.tx_hash,
         payment.wallet_address,
       ])
@@ -260,7 +249,7 @@ export default function TransactionsPage() {
               <option value="all">All</option>
               {FILTERABLE_STATUSES.map((status) => (
                 <option key={status} value={status}>
-                  {STATUS_LABEL[status]}
+                  {PAYMENT_STATUS.label[status]}
                 </option>
               ))}
             </select>
@@ -328,14 +317,7 @@ export default function TransactionsPage() {
                     {refundingId === payment.id ? 'Refunding…' : 'Refund'}
                   </Button>
                 )}
-                <Badge
-                  variant={statusVariant(payment.status)}
-                  role="status"
-                  aria-live="polite"
-                  aria-label={`Payment status: ${STATUS_LABEL[payment.status] ?? payment.status}`}
-                >
-                  {STATUS_LABEL[payment.status] ?? payment.status}
-                </Badge>
+                <StatusBadge status={payment.status} config={PAYMENT_STATUS} />
               </div>
             </li>
           ))}

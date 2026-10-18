@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import {
@@ -19,6 +19,7 @@ import {
 import { api, ApiError, type Balance, type FeeEstimate, type Remittance } from '@/lib/api'
 import { formatStroops, isWholeKobo, parseAmountToStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
+import { REMITTANCE_STATUS } from '@/lib/status'
 import { Plus } from 'lucide-react'
 
 const ASSETS = ['XLM', 'cNGN']
@@ -45,13 +46,6 @@ interface SendState {
   remittances: Remittance[]
   showContacts: boolean
   contacts: Contact[]
-}
-
-const STATUS_LABEL: Record<Remittance['status'], string> = {
-  pending: 'Pending',
-  submitted: 'Submitted',
-  confirmed: 'Confirmed',
-  failed: 'Failed',
 }
 
 export default function SendPage() {
@@ -399,17 +393,7 @@ export default function SendPage() {
                         {remittance.destination_address}
                       </p>
                     </div>
-                    <Badge
-                      variant={
-                        remittance.status === 'confirmed'
-                          ? 'default'
-                          : remittance.status === 'failed'
-                            ? 'destructive'
-                            : 'secondary'
-                      }
-                    >
-                      {STATUS_LABEL[remittance.status]}
-                    </Badge>
+                    <StatusBadge status={remittance.status} config={REMITTANCE_STATUS} />
                   </div>
                   {remittance.tx_hash && (
                     <a

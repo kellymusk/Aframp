@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
 import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration'
@@ -9,21 +9,9 @@ import { api, ApiError, type Remittance } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { formatDateTime } from '@/lib/format-date'
+import { REMITTANCE_STATUS } from '@/lib/status'
 
 const EXPLORER_BASE = 'https://stellar.expert/explorer/public/tx'
-
-const STATUS_LABEL: Record<Remittance['status'], string> = {
-  pending: 'Pending',
-  submitted: 'Submitted',
-  confirmed: 'Confirmed',
-  failed: 'Failed',
-}
-
-function statusVariant(status: Remittance['status']) {
-  if (status === 'confirmed') return 'default' as const
-  if (status === 'failed') return 'destructive' as const
-  return 'secondary' as const
-}
 
 export default function RemittancesPage() {
   const { token } = useAuthenticatedSession()
@@ -115,9 +103,11 @@ export default function RemittancesPage() {
                     )}
                   </p>
                 </div>
-                <Badge variant={statusVariant(remittance.status)} className="flex-shrink-0">
-                  {STATUS_LABEL[remittance.status] ?? remittance.status}
-                </Badge>
+                <StatusBadge
+                  status={remittance.status}
+                  config={REMITTANCE_STATUS}
+                  className="flex-shrink-0"
+                />
               </div>
               {remittance.failure_reason && (
                 <div className="rounded-lg bg-destructive/10 px-3 py-2 border border-destructive/20">

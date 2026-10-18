@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   AlertDialog,
@@ -25,14 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  api,
-  ApiError,
-  type Balance,
-  type Me,
-  type Withdrawal,
-  type WithdrawalStatus,
-} from '@/lib/api'
+import { api, ApiError, type Balance, type Me, type Withdrawal } from '@/lib/api'
 import { formatStroops, parseAmountToStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import {
@@ -44,20 +37,7 @@ import {
 } from '@/lib/withdraw'
 import { BANKS, type Bank } from '@/lib/banks'
 import { formatDateTime } from '@/lib/format-date'
-
-const STATUS_LABEL: Record<WithdrawalStatus, string> = {
-  pending: 'Pending',
-  processing: 'Processing',
-  completed: 'Paid out',
-  failed: 'Failed',
-}
-
-const STATUS_VARIANT: Record<WithdrawalStatus, 'default' | 'secondary' | 'destructive'> = {
-  pending: 'secondary',
-  processing: 'secondary',
-  completed: 'default',
-  failed: 'destructive',
-}
+import { WITHDRAWAL_STATUS } from '@/lib/status'
 
 const PAGE_SIZE = 20
 
@@ -449,9 +429,11 @@ export default function WithdrawPage() {
                       <p className="text-neg mt-1 text-xs">{withdrawal.failure_reason}</p>
                     )}
                   </div>
-                  <Badge variant={STATUS_VARIANT[withdrawal.status]} className="shrink-0">
-                    {STATUS_LABEL[withdrawal.status]}
-                  </Badge>
+                  <StatusBadge
+                    status={withdrawal.status}
+                    config={WITHDRAWAL_STATUS}
+                    className="shrink-0"
+                  />
                 </li>
               ))}
             </ul>
