@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test'
+import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
@@ -9,9 +9,22 @@ export default defineConfig({
   expect: { timeout: 20_000 },
   use: {
     baseURL: 'http://127.0.0.1:3001',
-    browserName: 'chromium',
     trace: 'retain-on-failure',
   },
+  projects: [
+    {
+      name: 'desktop',
+      testIgnore: /\.mobile\.spec\.ts$/,
+      use: { ...devices['Desktop Chrome'], browserName: 'chromium' },
+    },
+    {
+      // Phone-sized viewport with touch, so layout regressions below the `lg`
+      // breakpoint (e.g. a sidebar that never collapses) fail CI.
+      name: 'mobile',
+      testMatch: /\.mobile\.spec\.ts$/,
+      use: { ...devices['Pixel 5'] },
+    },
+  ],
   webServer: {
     command: 'npm run dev',
     url: 'http://127.0.0.1:3001',
