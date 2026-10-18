@@ -6,6 +6,8 @@
  * is not 0.3, and this is a ledger.
  */
 
+import { APP_LOCALE } from '@/lib/locale'
+
 export const DECIMALS = 7
 export const STROOPS_PER_UNIT = 10_000_000n
 
@@ -15,7 +17,7 @@ export function formatStroops(stroops: bigint): string {
   const abs = negative ? -stroops : stroops
   const whole = abs / STROOPS_PER_UNIT
   const fraction = (abs % STROOPS_PER_UNIT).toString().padStart(DECIMALS, '0').replace(/0+$/, '')
-  return `${negative ? '-' : ''}${whole.toLocaleString('en-US')}${fraction ? `.${fraction}` : ''}`
+  return `${negative ? '-' : ''}${whole.toLocaleString(APP_LOCALE)}${fraction ? `.${fraction}` : ''}`
 }
 
 /**

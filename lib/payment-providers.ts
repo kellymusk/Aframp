@@ -2,6 +2,7 @@
  * Payment provider configurations and fee calculations
  */
 
+import { APP_LOCALE } from '@/lib/locale'
 import type { FiatCurrency } from '@/types/onramp'
 
 export type PaymentProvider = 'paystack' | 'flutterwave' | 'ozow'
@@ -108,7 +109,7 @@ export function formatCurrency(amount: number, currency: FiatCurrency): string {
   }
 
   const symbol = symbols[currency] || currency
-  return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `${symbol}${amount.toLocaleString(APP_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 /**
