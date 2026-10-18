@@ -8,25 +8,28 @@ import { toHaveNoViolations } from 'jest-axe'
 expect.extend(toHaveNoViolations)
 
 // Set TextEncoder/Decoder and Streams/Message globals first because undici needs them on load
-global.TextDecoder = TextDecoder as any
+// Node's implementations aren't structurally identical to the DOM lib types
+// (e.g. TextDecoder#decode's overloads, ReadableStream's generics), so each
+// goes through `unknown` rather than a blanket `any`.
+global.TextDecoder = TextDecoder as unknown as typeof global.TextDecoder
 global.TextEncoder = TextEncoder
-globalThis.TextDecoder = TextDecoder as any
+globalThis.TextDecoder = TextDecoder as unknown as typeof globalThis.TextDecoder
 globalThis.TextEncoder = TextEncoder
 
-global.ReadableStream = ReadableStream as any
-global.TransformStream = TransformStream as any
-global.WritableStream = WritableStream as any
-globalThis.ReadableStream = ReadableStream as any
-globalThis.TransformStream = TransformStream as any
-globalThis.WritableStream = WritableStream as any
+global.ReadableStream = ReadableStream as unknown as typeof global.ReadableStream
+global.TransformStream = TransformStream as unknown as typeof global.TransformStream
+global.WritableStream = WritableStream as unknown as typeof global.WritableStream
+globalThis.ReadableStream = ReadableStream as unknown as typeof globalThis.ReadableStream
+globalThis.TransformStream = TransformStream as unknown as typeof globalThis.TransformStream
+globalThis.WritableStream = WritableStream as unknown as typeof globalThis.WritableStream
 
-global.MessageChannel = MessageChannel as any
-global.MessagePort = MessagePort as any
-globalThis.MessageChannel = MessageChannel as any
-globalThis.MessagePort = MessagePort as any
+global.MessageChannel = MessageChannel as unknown as typeof global.MessageChannel
+global.MessagePort = MessagePort as unknown as typeof global.MessagePort
+globalThis.MessageChannel = MessageChannel as unknown as typeof globalThis.MessageChannel
+globalThis.MessagePort = MessagePort as unknown as typeof globalThis.MessagePort
 
-global.BroadcastChannel = BroadcastChannel as any
-globalThis.BroadcastChannel = BroadcastChannel as any
+global.BroadcastChannel = BroadcastChannel as unknown as typeof global.BroadcastChannel
+globalThis.BroadcastChannel = BroadcastChannel as unknown as typeof globalThis.BroadcastChannel
 
 // Now load undici after globals are set
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- a static import would hoist above the globals this module reads at load time
@@ -68,7 +71,7 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     configurable: true,
-    value: (query: string) => ({
+    value: (query: string): MediaQueryList => ({
       matches: false,
       media: query,
       onchange: null,
