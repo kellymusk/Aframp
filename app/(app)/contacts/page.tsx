@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { Trash2, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,16 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { formatDate } from '@/lib/format-date'
-
-interface Contact {
-  id: string
-  name: string
-  address: string
-  createdAt: string
-}
+import { useContacts, type Contact } from '@/lib/contacts'
 
 const STELLAR_ADDRESS_LENGTH = 56
-const STORAGE_KEY = 'aframp_contacts'
 
 function isValidStellarAddress(address: string): boolean {
   if (address.length !== STELLAR_ADDRESS_LENGTH) return false
@@ -26,38 +19,13 @@ function isValidStellarAddress(address: string): boolean {
 }
 
 export default function ContactsPage() {
-  const [contacts, setContacts] = useState<Contact[]>([])
-  const [loading, setLoading] = useState(true)
+  const { contacts, loading, saveContacts, deleteContact } = useContacts()
   const [formState, setFormState] = useState({
     name: '',
     address: '',
     error: '',
     editingId: null as string | null,
   })
-
-  // Load contacts from localStorage
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        const parsed = JSON.parse(stored) as Contact[]
-        setContacts(parsed)
-      }
-    } catch (error) {
-      console.error('Failed to load contacts:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  // Save contacts to localStorage
-  const saveContacts = (updatedContacts: Contact[]) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedContacts))
-    } catch (error) {
-      console.error('Failed to save contacts:', error)
-    }
-  }
 
   function validateForm(): string | null {
     if (!formState.name.trim()) return 'Name is required.'
@@ -107,7 +75,6 @@ export default function ContactsPage() {
     }
 
     saveContacts(updatedContacts)
-    setContacts(updatedContacts)
     setFormState({ name: '', address: '', error: '', editingId: null })
   }
 
@@ -116,18 +83,12 @@ export default function ContactsPage() {
       name: contact.name,
       address: contact.address,
       error: '',
-      editingId: contact.id,
+      editingId: contact.id ?? null,
     })
   }
 
   function cancelEdit() {
     setFormState({ name: '', address: '', error: '', editingId: null })
-  }
-
-  function deleteContact(id: string) {
-    const updatedContacts = contacts.filter((c) => c.id !== id)
-    saveContacts(updatedContacts)
-    setContacts(updatedContacts)
   }
 
   if (loading) {
@@ -227,7 +188,9 @@ export default function ContactsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-white">{contact.name}</p>
                     <p className="text-dim text-xs font-mono break-all">{contact.address}</p>
-                    <p className="text-dim text-xs mt-1">Added {formatDate(contact.createdAt)}</p>
+                    <p className="text-dim text-xs mt-1">
+                      Added {formatDate(contact.createdAt ?? '')}
+                    </p>
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <Button
@@ -244,7 +207,7 @@ export default function ContactsPage() {
                       variant="destructive"
                       aria-label={`Delete ${contact.name}`}
                       onClick={() => {
-                        if (window.confirm(`Delete ${contact.name} from your contacts?`)) {
+                        if (contact.id && window.confirm(`Delete ${contact.name} from your contacts?`)) {
                           deleteContact(contact.id)
                         }
                       }}

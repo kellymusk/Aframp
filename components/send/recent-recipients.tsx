@@ -3,14 +3,9 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
+import { CONTACTS_STORAGE_KEY, writeContacts, type Contact } from '@/lib/contacts'
 
-export interface Contact {
-  id?: string
-  address: string
-  name: string
-  avatar?: string
-  createdAt?: string
-}
+export type { Contact }
 
 interface RecentRecipientsProps {
   onSelect: (address: string, name?: string, avatar?: string) => void
@@ -22,19 +17,18 @@ const DEFAULT_RECIPIENTS: Contact[] = [
   { address: 'GCK6M2Z...F5Q1', name: 'Mila Garcia', avatar: 'MG' },
 ]
 
-const STORAGE_KEY = 'aframp_contacts'
-
+/** Seeds localStorage with demo recipients the first time it's read, so a new merchant has something to tap. */
 export function getStoredContacts(): Contact[] {
   if (typeof window === 'undefined') return DEFAULT_RECIPIENTS
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const stored = localStorage.getItem(CONTACTS_STORAGE_KEY)
     if (stored) {
       const parsed = JSON.parse(stored) as Contact[]
       if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed
       }
     } else {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_RECIPIENTS))
+      writeContacts(DEFAULT_RECIPIENTS)
       return DEFAULT_RECIPIENTS
     }
   } catch (error) {
@@ -44,12 +38,7 @@ export function getStoredContacts(): Contact[] {
 }
 
 export function saveStoredContacts(contacts: Contact[]): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts))
-  } catch (error) {
-    console.error('Failed to save contacts:', error)
-  }
+  writeContacts(contacts)
 }
 
 export function RecentRecipients({ onSelect }: RecentRecipientsProps) {
