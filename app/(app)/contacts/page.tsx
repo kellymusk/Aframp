@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { formatDate } from '@/lib/format-date'
+import { captureError } from '@/lib/observability'
 
 interface Contact {
   id: string
@@ -44,7 +45,7 @@ export default function ContactsPage() {
         setContacts(parsed)
       }
     } catch (error) {
-      console.error('Failed to load contacts:', error)
+      captureError(error, { context: 'Failed to load contacts' })
     } finally {
       setLoading(false)
     }
@@ -55,7 +56,7 @@ export default function ContactsPage() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedContacts))
     } catch (error) {
-      console.error('Failed to save contacts:', error)
+      captureError(error, { context: 'Failed to save contacts' })
     }
   }
 
@@ -244,32 +245,15 @@ export default function ContactsPage() {
                       variant="destructive"
                       aria-label={`Delete ${contact.name}`}
                       onClick={() => {
-                        if (window.confirm(`Delete ${contact.name} from your contacts?`)) {
+                        if (window.confirm(`Delete ${contact.name}?`)) {
                           deleteContact(contact.id)
                         }
                       }}
                     >
-                      <Trash2 className="size-4" aria-hidden />
+                      <Trash2 className="size-4" />
                     </Button>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Quick send */}
-        {contacts.length > 0 && (
-          <div className="bg-panel border-hairline rounded-2xl border p-5">
-            <h2 className="text-sm font-bold mb-4">Quick send</h2>
-            <div className="space-y-2">
-              {contacts.map((contact) => (
-                <Link key={contact.id} href={`/send?to=${encodeURIComponent(contact.address)}`}>
-                  <div className="bg-raised hover:bg-raised/80 p-3 rounded-lg cursor-pointer transition-colors">
-                    <p className="font-medium text-sm">{contact.name}</p>
-                    <p className="text-dim text-xs font-mono truncate">{contact.address}</p>
-                  </div>
-                </Link>
               ))}
             </div>
           </div>
