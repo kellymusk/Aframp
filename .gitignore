@@ -9,3 +9,4 @@ build
 requirements.md
 .vercel
 .env*.local
+tsconfig.tsbuildinfo
