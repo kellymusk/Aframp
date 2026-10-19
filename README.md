@@ -1,5 +1,7 @@
 # 🌍 AFRAMP: Africa's Financial Bridge
 
+[![Coverage](https://codecov.io/gh/kellymusk/Aframp/branch/main/graph/badge.svg)](https://codecov.io/gh/kellymusk/Aframp)
+
 <!-- CI/CD Pipeline Test -->
 
 ## Don't Trust, Verify
