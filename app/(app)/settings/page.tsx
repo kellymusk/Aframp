@@ -121,30 +121,32 @@ export default function SettingsPage() {
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-4">
-                    <p>
-                      This action will:
-                    </p>
-                    <ul className="list-disc list-inside space-y-1 text-sm">
-                      <li>Sweep all remaining XLM and token balances to {destinationAddress}</li>
-                      <li>Merge your Stellar merchant account</li>
-                      <li>Permanently delete your merchant account data</li>
-                      <li>Log you out immediately</li>
-                    </ul>
-                    <p className="font-semibold">
-                      This action is irreversible and cannot be undone.
-                    </p>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm">
-                        Type <span className="font-mono font-bold">CLOSE</span> to confirm
-                      </Label>
-                      <Input
-                        id="confirm"
-                        placeholder="Type CLOSE"
-                        value={confirmationText}
-                        onChange={(e) => setConfirmationText(e.target.value)}
-                        autoComplete="off"
-                      />
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-4">
+                      <p>
+                        This action will:
+                      </p>
+                      <ul className="list-disc list-inside space-y-1 text-sm">
+                        <li>Sweep all remaining XLM and token balances to {destinationAddress}</li>
+                        <li>Merge your Stellar merchant account</li>
+                        <li>Permanently delete your merchant account data</li>
+                        <li>Log you out immediately</li>
+                      </ul>
+                      <p className="font-semibold">
+                        This action is irreversible and cannot be undone.
+                      </p>
+                      <div className="space-y-2">
+                        <Label htmlFor="confirm">
+                          Type <span className="font-mono font-bold">CLOSE</span> to confirm
+                        </Label>
+                        <Input
+                          id="confirm"
+                          placeholder="Type CLOSE"
+                          value={confirmationText}
+                          onChange={(e) => setConfirmationText(e.target.value)}
+                          autoComplete="off"
+                        />
+                      </div>
                     </div>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
