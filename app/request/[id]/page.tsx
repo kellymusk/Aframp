@@ -51,27 +51,27 @@ function CopyField({ label, value }: { label: string; value: string }) {
   }
 
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0 space-y-1">
-        <dt className="text-muted-foreground text-xs">{label}</dt>
-        <dd className="font-heading text-xs break-all select-all">{value}</dd>
-      </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="shrink-0 gap-1.5"
-        onClick={() => void copy()}
-        aria-label={copied ? `${label} copied` : `Copy ${label.toLowerCase()}`}
-      >
-        {copied ? (
-          <Check className="size-3.5" aria-hidden />
-        ) : (
-          <Copy className="size-3.5" aria-hidden />
-        )}
-        {copied ? 'Copied' : 'Copy'}
-      </Button>
-    </div>
+    <>
+      <dt className="text-foreground text-xs font-medium">{label}</dt>
+      <dd className="mb-2 flex items-start justify-between gap-3">
+        <span className="font-heading min-w-0 break-all text-xs select-all">{value}</span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0 gap-1.5"
+          onClick={() => void copy()}
+          aria-label={copied ? `${label} copied` : `Copy ${label.toLowerCase()}`}
+        >
+          {copied ? (
+            <Check className="size-3.5" aria-hidden />
+          ) : (
+            <Copy className="size-3.5" aria-hidden />
+          )}
+          {copied ? 'Copied' : 'Copy'}
+        </Button>
+      </dd>
+    </>
   )
 }
 
@@ -220,7 +220,7 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
         <p className="text-muted-foreground text-xs font-medium tracking-widest uppercase">
           {request.sep7_uri ? 'Ask your customer to scan' : 'Ask your customer to pay'}
         </p>
-        <p className="font-display text-4xl font-semibold tracking-tight tabular-nums">{amount}</p>
+        <h1 className="font-display text-4xl font-semibold tracking-tight tabular-nums">{amount}</h1>
       </header>
 
       {error && (
@@ -258,7 +258,7 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
       {hasPartialPayment && (
         <div className="bg-muted/50 rounded-2xl p-4 text-sm">
           <div className="mb-2 flex items-center justify-between gap-3">
-            <span className="text-muted-foreground">Paid so far</span>
+            <span className="text-foreground">Paid so far</span>
             <span className="font-semibold tabular-nums">
               {formatStroops(paidAmount)} / {formatStroops(request.amount_stroops)} {request.asset}
             </span>
@@ -282,7 +282,7 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
       </p>
 
       <p
-        className="text-muted-foreground flex items-center justify-center gap-2 text-sm"
+        className="flex items-center justify-center gap-2 text-sm text-foreground"
         aria-live="polite"
       >
         <Clock className="size-4" aria-hidden />

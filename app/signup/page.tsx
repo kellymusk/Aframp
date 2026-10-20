@@ -18,6 +18,8 @@ import { AuthHeader } from '@/components/brand/auth-header'
 
 const MIN_PASSWORD_LENGTH = 8
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 const STRENGTH_COLOR = [
   'bg-destructive',
   'bg-destructive',
@@ -36,6 +38,7 @@ export default function SignupPage() {
   const [phone, setPhone] = useState('')
   const strength = getPasswordStrength(password)
   const [error, setError] = useState<string | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
   const [offline, setOffline] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -46,10 +49,17 @@ export default function SignupPage() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
+    setEmailError(null)
     setOffline(false)
 
     if (!name.trim() || !email.trim() || !password.trim() || !phone.trim()) {
       setError('Please fill in your business name, email, password, and phone number.')
+      setSubmitting(false)
+      return
+    }
+
+    if (!EMAIL_PATTERN.test(email.trim())) {
+      setEmailError('Enter a valid email address.')
       setSubmitting(false)
       return
     }
@@ -119,9 +129,19 @@ export default function SignupPage() {
             type="email"
             autoComplete="email"
             required
+            aria-invalid={emailError ? true : undefined}
+            aria-describedby={emailError ? 'email-error' : undefined}
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => {
+              setEmail(event.target.value)
+              if (emailError) setEmailError(null)
+            }}
           />
+          {emailError && (
+            <p id="email-error" className="text-destructive text-xs">
+              {emailError}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">

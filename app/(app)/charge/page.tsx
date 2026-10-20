@@ -141,6 +141,7 @@ export default function ChargePage() {
 
   return (
     <div className="mx-auto flex min-h-full max-w-sm flex-col gap-6">
+      <h1 className="sr-only">Create a charge</h1>
       <div className="flex flex-1 flex-col items-center justify-center gap-2 py-8">
         <p className="text-dim text-xs font-bold tracking-widest uppercase">Amount to charge</p>
         <p className="flex items-baseline gap-2 tabular-nums">

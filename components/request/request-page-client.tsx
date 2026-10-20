@@ -27,6 +27,7 @@ export function RequestPageClient({ requestId }: RequestPageClientProps) {
   const [scannerOpen, setScannerOpen] = useState(false)
   const [copied, setCopied] = useState<CopyTarget | null>(null)
   const copyFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scanConfirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMobile = useMediaQuery('(max-width: 767px)')
   const [scannedAddress, setScannedAddress] = useState<string | null>(null)
   const [scanError, setScanError] = useState<string | null>(null)
@@ -64,6 +65,7 @@ export function RequestPageClient({ requestId }: RequestPageClientProps) {
   useEffect(
     () => () => {
       if (copyFeedbackTimer.current) clearTimeout(copyFeedbackTimer.current)
+      if (scanConfirmTimer.current) clearTimeout(scanConfirmTimer.current)
     },
     []
   )
@@ -94,7 +96,12 @@ export function RequestPageClient({ requestId }: RequestPageClientProps) {
     try {
       // TODO: Replace mock with actual API endpoint when backend is ready:
       // await api.confirmScannedPayment(requestId, address)
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      await new Promise<void>((resolve) => {
+        scanConfirmTimer.current = setTimeout(() => {
+          scanConfirmTimer.current = null
+          resolve()
+        }, 500)
+      })
     } catch (err) {
       setScanError(
         err instanceof Error ? err.message : 'Failed to confirm payment. Please try again.'
