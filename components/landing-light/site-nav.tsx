@@ -15,7 +15,7 @@ export function SiteNav() {
     <div className="px-4 pt-6 sm:px-6">
       <nav className="bg-white dark:bg-surface mx-auto flex max-w-5xl items-center gap-3 rounded-2xl px-3 py-3 shadow-sm sm:gap-8 sm:px-5">
         <Link href="/" className="flex shrink-0 items-center gap-2">
-          <AframpMark className="size-7" />
+          <AframpMark className="size-7" decorative />
           <span className="text-charcoal dark:text-white text-lg font-bold tracking-tight">
             Aframp
           </span>

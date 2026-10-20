@@ -16,18 +16,23 @@ jobs:
     permissions:
       contents: read
       issues: write
+    env:
+      # Override with the PRODUCTION_URL repository variable (Settings ->
+      # Secrets and variables -> Actions -> Variables) to monitor a different
+      # origin, e.g. the Vercel production URL. No trailing slash.
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL || 'https://app.aframp.com' }}
     steps:
       - name: Restore prior failure count
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: .uptime-monitor-state.json
-          key: uptime-monitor-state-${{ github.repository }}
+          key: uptime-monitor-state-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: uptime-monitor-state-
 
       - name: Check homepage
         id: homepage
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://app.aframp.com/ || echo "000")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${PRODUCTION_URL%/}/" || echo "000")
           if [ "$STATUS" != "200" ]; then
             echo "status=down" >> "$GITHUB_OUTPUT"
             echo "⚠️ Homepage returned HTTP $STATUS"
@@ -39,7 +44,7 @@ jobs:
       - name: Check login page
         id: login
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://app.aframp.com/login || echo "000")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${PRODUCTION_URL%/}/login" || echo "000")
           if [ "$STATUS" != "200" ]; then
             echo "status=down" >> "$GITHUB_OUTPUT"
             echo "⚠️ Login page returned HTTP $STATUS"
@@ -51,7 +56,7 @@ jobs:
       - name: Check wallet dashboard
         id: wallet
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://app.aframp.com/wallet || echo "000")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${PRODUCTION_URL%/}/wallet" || echo "000")
           if [ "$STATUS" != "200" ]; then
             echo "status=down" >> "$GITHUB_OUTPUT"
             echo "⚠️ Wallet page returned HTTP $STATUS"
@@ -88,8 +93,16 @@ jobs:
           echo "count=$FAILURES" >> "$GITHUB_OUTPUT"
           echo "down=$DOWN" >> "$GITHUB_OUTPUT"
 
+      # Cache entries are immutable, so save under a unique key per run; the
+      # restore step above picks up the most recent one via its prefix.
+      - name: Save failure count
+        uses: actions/cache/save@v4
+        with:
+          path: .uptime-monitor-state.json
+          key: uptime-monitor-state-${{ github.run_id }}-${{ github.run_attempt }}
+
       - name: Create outage issue after 3 failures
-        if: ${{ steps.failures.outputs.count == '3' }}
+        if: ${{ steps.failures.outputs.count >= 3 }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -155,3 +168,4 @@ jobs:
             console.log(
               `🚨 ALERT: AFRAMP production endpoints are DOWN\n\nTime: ${new Date().toISOString()}\n\nAffected:\n${down}\n\nCheck: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`
             );
+            core.setFailed(`AFRAMP production endpoints are DOWN:\n${down}`);

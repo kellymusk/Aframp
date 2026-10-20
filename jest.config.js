@@ -31,7 +31,7 @@ const customJestConfig = {
   // requires 80% coverage only on files a PR actually adds or changes.
   coverageReporters: ['json-summary', 'json', 'lcov', 'text'],
   testMatch: ['**/__tests__/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
-  testPathIgnorePatterns: ['/node_modules/', '/.next/', '/helpcenter/', '/.kilo/', '/e2e/', '/dev-frontend/'],
+  testPathIgnorePatterns: ['/node_modules/', '/.next/', '/helpcenter/', '/.kilo/', '/e2e/'],
 }
 
 module.exports = async () => {
