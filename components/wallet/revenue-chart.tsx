@@ -73,7 +73,6 @@ export function RevenueChart({ payments }: { payments: Payment[] }) {
         // screen reader can use (bare SVG shapes) — hide it from assistive
         // tech and remove it from the tab order so keyboard users don't land
         // on Recharts' internal focusable SVG elements (axe aria-hidden-focus).
-        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         <div className="mt-4 h-56" aria-hidden="true" inert tabIndex={-1}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData}>
