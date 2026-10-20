@@ -126,15 +126,38 @@ the app actually hits them.
 
 ### 4. Uptime Monitor (`uptime-monitor.yml`)
 
-**Trigger:** Scheduled (configurable interval)
+**Trigger:** Every 5 minutes (cron) and manual (`workflow_dispatch`)
 
 **Purpose:** Monitors production deployment health
 
-**Checks:**
+**Checks** (each must return HTTP 200 within 10 seconds):
 
-- API endpoint availability
-- Response time monitoring
-- Error rate tracking
+- Homepage (`/`)
+- Login page (`/login`)
+- Wallet dashboard (`/wallet`)
+
+**Alerting:**
+
+- A run with any endpoint down fails, so GitHub sends a failed-workflow notification.
+- Three consecutive failing runs open a `🚨 AFRAMP production uptime alert` issue; the first healthy run closes it.
+- The failure count is kept in the Actions cache under `uptime-monitor-state-<run_id>-<run_attempt>`.
+
+**Monitored URL:** `https://app.aframp.com` by default. Set the `PRODUCTION_URL` repository variable (Settings → Secrets and variables → Actions → Variables, no trailing slash) to monitor another origin, such as the Vercel production URL, without a code change.
+
+**Prerequisite:** The monitored domain must resolve to the production deployment. For `app.aframp.com` that means adding it under the Vercel project's Domains and creating the DNS record Vercel asks for (see the `aframp.com` DNS provider). If the domain does not resolve, every run fails.
+
+---
+
+### 5. Release Please (`release.yml`)
+
+**Trigger:** Push to `main` or manual `workflow_dispatch`
+
+**Purpose:** Automates semantic version bumps, `CHANGELOG.md` updates, release PR creation, and GitHub Releases via `google-github-actions/release-please-action@v4`.
+
+**Required Repository Configuration (one of the following):**
+
+1. **Repository Actions Setting:** Enable **Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to create and approve pull requests"** so `GITHUB_TOKEN` is permitted to open and update the release PR.
+2. **Fine-grained Personal Access Token (PAT):** Add a repository secret named `RELEASE_PLEASE_TOKEN` containing a fine-grained PAT scoped to this repository with **Contents** (`Read and write`), **Issues** (`Read and write`), and **Pull requests** (`Read and write`) permissions.
 
 ---
 
@@ -151,6 +174,7 @@ NEXT_API_URL_MAINNET         # API endpoint for the mainnet build job
 NEXT_PUBLIC_STELLAR_NETWORK  # Set per-job in ci.yml (TESTNET or MAINNET)
 MAINNET_CNGN_ISSUER          # cNGN issuer address for the mainnet build
 MAINNET_USDC_ISSUER          # USDC issuer address for the mainnet build
+RELEASE_PLEASE_TOKEN         # Optional fine-grained PAT for Release Please PR creation
 VERCEL_TOKEN                 # Vercel deployment
 VERCEL_ORG_ID                # Vercel organization
 VERCEL_PROJECT_ID            # Vercel project

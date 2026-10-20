@@ -15,8 +15,8 @@ export const metadata = {
 export default function Home() {
   return (
     <div className="font-brand bg-white dark:bg-surface">
-      <Hero />
       <main>
+        <Hero />
         <UseCases />
         <HowItWorks />
         <Faq />

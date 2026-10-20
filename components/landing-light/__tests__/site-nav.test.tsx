@@ -1,5 +1,7 @@
 import { render, screen } from '@testing-library/react'
+import { axe } from 'jest-axe'
 import { SiteNav } from '../site-nav'
+import { AframpMark, AframpWordmark } from '@/components/brand/aframp-mark'
 import { useSession } from '@/components/session-provider'
 
 jest.mock('@/components/session-provider', () => ({
@@ -11,14 +13,17 @@ jest.mock('@/components/theme-toggle', () => ({
 }))
 
 describe('SiteNav', () => {
-  it('offers sign-up and login to visitors', () => {
+  it('offers sign-up and login to visitors', async () => {
     ;(useSession as jest.Mock).mockReturnValue({ session: null, ready: true })
-    render(<SiteNav />)
+    const { container } = render(<SiteNav />)
 
+    expect(screen.getByRole('link', { name: 'Aframp' })).toHaveAttribute('href', '/')
+    expect(container.querySelector('img')).toHaveAttribute('alt', '')
     expect(screen.getByRole('link', { name: 'Get Started' })).toHaveAttribute('href', '/signup')
     expect(screen.getByRole('link', { name: 'Login' })).toHaveAttribute('href', '/login')
     expect(screen.getByRole('link', { name: 'FAQs' })).toHaveAttribute('href', '#faq')
     expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument()
+    expect(await axe(container)).toHaveNoViolations()
   })
 
   it('takes signed-in merchants straight to the app', () => {
@@ -34,5 +39,13 @@ describe('SiteNav', () => {
     ;(useSession as jest.Mock).mockReturnValue({ session: { token: 't' }, ready: false })
     render(<SiteNav />)
     expect(screen.getByRole('link', { name: 'Login' })).toBeInTheDocument()
+  })
+
+  it('marks AframpMark as decorative when paired with the wordmark and labelled when standalone', () => {
+    const { container: standalone } = render(<AframpMark />)
+    expect(standalone.querySelector('img')).toHaveAttribute('alt', 'Aframp')
+
+    const { container: wordmark } = render(<AframpWordmark />)
+    expect(wordmark.querySelector('img')).toHaveAttribute('alt', '')
   })
 })

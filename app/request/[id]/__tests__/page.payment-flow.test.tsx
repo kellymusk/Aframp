@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import PaymentRequestPage from '../page'
 import { api, ApiError, type PaymentRequest } from '@/lib/api'
 
@@ -40,6 +40,17 @@ async function renderPage(id = 'request-123') {
   return result
 }
 
+/**
+ * Advances fake timers and lets every microtask queued by them (the async
+ * poll tick's awaited `load()`, the resulting state updates) settle before
+ * returning, so timer-driven updates stay wrapped in `act`.
+ */
+async function advanceTimers(ms: number) {
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(ms)
+  })
+}
+
 const createMockRequest = (overrides: Partial<PaymentRequest> = {}): PaymentRequest => ({
   id: 'request-123',
   merchant_id: 'merchant-123',
@@ -58,6 +69,12 @@ const createMockRequest = (overrides: Partial<PaymentRequest> = {}): PaymentRequ
 describe('PaymentRequestPage', () => {
   beforeEach(() => {
     mockGetPaymentRequest.mockReset()
+    jest.useFakeTimers()
+  })
+
+  afterEach(() => {
+    // Discard anything still scheduled before restoring real timers, so a
+    // leftover poll/countdown timer can't fire — and warn — in a later test.
     jest.clearAllTimers()
     jest.useRealTimers()
   })
@@ -112,33 +129,20 @@ describe('PaymentRequestPage', () => {
     })
 
     it('polls for status updates every 3 seconds', async () => {
-      jest.useFakeTimers()
       mockGetPaymentRequest.mockResolvedValue(createMockRequest())
 
       await renderPage()
 
-      await waitFor(() => {
-        expect(mockGetPaymentRequest).toHaveBeenCalledTimes(1)
-      })
+      expect(mockGetPaymentRequest).toHaveBeenCalledTimes(1)
 
-      jest.advanceTimersByTime(3000)
+      await advanceTimers(3000)
+      expect(mockGetPaymentRequest).toHaveBeenCalledTimes(2)
 
-      await waitFor(() => {
-        expect(mockGetPaymentRequest).toHaveBeenCalledTimes(2)
-      })
-
-      jest.advanceTimersByTime(3000)
-
-      await waitFor(() => {
-        expect(mockGetPaymentRequest).toHaveBeenCalledTimes(3)
-      })
-
-      jest.useRealTimers()
+      await advanceTimers(3000)
+      expect(mockGetPaymentRequest).toHaveBeenCalledTimes(3)
     })
 
     it('stops polling when status becomes paid', async () => {
-      jest.useFakeTimers()
-
       mockGetPaymentRequest
         .mockResolvedValueOnce(createMockRequest())
         .mockResolvedValueOnce(createMockRequest())
@@ -146,31 +150,20 @@ describe('PaymentRequestPage', () => {
 
       await renderPage()
 
-      await waitFor(() => {
-        expect(mockGetPaymentRequest).toHaveBeenCalledTimes(1)
-      })
+      expect(mockGetPaymentRequest).toHaveBeenCalledTimes(1)
 
-      jest.advanceTimersByTime(3000)
-      await waitFor(() => {
-        expect(mockGetPaymentRequest).toHaveBeenCalledTimes(2)
-      })
+      await advanceTimers(3000)
+      expect(mockGetPaymentRequest).toHaveBeenCalledTimes(2)
 
-      jest.advanceTimersByTime(3000)
-      await waitFor(() => {
-        expect(mockGetPaymentRequest).toHaveBeenCalledTimes(3)
-      })
+      await advanceTimers(3000)
+      expect(mockGetPaymentRequest).toHaveBeenCalledTimes(3)
 
       // Should not poll again after status is paid
-      jest.advanceTimersByTime(3000)
-      await waitFor(() => {
-        expect(mockGetPaymentRequest).toHaveBeenCalledTimes(3)
-      })
-
-      jest.useRealTimers()
+      await advanceTimers(3000)
+      expect(mockGetPaymentRequest).toHaveBeenCalledTimes(3)
     })
 
     it('stops polling when component unmounts (AbortController)', async () => {
-      jest.useFakeTimers()
       mockGetPaymentRequest.mockImplementation((_id: string, signal?: AbortSignal) => {
         return new Promise((resolve, reject) => {
           if (signal?.aborted) {
@@ -186,20 +179,14 @@ describe('PaymentRequestPage', () => {
 
       const { unmount } = await renderPage()
 
-      await waitFor(() => {
-        expect(mockGetPaymentRequest).toHaveBeenCalledTimes(1)
-      })
+      expect(mockGetPaymentRequest).toHaveBeenCalledTimes(1)
 
       unmount()
 
-      jest.advanceTimersByTime(5000)
+      await advanceTimers(5000)
 
       // After unmount, no additional calls should be made
-      await waitFor(() => {
-        expect(mockGetPaymentRequest).toHaveBeenCalledTimes(1)
-      })
-
-      jest.useRealTimers()
+      expect(mockGetPaymentRequest).toHaveBeenCalledTimes(1)
     })
 
     it('shows partial payment progress when allow_partial is true', async () => {
@@ -229,21 +216,17 @@ describe('PaymentRequestPage', () => {
     })
 
     it('transitions from pending to paid state', async () => {
-      jest.useFakeTimers()
-
       mockGetPaymentRequest
         .mockResolvedValueOnce(createMockRequest({ status: 'pending' }))
         .mockResolvedValueOnce(createMockRequest({ status: 'paid' }))
 
       await renderPage()
 
-      expect(await screen.findByText(/Ask your customer to scan/i)).toBeInTheDocument()
+      expect(screen.getByText(/Ask your customer to scan/i)).toBeInTheDocument()
 
-      jest.advanceTimersByTime(3000)
+      await advanceTimers(3000)
 
-      expect(await screen.findByText('Payment received')).toBeInTheDocument()
-
-      jest.useRealTimers()
+      expect(screen.getByText('Payment received')).toBeInTheDocument()
     })
   })
 
@@ -280,8 +263,6 @@ describe('PaymentRequestPage', () => {
     })
 
     it('shows warning alert for backend-down during polling but keeps UI visible', async () => {
-      jest.useFakeTimers()
-
       mockGetPaymentRequest
         .mockResolvedValueOnce(createMockRequest())
         .mockRejectedValueOnce(new ApiError('Network error', 0))
@@ -289,15 +270,13 @@ describe('PaymentRequestPage', () => {
       await renderPage()
 
       // Initial load succeeds
-      expect(await screen.findByText('2.5 XLM')).toBeInTheDocument()
-
-      jest.advanceTimersByTime(3000)
-
-      // Should show alert but keep the QR code visible
-      expect(await screen.findByText(/Can't reach the payment server/i)).toBeInTheDocument()
       expect(screen.getByText('2.5 XLM')).toBeInTheDocument()
 
-      jest.useRealTimers()
+      await advanceTimers(3000)
+
+      // Should show alert but keep the QR code visible
+      expect(screen.getByText(/Can't reach the payment server/i)).toBeInTheDocument()
+      expect(screen.getByText('2.5 XLM')).toBeInTheDocument()
     })
   })
 })
