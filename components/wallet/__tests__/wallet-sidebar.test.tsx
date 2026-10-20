@@ -45,6 +45,7 @@ describe('WalletSidebar', () => {
   async function renderSidebar() {
     await act(async () => {
       render(<WalletSidebar />)
+      await Promise.resolve()
     })
   }
 
