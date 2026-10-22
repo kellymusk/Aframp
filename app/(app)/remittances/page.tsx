@@ -9,6 +9,7 @@ import { api, ApiError, type Remittance } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { formatDateTime } from '@/lib/format-date'
+import { REMITTANCE_STATUS } from '@/lib/status'
 
 const EXPLORER_BASE = 'https://stellar.expert/explorer/public/tx'
 

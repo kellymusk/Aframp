@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Download } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,6 +31,7 @@ import { useAuthenticatedSession } from '@/components/session-provider'
 import { formatDateTime } from '@/lib/format-date'
 import { PAYMENT_STATUS_LABEL, paymentStatusVariant } from '@/lib/payment-status'
 import { downloadCsv, toCsv } from '@/lib/csv'
+import { PAYMENT_STATUS } from '@/lib/status'
 
 const EXPLORER_BASE = `https://stellar.expert/explorer/${
   process.env.NEXT_PUBLIC_STELLAR_NETWORK === 'PUBLIC' ? 'public' : 'testnet'
@@ -188,7 +190,7 @@ export default function TransactionsPage() {
         payment.created_at,
         formatStroops(payment.amount_stroops).replace(/,/g, ''),
         payment.asset,
-        STATUS_LABEL[payment.status] ?? payment.status,
+        PAYMENT_STATUS.label[payment.status] ?? payment.status,
         payment.tx_hash,
         payment.wallet_address,
       ])
@@ -251,7 +253,7 @@ export default function TransactionsPage() {
               <option value="all">All</option>
               {FILTERABLE_STATUSES.map((status) => (
                 <option key={status} value={status}>
-                  {STATUS_LABEL[status]}
+                  {PAYMENT_STATUS.label[status]}
                 </option>
               ))}
             </select>

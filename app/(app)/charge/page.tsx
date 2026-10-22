@@ -10,6 +10,7 @@ import { DECIMALS, parseAmountToStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { type ExchangeRateState } from '@/types/onramp'
 import { calculateFiatEquivalent } from '@/lib/charge'
+import { APP_LOCALE } from '@/lib/locale'
 import { cn } from '@/lib/utils'
 
 /**
@@ -169,7 +170,7 @@ export default function ChargePage() {
             {rateState.data ? (
               <>
                 1 {ASSET} ≈ ₦
-                {rateState.data.rate.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                {rateState.data.rate.toLocaleString(APP_LOCALE, { maximumFractionDigits: 2 })}
               </>
             ) : rateState.isLoading ? (
               'Loading rate…'
