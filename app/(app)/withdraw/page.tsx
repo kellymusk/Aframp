@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { StatusBadge } from '@/components/ui/status-badge'
+import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   AlertDialog,
@@ -25,7 +25,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { api, ApiError, type Balance, type Me, type Withdrawal } from '@/lib/api'
+import {
+  api,
+  ApiError,
+  type Balance,
+  type Me,
+  type Withdrawal,
+  type WithdrawalStatus,
+} from '@/lib/api'
 import { formatStroops, parseAmountToStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import {
@@ -502,11 +509,9 @@ export default function WithdrawPage() {
                       <p className="text-neg mt-1 text-xs">{withdrawal.failure_reason}</p>
                     )}
                   </div>
-                  <StatusBadge
-                    status={withdrawal.status}
-                    config={WITHDRAWAL_STATUS}
-                    className="shrink-0"
-                  />
+                  <Badge variant={STATUS_VARIANT[withdrawal.status]} className="shrink-0">
+                    {STATUS_LABEL[withdrawal.status]}
+                  </Badge>
                 </li>
               ))}
             </ul>
