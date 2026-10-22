@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { KeyRound } from 'lucide-react'
+import { KeyRound, UserCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const SETTINGS_LINKS = [
+  { label: 'Profile', icon: UserCircle, href: '/settings' },
   { label: 'API Keys', icon: KeyRound, href: '/settings/api-keys' },
 ]
 

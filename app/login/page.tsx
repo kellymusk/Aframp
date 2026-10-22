@@ -9,6 +9,12 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useSession } from '@/components/session-provider'
 import { FREIGHTER_INSTALL_URL, FreighterNotInstalledError } from '@/lib/freighter'
+import { ApiError } from '@/lib/api'
+
+/** Client-side lockout after this many failed attempts, matching the backend's own threshold. */
+const MAX_ATTEMPTS_BEFORE_COOLDOWN = 5
+/** Used only when the backend's 429 doesn't include a `Retry-After` header. */
+const DEFAULT_COOLDOWN_SECONDS = 30
 
 export default function LoginPage() {
   const { session, ready, signIn, signInWithFreighter } = useSession()
@@ -20,22 +26,55 @@ export default function LoginPage() {
   const [walletConnecting, setWalletConnecting] = useState(false)
   const [walletError, setWalletError] = useState<string | null>(null)
   const [freighterMissing, setFreighterMissing] = useState(false)
+  const [failedAttempts, setFailedAttempts] = useState(0)
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null)
+  const [cooldownRemaining, setCooldownRemaining] = useState(0)
 
   useEffect(() => {
     if (ready && session) router.replace('/charge')
   }, [ready, session, router])
 
+  // Ticks the lockout countdown once a second and clears it once elapsed.
+  useEffect(() => {
+    if (cooldownUntil === null) return
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000))
+      setCooldownRemaining(remaining)
+      if (remaining === 0) setCooldownUntil(null)
+    }
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [cooldownUntil])
+
+  function startCooldown(seconds: number) {
+    setFailedAttempts(0)
+    setCooldownUntil(Date.now() + seconds * 1000)
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    if (submitting) return
+    if (submitting || cooldownRemaining > 0) return
     setError(null)
     setSubmitting(true)
     try {
       await signIn(email, password)
       router.replace('/charge')
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Sign in failed')
       setSubmitting(false)
+
+      if (cause instanceof ApiError && cause.status === 429) {
+        startCooldown(cause.retryAfterSeconds ?? DEFAULT_COOLDOWN_SECONDS)
+        return
+      }
+
+      const nextAttempts = failedAttempts + 1
+      if (nextAttempts >= MAX_ATTEMPTS_BEFORE_COOLDOWN) {
+        startCooldown(DEFAULT_COOLDOWN_SECONDS)
+      } else {
+        setFailedAttempts(nextAttempts)
+        setError(cause instanceof Error ? cause.message : 'Sign in failed')
+      }
     }
   }
 
@@ -70,6 +109,15 @@ export default function LoginPage() {
           </Alert>
         )}
 
+        {cooldownRemaining > 0 && (
+          <Alert variant="destructive" data-testid="login-cooldown">
+            <AlertDescription>
+              Too many failed attempts. Try again in {cooldownRemaining} second
+              {cooldownRemaining === 1 ? '' : 's'}.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input
@@ -85,7 +133,10 @@ export default function LoginPage() {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label htmlFor="password">Password</Label>
-            <Link href="/forgot-password" className="text-primary text-sm font-medium hover:underline">
+            <Link
+              href="/forgot-password"
+              className="text-primary text-sm font-medium hover:underline"
+            >
               Forgot password?
             </Link>
           </div>
@@ -99,8 +150,17 @@ export default function LoginPage() {
           />
         </div>
 
-        <Button type="submit" size="lg" disabled={submitting} className="mt-2">
-          {submitting ? 'Signing in…' : 'Sign in'}
+        <Button
+          type="submit"
+          size="lg"
+          disabled={submitting || cooldownRemaining > 0}
+          className="mt-2"
+        >
+          {submitting
+            ? 'Signing in…'
+            : cooldownRemaining > 0
+              ? `Try again in ${cooldownRemaining}s`
+              : 'Sign in'}
         </Button>
       </form>
 

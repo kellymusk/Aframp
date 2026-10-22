@@ -1,13 +1,31 @@
-import { Faq } from '@/components/landing-light/faq'
+import dynamic from 'next/dynamic'
+
 import { Features } from '@/components/landing-light/features'
 import { FinalCta } from '@/components/landing-light/final-cta'
 import { Hero } from '@/components/landing-light/hero'
 import { HowItWorks } from '@/components/landing-light/how-it-works'
 import { Pricing } from '@/components/landing-light/pricing'
-import { SiteFooter } from '@/components/landing-light/site-footer'
+import {
+  FaqSkeleton,
+  SiteFooterSkeleton,
+  UseCasesSkeleton,
+} from '@/components/landing-light/section-skeletons'
 import { Trust } from '@/components/landing-light/trust'
-import { UseCases } from '@/components/landing-light/use-cases'
 import { WhyUs } from '@/components/landing-light/why-us'
+
+// Below-the-fold sections: split out of the initial bundle and streamed in
+// once ready, so they don't compete with the hero for the first paint. (#477)
+const UseCases = dynamic(
+  () => import('@/components/landing-light/use-cases').then((m) => m.UseCases),
+  { loading: () => <UseCasesSkeleton /> }
+)
+const Faq = dynamic(() => import('@/components/landing-light/faq').then((m) => m.Faq), {
+  loading: () => <FaqSkeleton />,
+})
+const SiteFooter = dynamic(
+  () => import('@/components/landing-light/site-footer').then((m) => m.SiteFooter),
+  { loading: () => <SiteFooterSkeleton /> }
+)
 
 export const metadata = {
   title: "Aframp — Africa's gateway to global decentralized finance",

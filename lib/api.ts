@@ -43,11 +43,20 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 export class ApiError extends Error {
   constructor(
     message: string,
-    readonly status: number
+    readonly status: number,
+    /** Seconds until a rate-limited request may be retried, from the `Retry-After` header (#482). */
+    readonly retryAfterSeconds?: number
   ) {
     super(message)
     this.name = 'ApiError'
   }
+}
+
+/** Parses a `Retry-After` header value (delay-seconds form) into a positive integer, or undefined. */
+function parseRetryAfter(value: string | null): number | undefined {
+  if (!value) return undefined
+  const seconds = Number(value)
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined
 }
 
 export interface AuthResponse {
@@ -164,6 +173,48 @@ export interface ApiKey {
   revoked_at: string | null
 }
 
+export interface UpdateProfileRequest {
+  name?: string
+  merchant_name?: string
+}
+
+export interface UpdateProfileResponse {
+  user_id: UUID
+  email: string
+  name: string
+  merchant_id: UUID | null
+  merchant_name: string | null
+}
+
+export interface ChangeEmailRequest {
+  new_email: string
+}
+
+export interface ChangeEmailResponse {
+  message: string
+}
+
+export interface DeleteAccountResponse {
+  message: string
+}
+
+export interface PushSubscriptionRequest {
+  endpoint: string
+  p256dh: string
+  auth: string
+}
+
+export interface PushSubscriptionResponse {
+  id: UUID
+  merchant_id: UUID
+  endpoint: string
+  created_at: string
+}
+
+export interface PushSubscriptionStatus {
+  enabled: boolean
+}
+
 function parseWithBigInts<T>(text: string): T {
   const quoted = text.replace(/"(amount_stroops|available|pending)"\s*:\s*(-?\d+)/g, '"$1":"$2"')
   try {
@@ -270,7 +321,11 @@ async function requestWithCookie<T>(
       const parsed = JSON.parse(text) as { error?: string }
       if (parsed.error) message = parsed.error
     } catch {}
-    throw new ApiError(message, response.status)
+    throw new ApiError(
+      message,
+      response.status,
+      parseRetryAfter(response.headers.get('Retry-After'))
+    )
   }
 
   return text ? JSON.parse(text) : (undefined as T)
@@ -289,7 +344,8 @@ export const api = {
       body: { email, password },
     }),
 
-  getSession: () => fetch('/api/auth/session').then(r => r.json() as Promise<{ session: Session | null }>),
+  getSession: () =>
+    fetch('/api/auth/session').then((r) => r.json() as Promise<{ session: Session | null }>),
 
   logout: () =>
     requestWithCookie<{ success: boolean }>('/api/auth/logout', {
@@ -300,7 +356,10 @@ export const api = {
     request<{ message: string }>('/password-reset/request', { method: 'POST', body: { email } }),
 
   resetPassword: (token: string, password: string) =>
-    request<{ message: string }>('/password-reset/confirm', { method: 'POST', body: { token, password } }),
+    request<{ message: string }>('/password-reset/confirm', {
+      method: 'POST',
+      body: { token, password },
+    }),
 
   /** SEP-0010 step 1: fetch a challenge transaction for a Stellar address to sign. */
   getStellarChallenge: (address: string) =>
@@ -362,12 +421,7 @@ export const api = {
    * secret key never touches the browser. Rejects with a 404 ApiError when
    * the account number/bank code pair doesn't resolve to a real account.
    */
-  resolveAccount: (
-    token: string,
-    bankCode: string,
-    accountNumber: string,
-    signal?: AbortSignal
-  ) =>
+  resolveAccount: (token: string, bankCode: string, accountNumber: string, signal?: AbortSignal) =>
     request<ResolvedAccount>('/accounts/resolve', {
       method: 'POST',
       token,
@@ -410,4 +464,30 @@ export const api = {
 
   revokeApiKey: (token: string, id: UUID) =>
     request<void>(`/api-keys/${id}`, { method: 'DELETE', token }),
+
+  updateProfile: (token: string, body: UpdateProfileRequest) =>
+    request<UpdateProfileResponse>('/me', { method: 'POST', token, body }),
+
+  changeEmail: (token: string, newEmail: string) =>
+    request<ChangeEmailResponse>('/me/email', {
+      method: 'POST',
+      token,
+      body: { new_email: newEmail },
+    }),
+
+  deleteAccount: (token: string) =>
+    request<DeleteAccountResponse>('/me', { method: 'DELETE', token }),
+
+  registerPushSubscription: (token: string, subscription: PushSubscriptionRequest) =>
+    request<PushSubscriptionResponse>('/push/subscribe', {
+      method: 'POST',
+      token,
+      body: subscription,
+    }),
+
+  unregisterPushSubscription: (token: string) =>
+    request<void>('/push/unsubscribe', { method: 'DELETE', token }),
+
+  getPushSubscriptionStatus: (token: string, signal?: AbortSignal) =>
+    request<PushSubscriptionStatus>('/push/status', { token, signal }),
 }

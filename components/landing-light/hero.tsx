@@ -36,6 +36,7 @@ export function Hero() {
           width={705}
           height={835}
           priority
+          sizes="(min-width: 1024px) 460px, 0px"
           className="hidden h-auto w-full max-w-[460px] justify-self-end lg:block"
         />
       </div>

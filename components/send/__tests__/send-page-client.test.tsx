@@ -23,7 +23,9 @@ describe('SendPageClient', () => {
     render(<SendPageClient />)
 
     fireEvent.change(screen.getByPlaceholderText('G... or @username'), {
-      target: { value: 'GABCDEF123' },
+      // A real, checksum-valid address — #483 now validates StrKey, and this
+      // test only cares about layout, not address handling.
+      target: { value: 'GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H' },
     })
     fireEvent.click(screen.getByRole('button', { name: /continue/i }))
 
@@ -33,5 +35,27 @@ describe('SendPageClient', () => {
     expect(amountDisplay).toHaveClass('flex-1')
     expect(amountDisplay).toHaveClass('shrink-0')
     expect(keypad).toHaveClass('mt-auto')
+  })
+
+  // #475: icon-only buttons need an accessible name for screen readers.
+  it('gives the icon-only header back button an accessible name', () => {
+    render(<SendPageClient />)
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument()
+  })
+
+  it('gives the icon-only QR scan button an accessible name', () => {
+    render(<SendPageClient />)
+    expect(screen.getByRole('button', { name: 'Scan QR code' })).toBeInTheDocument()
+  })
+
+  it('gives the numpad backspace key an accessible name', () => {
+    render(<SendPageClient />)
+
+    fireEvent.change(screen.getByPlaceholderText('G... or @username'), {
+      target: { value: 'GABCDEF123' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }))
+
+    expect(screen.getByRole('button', { name: 'Delete last digit' })).toBeInTheDocument()
   })
 })

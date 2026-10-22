@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { api, setUnauthorizedHandler, type AuthResponse, type Session } from '@/lib/api'
+import { api, setUnauthorizedHandler, type AuthResponse, type Me, type Session } from '@/lib/api'
 import { connectFreighter, signChallengeTransaction } from '@/lib/freighter'
 
 interface SessionContextValue {
@@ -13,6 +13,10 @@ interface SessionContextValue {
   /** SEP-0010: connect Freighter, sign the backend's challenge, exchange for a session. */
   signInWithFreighter: () => Promise<void>
   signOut: () => void
+  /** Re-fetches /me and updates any cached profile data. */
+  refreshMe: () => Promise<Me | null>
+  /** Latest profile data from /me, if fetched. */
+  me: Me | null
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null)
@@ -28,6 +32,7 @@ function toSession(response: AuthResponse): Session {
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [ready, setReady] = useState(false)
+  const [me, setMe] = useState<Me | null>(null)
 
   useEffect(() => {
     async function restoreSession() {
@@ -52,15 +57,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setSession(toSession(await api.signup(email, password, name)))
   }, [])
 
-  const signOut = useCallback(async () => {
-    try {
-      await api.logout()
-    } catch {
-      // Logout failed, but clear session anyway
-    }
-    setSession(null)
-  }, [])
-
   const signInWithFreighter = useCallback(async () => {
     const address = await connectFreighter()
     const challenge = await api.getStellarChallenge(address)
@@ -71,6 +67,27 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setSession(toSession(await api.verifyStellarChallenge(signedTransaction)))
   }, [])
 
+  const signOut = useCallback(async () => {
+    try {
+      await api.logout()
+    } catch {
+      // Logout failed, but clear session anyway
+    }
+    setSession(null)
+    setMe(null)
+  }, [])
+
+  const refreshMe = useCallback(async () => {
+    if (!session) return null
+    try {
+      const data = await api.getMe(session.token)
+      setMe(data)
+      return data
+    } catch {
+      return null
+    }
+  }, [session])
+
   // Tokens expire after 24h with no refresh path, so drop the session on any
   // 401 from an authenticated call — the route guards handle the redirect.
   useEffect(() => {
@@ -79,8 +96,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [signOut])
 
   const value = useMemo(
-    () => ({ session, ready, signIn, signUp, signInWithFreighter, signOut }),
-    [session, ready, signIn, signUp, signInWithFreighter, signOut]
+    () => ({ session, ready, signIn, signUp, signInWithFreighter, signOut, refreshMe, me }),
+    [session, ready, signIn, signUp, signInWithFreighter, signOut, refreshMe, me]
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
