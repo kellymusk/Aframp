@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import vm from 'node:vm'
 import zlib from 'node:zlib'
 
 /**
@@ -46,9 +47,82 @@ function layoutEntries(pageEntry) {
   return layouts
 }
 
+/**
+ * Next <= 15: `.next/app-build-manifest.json` maps each page and layout entry
+ * to its JS files.
+ */
+function appPagesFromBuildManifest() {
+  return readJson(APP_BUILD_MANIFEST_PATH).pages ?? {}
+}
+
+/** Recursively collect `page_client-reference-manifest.js` files under `dir`. */
+function findClientManifests(dir) {
+  const found = []
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) found.push(...findClientManifests(full))
+    else if (entry.name === 'page_client-reference-manifest.js') found.push(full)
+  }
+  return found
+}
+
+/**
+ * Next 16 no longer writes app-build-manifest.json. Each page's client
+ * reference manifest lists every client module it loads (its layouts
+ * included) with the chunks those modules need. A layout's files are the
+ * chunks shared by every page beneath it, which matches the old per-layout
+ * entries closely enough for a budget.
+ */
+function appPagesFromClientManifests() {
+  const serverAppDir = path.join(NEXT_DIR, 'server', 'app')
+  if (!fs.existsSync(serverAppDir)) {
+    throw new Error(`No App Router output at ${serverAppDir}. Run \`npm run build:analyze\` first.`)
+  }
+
+  const pages = {}
+  for (const file of findClientManifests(serverAppDir)) {
+    const sandbox = { self: {} }
+    sandbox.globalThis = sandbox.self
+    vm.runInNewContext(fs.readFileSync(file, 'utf8'), sandbox)
+    const manifests = sandbox.self.__RSC_MANIFEST ?? {}
+    for (const [entry, manifest] of Object.entries(manifests)) {
+      const files = new Set()
+      for (const mod of Object.values(manifest.clientModules ?? {})) {
+        for (const chunk of mod.chunks ?? []) {
+          if (typeof chunk === 'string' && chunk.endsWith('.js')) files.add(chunk)
+        }
+      }
+      pages[entry] = [...files]
+    }
+  }
+
+  const pageEntries = Object.keys(pages)
+  for (const entry of pageEntries) {
+    for (const layout of layoutEntries(entry)) {
+      if (pages[layout]) continue
+      const prefix = layout.replace(/\/layout$/, '/')
+      const under = pageEntries.filter((page) => page.startsWith(prefix === '/' ? '/' : prefix))
+      if (under.length < 2) {
+        // With a single page beneath it, "shared" would be the page's whole
+        // bundle; count only the layout's own chunk for that segment.
+        const segment = layout.replace(/\/layout$/, '')
+        pages[layout] = (pages[under[0]] ?? []).filter((file) =>
+          file.startsWith(`static/chunks/app${segment}/layout-`)
+        )
+        continue
+      }
+      const sets = under.map((page) => new Set(pages[page]))
+      pages[layout] = [...sets[0]].filter((file) => sets.every((set) => set.has(file)))
+    }
+  }
+  return pages
+}
+
 function routeStats() {
   const buildManifest = readJson(BUILD_MANIFEST_PATH)
-  const appPages = readJson(APP_BUILD_MANIFEST_PATH).pages ?? {}
+  const appPages = fs.existsSync(APP_BUILD_MANIFEST_PATH)
+    ? appPagesFromBuildManifest()
+    : appPagesFromClientManifests()
   const runtime = new Set([
     ...(buildManifest.rootMainFiles ?? []),
     ...(buildManifest.polyfillFiles ?? []),
