@@ -29,6 +29,10 @@ const customJestConfig = {
   // A repo-wide global threshold can't be met while most of the codebase has
   // no tests yet — real enforcement is scripts/check-diff-coverage.js, which
   // requires 80% coverage only on files a PR actually adds or changes.
+  // Branch coverage was 70.97% when this was added, with lines at 84%. The floor
+  // is set just below that so it can only ratchet up as error and edge paths
+  // get tests; raise it whenever coverage improves.
+  coverageThreshold: { global: { branches: 70 } },
   coverageReporters: ['json-summary', 'json', 'lcov', 'text'],
   testMatch: ['**/__tests__/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
   testPathIgnorePatterns: ['/node_modules/', '/.next/', '/helpcenter/', '/.kilo/', '/e2e/'],
