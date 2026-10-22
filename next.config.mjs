@@ -73,6 +73,11 @@ const nextConfig = {
     // assets that bypass proxy.ts (e.g. _next/static) and therefore do NOT
     // include script-src so they don't clobber the nonce injected by the
     // proxy on page routes.
+    //
+    // Permissions-Policy: `camera=(self)` is required by the QR scanner in
+    // components/send/qr-scanner.tsx, which calls getUserMedia. `camera=()`
+    // would silently block it in production (#636). proxy.ts sets the same
+    // value on page routes.
     return [
       {
         source: '/(.*)',
@@ -81,7 +86,7 @@ const nextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
         ],
       },
     ]

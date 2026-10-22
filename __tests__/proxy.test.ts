@@ -69,4 +69,11 @@ describe('CSP nonce proxy (#632)', () => {
     expect(res.headers.get('x-frame-options')).toBe('DENY')
     expect(res.headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin')
   })
+
+  it('allows same-origin camera access for the QR scanner (#636)', async () => {
+    const res = await proxy(makeRequest('/'))
+    const policy = res.headers.get('permissions-policy') ?? ''
+    expect(policy).toContain('camera=(self)')
+    expect(policy).not.toContain('camera=()')
+  })
 })
