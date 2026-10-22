@@ -9,7 +9,7 @@ const customJestConfig = {
   setupFilesAfterEnv: [path.resolve(__dirname, './jest.setup.ts')],
   testEnvironment: 'jest-environment-jsdom',
   testEnvironmentOptions: {
-    customExportConditions: [''],
+    customExportConditions: ['node', 'node-addons'],
   },
   modulePathIgnorePatterns: ['<rootDir>/helpcenter/', '<rootDir>/.claude/', '<rootDir>/.kilo/'],
   moduleNameMapper: {

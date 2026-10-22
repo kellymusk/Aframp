@@ -1,0 +1,18 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "main",
+    "origin",
+    "security/issue-871-security-upgrade-jest-to-30-to-clear-the"
+  ],
+  "parent": {
+    "main": null,
+    "origin": "main",
+    "security/issue-871-security-upgrade-jest-to-30-to-clear-the": "main"
+  },
+  "order": [
+    "main",
+    "origin",
+    "security/issue-871-security-upgrade-jest-to-30-to-clear-the"
+  ]
+}
