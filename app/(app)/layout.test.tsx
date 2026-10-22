@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import AppLayout from './layout'
 import { useSession } from '@/components/session-provider'
@@ -56,5 +56,22 @@ describe('AppLayout', () => {
       screen.queryByRole('navigation', { name: 'Merchant navigation' })
     ).not.toBeInTheDocument()
     expect(screen.getByText('admin content')).toBeInTheDocument()
+  })
+
+  it('shows the offline banner when the device loses connection and clears it on reconnect', () => {
+    ;(useSession as jest.Mock).mockReturnValue({ session, ready: true })
+    render(<AppLayout>page content</AppLayout>)
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+
+    act(() => {
+      window.dispatchEvent(new Event('offline'))
+    })
+    expect(screen.getByRole('status')).toBeInTheDocument()
+
+    act(() => {
+      window.dispatchEvent(new Event('online'))
+    })
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })

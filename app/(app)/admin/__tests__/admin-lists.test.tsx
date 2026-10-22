@@ -7,6 +7,7 @@ import AdminTransactionsPage from '../transactions/page'
 import AdminWalletsPage from '../wallets/page'
 import AdminWithdrawalsPage from '../withdrawals/page'
 import { api } from '@/lib/api'
+import { downloadCsv } from '@/lib/csv'
 
 jest.mock('@/components/session-provider', () => ({
   useAuthenticatedSession: () => ({ token: 'admin-token' }),
@@ -21,6 +22,10 @@ jest.mock('@/lib/api', () => ({
     adminWallets: jest.fn(),
     adminWithdrawals: jest.fn(),
   },
+}))
+
+jest.mock('@/lib/csv', () => ({
+  downloadCsv: jest.fn(),
 }))
 
 const ADDRESS = 'GBSN2ZJBRFWTQHWRJQE4GKDJJDSGPVTLQNQCQX7QR5W5VKHNHQHA'
@@ -222,6 +227,20 @@ describe.each(cases)('admin $name page', ({ Page, load, rows, shows, search, emp
 
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: search } })
     expect(screen.getByText('1 of 2 rows')).toBeInTheDocument()
+  })
+
+  it('exports the filtered rows as CSV', async () => {
+    mockLoad().mockResolvedValue(rows)
+    render(<Page />)
+    await screen.findByText(shows)
+
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: search } })
+    fireEvent.click(screen.getByRole('button', { name: /export csv/i }))
+
+    expect(downloadCsv).toHaveBeenCalledTimes(1)
+    const [filename, csv] = (downloadCsv as jest.Mock).mock.calls[0]
+    expect(filename).toMatch(/\.csv$/)
+    expect(csv.split('\n')).toHaveLength(2)
   })
 
   it('shows the empty state', async () => {

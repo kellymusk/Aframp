@@ -6,11 +6,14 @@ import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
 import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration'
+import { downloadCsv } from '@/lib/csv'
 
 interface Column<T> {
   header: string
   render: (row: T) => React.ReactNode
   className?: string
+  /** Plain-text value used when exporting this column to CSV; falls back to `header`. */
+  csvValue?: (row: T) => string | number | null | undefined
 }
 
 interface AdminTableProps<T> {
@@ -23,6 +26,8 @@ interface AdminTableProps<T> {
   /** Text a row is matched against by the search box; omit to hide search. */
   searchText?: (row: T) => string
   searchPlaceholder?: string
+  /** Base filename (without extension) for the CSV export. */
+  exportFilename?: string
 }
 
 const PAGE_SIZE = 25
@@ -42,6 +47,7 @@ export function AdminTable<T>({
   emptyMessage,
   searchText,
   searchPlaceholder = 'Search',
+  exportFilename = 'admin-export',
 }: AdminTableProps<T>) {
   const [query, setQuery] = useState('')
   const [visible, setVisible] = useState(PAGE_SIZE)
@@ -51,6 +57,14 @@ export function AdminTable<T>({
     if (!rows || !needle || !searchText) return rows ?? []
     return rows.filter((row) => searchText(row).toLowerCase().includes(needle))
   }, [rows, query, searchText])
+
+  const handleExport = () => {
+    const header = columns.map((col) => col.header)
+    const body = matches.map((row) =>
+      columns.map((col) => (col.csvValue ? col.csvValue(row) : '')),
+    )
+    downloadCsv(exportFilename, [header, ...body])
+  }
 
   if (error) return <ErrorState message={error} onRetry={onRetry} />
 
@@ -75,8 +89,8 @@ export function AdminTable<T>({
 
   return (
     <div className="space-y-3">
-      {searchText && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {searchText ? (
           <Input
             type="search"
             aria-label={searchPlaceholder}
@@ -88,13 +102,27 @@ export function AdminTable<T>({
             }}
             className="max-w-sm"
           />
-          <p className="text-dim text-xs" aria-live="polite">
-            {matches.length === rows.length
-              ? `${rows.length.toLocaleString('en-NG')} rows`
-              : `${matches.length.toLocaleString('en-NG')} of ${rows.length.toLocaleString('en-NG')} rows`}
-          </p>
+        ) : (
+          <span />
+        )}
+        <div className="flex items-center gap-3">
+          {searchText && (
+            <p className="text-dim text-xs" aria-live="polite">
+              {matches.length === rows.length
+                ? `${rows.length.toLocaleString('en-NG')} rows`
+                : `${matches.length.toLocaleString('en-NG')} of ${rows.length.toLocaleString('en-NG')} rows`}
+            </p>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleExport}
+            disabled={matches.length === 0}
+          >
+            Export CSV
+          </Button>
         </div>
-      )}
+      </div>
       <div className="bg-panel border-hairline overflow-x-auto rounded-2xl border">
         <table className="w-full text-left text-sm">
           <thead>
