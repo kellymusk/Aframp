@@ -379,6 +379,7 @@ jobs:
             sleep 2
           done
           lhci autorun
+          lhci autorun --config=lighthouserc.mobile.json
           kill $SERVER_PID 2>/dev/null || true
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}

@@ -5,8 +5,12 @@
       "url": [
         "http://localhost:3001",
         "http://localhost:3001/login",
-        "http://localhost:3001/signup"
+        "http://localhost:3001/signup",
+        "http://localhost:3001/home",
+        "http://localhost:3001/charge",
+        "http://localhost:3001/withdraw"
       ],
+      "puppeteerScript": "./scripts/lh-seed-session.cjs",
       "settings": {
         "chromeFlags": "--no-sandbox --disable-dev-shm-usage",
         "throttlingMethod": "simulate",

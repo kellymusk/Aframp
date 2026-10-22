@@ -1,4 +1,4 @@
-import { withSentryConfig } from '@sentry/nextjs'
+import { withSentryConfig } from '@sentry/nextjs/config'
 import withBundleAnalyzer from '@next/bundle-analyzer'
 
 /**
@@ -69,10 +69,10 @@ const nextConfig = {
   },
   headers() {
     // NOTE: The Content-Security-Policy header with per-request nonce is now
-    // set by middleware.ts (#632). The static-file entries below apply only to
-    // assets that bypass middleware (e.g. _next/static) and therefore do NOT
+    // set by proxy.ts (#632, formerly middleware.ts). The static-file entries below apply only to
+    // assets that bypass proxy.ts (e.g. _next/static) and therefore do NOT
     // include script-src so they don't clobber the nonce injected by the
-    // middleware on page routes.
+    // proxy on page routes.
     return [
       {
         source: '/(.*)',

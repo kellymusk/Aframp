@@ -30,7 +30,7 @@ async function renderLayout() {
 }
 
 describe('RootLayout', () => {
-  it('applies the middleware nonce to the inline script and the theme provider', async () => {
+  it('applies the proxy nonce to the inline script and the theme provider', async () => {
     headerValues.set('x-nonce', 'abc123')
     const html = await renderLayout()
 
@@ -40,7 +40,7 @@ describe('RootLayout', () => {
     expect(themeProps[0]).toMatchObject({ nonce: 'abc123', attribute: 'class' })
   })
 
-  it('renders without a nonce when the middleware did not set one', async () => {
+  it('renders without a nonce when the proxy did not set one', async () => {
     const html = await renderLayout()
 
     expect(html).toContain('<html lang="en"')
