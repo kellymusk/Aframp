@@ -36,7 +36,7 @@ describe('AppLayout', () => {
     rerender(<AppLayout>content</AppLayout>)
 
     expect(replace).toHaveBeenCalledTimes(1)
-    expect(replace).toHaveBeenCalledWith('/login')
+    expect(replace).toHaveBeenCalledWith('/login?next=%2Fhome')
   })
 
   it('renders the merchant navigation around merchant pages', () => {

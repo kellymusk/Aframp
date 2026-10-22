@@ -111,10 +111,7 @@ describe('buildDailyRevenue', () => {
 
     it('clamps aggregated totals that overflow only after summing', () => {
       const half = BigInt(Number.MAX_SAFE_INTEGER) / 2n + 1n
-      const payments = [
-        payment({ amount_stroops: half }),
-        payment({ amount_stroops: half }),
-      ]
+      const payments = [payment({ amount_stroops: half }), payment({ amount_stroops: half })]
       const entries = buildDailyRevenue(payments, NOW)
       expect(entries[6].totals.XLM).toBe(
         Number(BigInt(Number.MAX_SAFE_INTEGER)) / Number(STROOPS_PER_UNIT)

@@ -3,9 +3,12 @@ import * as Sentry from '@sentry/nextjs'
 import AppError from './error'
 import { ApiError } from '@/lib/api'
 
-jest.mock('@sentry/nextjs', () => ({
-  captureException: jest.fn(),
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: jest.fn(), back: jest.fn() }),
 }))
+
+// See components/error/__tests__/ContextualError.test.tsx for why this is virtual.
+jest.mock('@sentry/nextjs', () => ({ captureException: jest.fn() }), { virtual: true })
 
 const mockCaptureException = Sentry.captureException as jest.Mock
 
@@ -19,7 +22,7 @@ describe('app/(app)/error.tsx', () => {
     render(<AppError error={error} reset={jest.fn()} />)
 
     expect(mockCaptureException).toHaveBeenCalledTimes(1)
-    expect(mockCaptureException).toHaveBeenCalledWith(error)
+    expect(mockCaptureException).toHaveBeenCalledWith(error, expect.any(Object))
   })
 
   it('shows a generic message for a regular error, inside a dark scope', () => {
@@ -38,14 +41,17 @@ describe('app/(app)/error.tsx', () => {
 
     expect(screen.getByText('Payment server unreachable')).toBeInTheDocument()
     expect(
-      screen.getByText("We can't connect to the payment server right now. Please try again in a moment.")
+      screen.getByText(
+        "We can't connect to the payment server right now. Please try again in a moment."
+      )
     ).toBeInTheDocument()
   })
 
   it('does not treat a non-zero status ApiError as backend-down', () => {
     render(<AppError error={new ApiError('Not found', 404)} reset={jest.fn()} />)
 
-    expect(screen.getByText('Something went wrong')).toBeInTheDocument()
+    expect(screen.queryByText('Payment server unreachable')).not.toBeInTheDocument()
+    expect(screen.getByText('Not found')).toBeInTheDocument()
   })
 
   it('calls reset when "Try again" is clicked', () => {

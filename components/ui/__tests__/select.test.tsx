@@ -16,7 +16,9 @@ beforeAll(() => {
   }
 })
 
-function renderAssetSelect(props: { onValueChange?: (value: string) => void; disabled?: boolean } = {}) {
+function renderAssetSelect(
+  props: { onValueChange?: (value: string) => void; disabled?: boolean } = {}
+) {
   const onValueChange = props.onValueChange ?? jest.fn()
   render(
     <Select defaultValue="XLM" onValueChange={onValueChange} disabled={props.disabled}>

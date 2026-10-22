@@ -40,7 +40,8 @@ describe('usePaymentPoller', () => {
         amount_stroops: 10000000n,
         asset: 'cNGN',
       },
-    ](api.listTransactions as jest.Mock).mockResolvedValueOnce(mockPayments as any)
+    ]
+    ;(api.listTransactions as jest.Mock).mockResolvedValueOnce(mockPayments as never)
 
     renderHook(() => usePaymentPoller(30000))
 
@@ -70,9 +71,10 @@ describe('usePaymentPoller', () => {
         asset: 'XLM',
       },
       ...initialPayments,
-    ](api.listTransactions as jest.Mock)
-      .mockResolvedValueOnce(initialPayments as any)
-      .mockResolvedValueOnce(laterPayments as any)
+    ]
+    ;(api.listTransactions as jest.Mock)
+      .mockResolvedValueOnce(initialPayments as never)
+      .mockResolvedValueOnce(laterPayments as never)
 
     renderHook(() => usePaymentPoller(30000))
 

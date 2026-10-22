@@ -115,8 +115,7 @@ export const features: FeatureItem[] = [
 export const trust = {
   eyebrow: 'Trust & Compliance',
   title: 'Built in the open, on public infrastructure',
-  blurb:
-    "We'd rather point you at the primary source than ask you to take our word for it.",
+  blurb: "We'd rather point you at the primary source than ask you to take our word for it.",
   items: [
     {
       title: 'Stellar Network',

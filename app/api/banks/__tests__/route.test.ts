@@ -69,7 +69,9 @@ describe('GET /api/banks', () => {
     )
   })
 
-  it('forwards error status when Paystack returns non-ok response', async () => {
+  // #1025: an upstream failure must not leave the cash-out form without banks.
+  it('serves a fallback bank list when Paystack returns a non-ok response', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {})
     global.fetch = jest.fn().mockResolvedValue(
       new Response(JSON.stringify({ status: false, message: 'Bad Gateway' }), {
         status: 502,
@@ -78,19 +80,23 @@ describe('GET /api/banks', () => {
     )
 
     const response = await GET()
-    expect(response.status).toBe(502)
+    expect(response.status).toBe(200)
 
     const body = await response.json()
-    expect(body.error).toBe('Failed to fetch banks from Paystack')
+    expect(['cache', 'fallback']).toContain(body.source)
+    expect(Array.isArray(body.data)).toBe(true)
+    expect(body.data.length).toBeGreaterThan(0)
   })
 
-  it('returns 500 when fetch throws an error', async () => {
+  it('serves a fallback bank list when fetch throws', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {})
     global.fetch = jest.fn().mockRejectedValue(new Error('Network failure'))
 
     const response = await GET()
-    expect(response.status).toBe(500)
+    expect(response.status).toBe(200)
 
     const body = await response.json()
-    expect(body.error).toBe('Network failure')
+    expect(['cache', 'fallback']).toContain(body.source)
+    expect(body.data.length).toBeGreaterThan(0)
   })
 })

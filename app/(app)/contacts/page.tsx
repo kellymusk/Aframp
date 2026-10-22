@@ -249,15 +249,32 @@ export default function ContactsPage() {
                       variant="destructive"
                       aria-label={`Delete ${contact.name}`}
                       onClick={() => {
-                        if (window.confirm(`Delete ${contact.name}?`)) {
+                        if (window.confirm(`Delete ${contact.name} from your contacts?`)) {
                           deleteContact(contact.id)
                         }
                       }}
                     >
-                      <Trash2 className="size-4" />
+                      <Trash2 className="size-4" aria-hidden />
                     </Button>
                   </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Quick send */}
+        {contacts.length > 0 && (
+          <div className="bg-panel border-hairline rounded-2xl border p-5">
+            <h2 className="text-sm font-bold mb-4">Quick send</h2>
+            <div className="space-y-2">
+              {contacts.map((contact) => (
+                <Link key={contact.id} href={`/send?to=${encodeURIComponent(contact.address)}`}>
+                  <div className="bg-raised hover:bg-raised/80 p-3 rounded-lg cursor-pointer transition-colors">
+                    <p className="font-medium text-sm">{contact.name}</p>
+                    <p className="text-dim text-xs font-mono truncate">{contact.address}</p>
+                  </div>
+                </Link>
               ))}
             </div>
           </div>

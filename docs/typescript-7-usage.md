@@ -1,6 +1,7 @@
 # Using TypeScript 7.0 in This Project
 
 This project uses a **dual TypeScript setup** to get the best of both worlds:
+
 - **TypeScript 5.x** for tooling compatibility (ESLint, Jest, Next.js)
 - **TypeScript 7.0** for 10x faster type-checking
 
@@ -23,30 +24,32 @@ TypeScript 7.0's native Go compiler is **~10x faster** but doesn't yet have a st
 
 ✅ Get 10x faster type-checking now  
 ✅ Keep all existing tools working  
-✅ No breaking changes to workflows  
+✅ No breaking changes to workflows
 
 ## What Uses Which Version?
 
 ### TypeScript 5.x (`typescript` package)
+
 - ESLint / typescript-eslint
-- Jest / ts-jest  
+- Jest / ts-jest
 - Next.js build system
 - IDE language server (default)
 - `npm run type-check` script
 
 ### TypeScript 7.0 (`typescript-7` alias)
+
 - `npm run type-check:ts7` script
 - CI/CD pipelines (optional, for speed)
 - Manual `npx -p typescript-7 tsc` commands
 
 ## Performance Comparison
 
-| Command | TypeScript Version | Typical Speed |
-|---------|-------------------|---------------|
-| `npm run type-check` | 5.x | Baseline (100%) |
-| `npm run type-check:ts7` | 7.0 | **~10x faster** |
+| Command                  | TypeScript Version | Typical Speed   |
+| ------------------------ | ------------------ | --------------- |
+| `npm run type-check`     | 5.x                | Baseline (100%) |
+| `npm run type-check:ts7` | 7.0                | **~10x faster** |
 
-*Actual speedup varies by project size and hardware. Larger projects see bigger gains.*
+_Actual speedup varies by project size and hardware. Larger projects see bigger gains._
 
 ## CI/CD Integration
 
@@ -61,6 +64,7 @@ You can add TypeScript 7.0 checks to your CI pipeline for faster builds:
 ## When Can We Fully Migrate?
 
 We'll migrate to TypeScript 7.x as the primary version when:
+
 1. typescript-eslint adds TypeScript 7.x peer dependency support
 2. ts-jest adds TypeScript 7.x API compatibility
 3. TypeScript 7.1 ships with stable programmatic API
@@ -68,17 +72,21 @@ We'll migrate to TypeScript 7.x as the primary version when:
 Expected timeline: **Q1-Q2 2027**
 
 Track progress:
+
 - [typescript-eslint TS7 support](https://github.com/typescript-eslint/typescript-eslint/issues/12518)
 - [ts-jest TS7 support](https://github.com/kulshekhar/ts-jest/issues/5366)
 
 ## Troubleshooting
 
 ### Both versions should pass
+
 If `type-check` passes but `type-check:ts7` fails (or vice versa), this indicates a real issue:
+
 - TypeScript 7.0 has stricter type checking in some areas
 - Report discrepancies - they're useful for the TypeScript team
 
 ### Installing/updating packages
+
 ```bash
 # Update TypeScript 5.x (for tooling)
 npm install -D typescript@latest

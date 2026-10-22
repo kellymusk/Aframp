@@ -35,6 +35,7 @@ npm install lucide-react@^1.59.0
 Lucide React v1 introduced some breaking changes:
 
 ### 1. Icon Size Prop
+
 ```tsx
 // Before (v0.x)
 <Icon size={24} />
@@ -44,11 +45,14 @@ Lucide React v1 introduced some breaking changes:
 ```
 
 ### 2. Renamed Icons
+
 Some icons were renamed for consistency. Check the [migration guide](https://github.com/lucide-icons/lucide/releases/tag/v1.0.0):
+
 - `ArrowUpCircle` → `CircleArrowUp` (example)
 - Check your usage against the v1 icon list
 
 ### 3. strokeWidth Default
+
 Default strokeWidth changed from 2 to 2 (no change needed).
 
 ## Testing Strategy
@@ -56,7 +60,7 @@ Default strokeWidth changed from 2 to 2 (no change needed).
 After upgrading:
 
 1. **Visual regression test**: Check all pages for icon rendering
-2. **Search for icon imports**: 
+2. **Search for icon imports**:
    ```bash
    grep -r "from 'lucide-react'" app/ components/
    ```
@@ -69,6 +73,7 @@ After upgrading:
 ## Icons Used in Project
 
 Common lucide-react icons in this codebase (scan these after upgrade):
+
 - Navigation icons (Menu, X, ChevronDown, etc.)
 - Action icons (Plus, Trash, Edit, Copy, etc.)
 - Status icons (Check, AlertCircle, Info, etc.)
@@ -79,7 +84,7 @@ Common lucide-react icons in this codebase (scan these after upgrade):
 ✅ **Upgrade path documented**: Command provided for v1.59.0  
 ✅ **Breaking changes identified**: Icon renames to watch for  
 ✅ **Icons render correctly**: Visual verification needed post-upgrade  
-✅ **No console errors**: Check browser console after upgrade  
+✅ **No console errors**: Check browser console after upgrade
 
 ## Recommended Upgrade Process
 
@@ -113,4 +118,3 @@ See: [Lucide React Releases](https://github.com/lucide-icons/lucide/releases)
 ## Resolution
 
 This issue is **resolved** - documentation provided for upgrading to lucide-react 1.59 with migration checklist and testing strategy.
-

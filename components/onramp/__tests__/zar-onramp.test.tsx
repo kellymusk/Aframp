@@ -15,6 +15,7 @@ jest.mock('@/lib/api', () => ({
 }))
 
 jest.mock('@/lib/payment-providers', () => ({
+  validateOzowPaymentUrl: jest.requireActual('@/lib/payment-providers').validateOzowPaymentUrl,
   OZOW_BANKS: [{ code: 'ABSA', name: 'ABSA Bank' }],
   calculateFees: () => ({ processingFee: 1.5, totalCost: 101.5 }),
   formatCurrency: (amount: number, currency: string) => `${currency} ${amount}`,

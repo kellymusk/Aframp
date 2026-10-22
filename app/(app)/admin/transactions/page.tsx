@@ -8,9 +8,7 @@ import { formatStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { formatDateTime } from '@/lib/format-date'
 import { PAYMENT_STATUS } from '@/lib/status'
-
-/** Testnet today; swap for `public` when the backend points at mainnet Horizon. */
-const EXPLORER_BASE = 'https://stellar.expert/explorer/testnet/tx'
+import { getTransactionExplorerUrl } from '@/lib/config/network'
 
 function shorten(value: string) {
   return value.length <= 12 ? value : `${value.slice(0, 6)}…${value.slice(-4)}`
@@ -75,7 +73,8 @@ export default function AdminTransactionsPage() {
               header: 'Tx hash',
               render: (row) => (
                 <a
-                  href={`${EXPLORER_BASE}/${row.tx_hash}`}
+                  href={getTransactionExplorerUrl(row.tx_hash)}
+                  aria-label={row.tx_hash}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-brand font-mono text-xs hover:underline"

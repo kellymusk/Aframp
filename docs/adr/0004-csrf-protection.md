@@ -57,6 +57,7 @@ response = await fetch(`${BASE_URL}${path}`, {
 **No cookies set by this application**
 
 A grep across all `.ts` and `.tsx` source files finds zero references to:
+
 - `document.cookie`
 - `next/headers` `cookies()` (Next.js server-side cookie API)
 - `Set-Cookie` response headers
@@ -102,26 +103,26 @@ currently doesn't exist.
 
 ### Considered approaches
 
-| Approach | Applicable? | Verdict |
-|----------|------------|---------|
-| `SameSite=Strict` cookie attribute | No — no auth cookies exist | Not needed |
-| Double-submit cookie pattern | No — no cookies at all | Not needed |
-| Synchronizer token (server-generated CSRF token in each form) | No — no server-side session, no server-rendered forms | Not needed |
-| Custom request header (`X-Requested-With`) | Partially — already implicit; every fetch sets `Content-Type: application/json` or `Authorization`, both of which trigger CORS preflight, preventing simple-request CSRF | Already present as a side-effect |
-| Token in memory only (never persisted) | Stronger XSS posture, but breaks page refresh | Out of scope for this ADR; see trade-off below |
+| Approach                                                      | Applicable?                                                                                                                                                              | Verdict                                        |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| `SameSite=Strict` cookie attribute                            | No — no auth cookies exist                                                                                                                                               | Not needed                                     |
+| Double-submit cookie pattern                                  | No — no cookies at all                                                                                                                                                   | Not needed                                     |
+| Synchronizer token (server-generated CSRF token in each form) | No — no server-side session, no server-rendered forms                                                                                                                    | Not needed                                     |
+| Custom request header (`X-Requested-With`)                    | Partially — already implicit; every fetch sets `Content-Type: application/json` or `Authorization`, both of which trigger CORS preflight, preventing simple-request CSRF | Already present as a side-effect               |
+| Token in memory only (never persisted)                        | Stronger XSS posture, but breaks page refresh                                                                                                                            | Out of scope for this ADR; see trade-off below |
 
 ### localStorage vs. HttpOnly cookies trade-off
 
 The choice to use `localStorage` (rather than `HttpOnly` cookies) is the
 root of this trade-off:
 
-| Property | `localStorage` + Bearer header | `HttpOnly` cookie |
-|----------|-------------------------------|-------------------|
-| CSRF risk | **None** — header cannot be set by another origin | **Exists** — browser sends cookie automatically; requires SameSite + CSRF token |
-| XSS token theft | **Possible** — `localStorage` is readable by any same-origin script | **Not possible** — `HttpOnly` cookie is not accessible to JavaScript |
-| Page-refresh resilience | ✅ session survives refresh | ✅ session survives refresh |
-| Multi-tab coherence | ✅ all tabs share the same localStorage entry | ✅ all tabs share the same cookie |
-| Implementation complexity | Simple | Requires server-side cookie issuance and CSRF token infrastructure |
+| Property                  | `localStorage` + Bearer header                                      | `HttpOnly` cookie                                                               |
+| ------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| CSRF risk                 | **None** — header cannot be set by another origin                   | **Exists** — browser sends cookie automatically; requires SameSite + CSRF token |
+| XSS token theft           | **Possible** — `localStorage` is readable by any same-origin script | **Not possible** — `HttpOnly` cookie is not accessible to JavaScript            |
+| Page-refresh resilience   | ✅ session survives refresh                                         | ✅ session survives refresh                                                     |
+| Multi-tab coherence       | ✅ all tabs share the same localStorage entry                       | ✅ all tabs share the same cookie                                               |
+| Implementation complexity | Simple                                                              | Requires server-side cookie issuance and CSRF token infrastructure              |
 
 **Current choice is `localStorage` + Bearer header**, which eliminates CSRF
 entirely at the cost of XSS-based token theft being theoretically possible.
@@ -133,10 +134,12 @@ XSS is the relevant threat. Aframp mitigates this with:
 
 1. **Content Security Policy** — `next.config.mjs` sets strict CSP headers on
    every response:
+
    ```
    script-src 'self' 'unsafe-inline'
    connect-src 'self' https://api.coingecko.com https://horizon.stellar.org …
    ```
+
    The `connect-src` directive restricts which origins JavaScript can send
    requests to, limiting the usefulness of a stolen token even if exfiltrated.
 
@@ -198,8 +201,8 @@ is tracked independently. It does not change the CSRF analysis.
 
 ## Security Review Sign-off
 
-| Reviewer | Role | Date | Verdict |
-|----------|------|------|---------|
+| Reviewer             | Role         | Date       | Verdict                              |
+| -------------------- | ------------ | ---------- | ------------------------------------ |
 | _(Engineering Lead)_ | Architecture | 2024-08-28 | Accepted — no CSRF surface confirmed |
 
 **Conclusion**: No CSRF protection is required under the current architecture.

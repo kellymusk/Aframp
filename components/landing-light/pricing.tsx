@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react'
 
 import { pricingIntro } from '@/lib/landing-light-data'
-import { countryPricing, inferCountryFromLocale, type CountryCode } from '@/lib/landing-pricing-data'
+import {
+  countryPricing,
+  inferCountryFromLocale,
+  type CountryCode,
+} from '@/lib/landing-pricing-data'
 
 export function Pricing() {
   const [country, setCountry] = useState<CountryCode>('NG')

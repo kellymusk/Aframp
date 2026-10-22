@@ -65,7 +65,7 @@ export function AmountWidget() {
           aria-invalid={rejected}
           aria-describedby={rejected ? 'amount-error' : undefined}
           onChange={(e) => handleChange(e.target.value)}
-          className="text-charcoal dark:text-white placeholder:text-charcoal/40 dark:placeholder:text-white/40 min-w-0 flex-1 bg-transparent text-lg outline-none"
+          className="text-charcoal dark:text-white placeholder:text-charcoal/40 dark:placeholder:text-white/40 min-w-0 flex-1 rounded-sm bg-transparent text-lg outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         />
 
         <span className="bg-mint dark:bg-band text-charcoal dark:text-white flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm">

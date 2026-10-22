@@ -49,14 +49,14 @@ Specific responsibilities:
 
 ### Considered alternatives
 
-| Option | Pros | Cons |
-|--------|------|------|
-| **Paystack (chosen for NGN)** | Market leader in Nigeria; excellent Nigerian bank transfer API with real-time status; well-documented Transfers API; webhook signature (`X-Paystack-Signature`) for secure callbacks; NGN minimum floor well-matched to our minimum; strong regulatory standing (CBN-licensed) | Nigeria-only coverage without additional products; no mobile money in Francophone Africa |
-| **Flutterwave (chosen for multi-country)** | 30+ African countries; mobile money (MTN MoMo, M-Pesa, Airtel, Orange Money); card acquiring in NGN, KES, GHS, ZAR, UGX; webhook with `verif-hash` signature verification | Slightly less mature Nigerian bank transfer reliability than Paystack; higher API complexity |
-| Stripe | Best developer experience globally; very reliable | Limited African coverage; no NGN bank transfer disbursements; not licensed in most African countries |
-| Remita | Deep CBN/Nigerian government integration | Complex integration; API less developer-friendly; no multi-country support |
-| Interswitch | Strong Nigerian interbank reach | Enterprise-focused; no self-service API for startups; no multi-country support |
-| Mono / Stitch | Open banking / account verification | Disbursement-only is not their primary product; limited coverage |
+| Option                                     | Pros                                                                                                                                                                                                                                                                           | Cons                                                                                                 |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| **Paystack (chosen for NGN)**              | Market leader in Nigeria; excellent Nigerian bank transfer API with real-time status; well-documented Transfers API; webhook signature (`X-Paystack-Signature`) for secure callbacks; NGN minimum floor well-matched to our minimum; strong regulatory standing (CBN-licensed) | Nigeria-only coverage without additional products; no mobile money in Francophone Africa             |
+| **Flutterwave (chosen for multi-country)** | 30+ African countries; mobile money (MTN MoMo, M-Pesa, Airtel, Orange Money); card acquiring in NGN, KES, GHS, ZAR, UGX; webhook with `verif-hash` signature verification                                                                                                      | Slightly less mature Nigerian bank transfer reliability than Paystack; higher API complexity         |
+| Stripe                                     | Best developer experience globally; very reliable                                                                                                                                                                                                                              | Limited African coverage; no NGN bank transfer disbursements; not licensed in most African countries |
+| Remita                                     | Deep CBN/Nigerian government integration                                                                                                                                                                                                                                       | Complex integration; API less developer-friendly; no multi-country support                           |
+| Interswitch                                | Strong Nigerian interbank reach                                                                                                                                                                                                                                                | Enterprise-focused; no self-service API for startups; no multi-country support                       |
+| Mono / Stitch                              | Open banking / account verification                                                                                                                                                                                                                                            | Disbursement-only is not their primary product; limited coverage                                     |
 
 ### Why two providers rather than one
 
@@ -130,7 +130,7 @@ surface.
 
 ## Links
 
-- [`app/(app)/withdraw/page.tsx`](../../app/(app)/withdraw/page.tsx) — withdrawal UI
+- [`app/(app)/withdraw/page.tsx`](<../../app/(app)/withdraw/page.tsx>) — withdrawal UI
 - [`lib/api.ts`](../../lib/api.ts) — `createWithdrawal` and `Withdrawal` type
 - [`lib/banks.ts`](../../lib/banks.ts) — Nigerian bank code list (used with Paystack Transfer API)
 - [Paystack Transfer API](https://paystack.com/docs/transfers/)

@@ -30,9 +30,14 @@ const BANKS: { name: string; code: string }[] = [
 let lastGood: { name: string; code: string }[] | null = null
 
 function fallbackResponse() {
-  const banks = lastGood ?? BANKS
+  const banks = lastGood && lastGood.length > 0 ? lastGood : BANKS
   return NextResponse.json(
-    { status: true, message: 'Banks retrieved', data: banks, source: lastGood ? 'cache' : 'fallback' },
+    {
+      status: true,
+      message: 'Banks retrieved',
+      data: banks,
+      source: lastGood ? 'cache' : 'fallback',
+    },
     { status: 200 }
   )
 }
@@ -59,7 +64,8 @@ export async function GET() {
 
     const data = await response.json()
 
-    if (Array.isArray(data?.data)) {
+    // Never cache an empty list: it would replace the bundled fallback.
+    if (Array.isArray(data?.data) && data.data.length > 0) {
       lastGood = data.data
     }
 

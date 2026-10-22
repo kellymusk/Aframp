@@ -151,9 +151,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setSigningOut(true)
     try {
       if (session) {
-        await withTimeout(api.logout(session.token).catch(() => {}), LOGOUT_TIMEOUT_MS)
+        await withTimeout(
+          api.logout(session.token).catch(() => {}),
+          LOGOUT_TIMEOUT_MS
+        )
       }
-      await withTimeout(clearCookie().catch(() => {}), LOGOUT_TIMEOUT_MS)
+      await withTimeout(
+        clearCookie().catch(() => {}),
+        LOGOUT_TIMEOUT_MS
+      )
     } finally {
       setSession(null)
       setMe(null)

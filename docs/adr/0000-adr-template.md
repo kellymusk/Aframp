@@ -25,11 +25,11 @@ Why did we choose this option over the alternatives? List the trade-offs conside
 
 ### Considered alternatives
 
-| Option | Pros | Cons |
-|--------|------|------|
-| Option A (chosen) | … | … |
-| Option B | … | … |
-| Option C | … | … |
+| Option            | Pros | Cons |
+| ----------------- | ---- | ---- |
+| Option A (chosen) | …    | …    |
+| Option B          | …    | …    |
+| Option C          | …    | …    |
 
 ## Consequences
 

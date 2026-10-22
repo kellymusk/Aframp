@@ -33,7 +33,8 @@ export interface OfframpFeeBreakdown {
   receiveAmount: number
 }
 
-export type OfframpOrderStatus = 'pending_bank_details' | 'pending' | 'processing' | 'completed' | 'failed'
+export type OfframpOrderStatus =
+  'pending_bank_details' | 'pending' | 'processing' | 'completed' | 'failed'
 
 export interface OfframpOrder {
   id: string

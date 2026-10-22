@@ -2,18 +2,18 @@
 
 This directory contains Architecture Decision Records (ADRs) for the Aframp
 frontend. ADRs document significant design decisions — not what was built, but
-*why* it was built that way, what alternatives were considered, and what
+_why_ it was built that way, what alternatives were considered, and what
 trade-offs were accepted.
 
 ## Index
 
-| ADR | Title | Status |
-|-----|-------|--------|
-| [0000](./0000-adr-template.md) | ADR template | — |
-| [0001](./0001-stellar-network.md) | Stellar Network as the Settlement Layer | Accepted |
-| [0002](./0002-no-bff-api-layer.md) | Browser-to-Backend Direct API Calls (No BFF Layer) | Accepted |
+| ADR                                 | Title                                                              | Status   |
+| ----------------------------------- | ------------------------------------------------------------------ | -------- |
+| [0000](./0000-adr-template.md)      | ADR template                                                       | —        |
+| [0001](./0001-stellar-network.md)   | Stellar Network as the Settlement Layer                            | Accepted |
+| [0002](./0002-no-bff-api-layer.md)  | Browser-to-Backend Direct API Calls (No BFF Layer)                 | Accepted |
 | [0003](./0003-payment-providers.md) | Payment Providers — Paystack (primary) and Flutterwave (secondary) | Accepted |
-| [0004](./0004-csrf-protection.md) | CSRF Protection and Auth Token Storage | Accepted |
+| [0004](./0004-csrf-protection.md)   | CSRF Protection and Auth Token Storage                             | Accepted |
 
 ## How to use
 

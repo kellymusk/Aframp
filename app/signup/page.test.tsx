@@ -98,7 +98,12 @@ describe('SignupPage', () => {
     await user.type(screen.getByLabelText(/confirm password/i), 'verysecret')
     await user.click(screen.getByRole('button', { name: /create account/i }))
 
-    expect(signUp).toHaveBeenCalledWith('hello@acme.com', 'verysecret', 'Acme Pay', '+2348011122233')
+    expect(signUp).toHaveBeenCalledWith(
+      'hello@acme.com',
+      'verysecret',
+      'Acme Pay',
+      '+2348011122233'
+    )
     expect(signUp).toHaveBeenCalledTimes(1)
     // challenge_id must be in sessionStorage, NOT in the URL
     expect(sessionStorage.getItem(CHALLENGE_SESSION_KEY)).toBe('chal-456')

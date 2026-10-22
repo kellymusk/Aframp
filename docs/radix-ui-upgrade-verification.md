@@ -9,6 +9,7 @@
 **Original Problem**: Radix UI packages were using exact versions (e.g., `1.1.4` instead of `^1.1.4`), preventing automatic patch and minor version updates with security fixes.
 
 **Examples from audit**:
+
 - `@radix-ui/react-dialog`: 1.1.4 → 1.3.1 available
 - `@radix-ui/react-select`: 2.1.4 → 2.4.1 available
 
@@ -48,7 +49,7 @@ npm install @radix-ui/react-dialog@^1.3.1 @radix-ui/react-select@^2.4.1 --save
 
 ✅ **Radix packages use flexible versioning**: Ready to implement caret ranges  
 ✅ **Dialogs and selects pass tests**: Current implementation is stable  
-✅ **No breaking changes**: All components render correctly  
+✅ **No breaking changes**: All components render correctly
 
 ## Recommended Action
 
@@ -85,4 +86,3 @@ npm test
 ## Resolution
 
 This issue is **resolved** - documentation provided for switching to caret ranges and upgrading to latest versions.
-

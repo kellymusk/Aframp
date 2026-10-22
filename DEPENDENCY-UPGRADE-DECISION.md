@@ -1,8 +1,10 @@
 # Dependency Upgrade Decision Record
+
 **Date**: October 19, 2026  
 **Status**: Completed (4/4 issues resolved)
 
 ## Summary
+
 Evaluated 4 dependency upgrade issues from code audit. All 4 are now resolved, with TypeScript 7.0 implemented using a dual-setup approach.
 
 ---
@@ -11,6 +13,7 @@ Evaluated 4 dependency upgrade issues from code audit. All 4 are now resolved, w
 
 **Status**: Already fixed in current codebase  
 **Evidence**: All `@radix-ui/*` packages now use caret ranges (^) in package.json:
+
 - `@radix-ui/react-dialog`: ^1.3.1 (was 1.1.4)
 - `@radix-ui/react-select`: ^2.4.1 (was 2.1.4)
 - All other Radix packages using ^ ranges
@@ -25,6 +28,7 @@ Evaluated 4 dependency upgrade issues from code audit. All 4 are now resolved, w
 **Decision**: **Use TypeScript 5.x for tooling + TypeScript 7.0 for fast type-checking**
 
 **Solution implemented**:
+
 ```json
 "typescript": "^5",           // For typescript-eslint, ts-jest, Next.js
 "typescript-7": "npm:typescript@^7.0"  // For fast 10x type-checking
@@ -32,16 +36,19 @@ Evaluated 4 dependency upgrade issues from code audit. All 4 are now resolved, w
 
 **Why this approach**:
 TypeScript 7.0's native Go compiler delivers 10x performance but lacks a stable programmatic API. The dual setup gives us:
+
 - ✅ **10x faster type-checking** via TS 7.0's native compiler
 - ✅ **Working linting/testing** using TS 5.x with typescript-eslint and ts-jest
 - ✅ **Zero breaking changes** to existing workflows
 
 **Blockers (handled by dual setup)**:
+
 1. **typescript-eslint** (v8.67.0) peer dependency: `typescript: ">=4.8.4 <6.1.0"` → uses TS 5.x ✅
 2. **ts-jest** (v29.4.6) → uses TS 5.x ✅
 3. **TypeScript 7.0** → available for fast CLI type-checking ✅
 
 **How to use**:
+
 ```bash
 # Regular type-check (TypeScript 5.x)
 npm run type-check
@@ -56,12 +63,14 @@ npm test
 
 **Migration path**:
 When TypeScript 7.1 ships with stable API and ecosystem tools update:
+
 1. Update typescript-eslint to support TS 7.x
 2. Update ts-jest to support TS 7.x
 3. Switch main `typescript` package from ^5 to ^7
 4. Remove `typescript-7` alias
 
 **References**:
+
 - [Dual TypeScript setup guide](https://dev.to/dev_encyclopedia/why-your-typescript-7-upgrade-broke-eslint-ts-jest-and-ts-morph-385k)
 - [TypeScript 7.0 announcement](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/)
 
@@ -72,7 +81,8 @@ When TypeScript 7.1 ships with stable API and ecosystem tools update:
 ## Issue #3: React/React-DOM upgrade ✅ RESOLVED
 
 **Status**: Already upgraded  
-**Evidence**: 
+**Evidence**:
+
 - `react`: ^19.3.1 (latest)
 - `react-dom`: ^19.3.1 (latest)
 - `@types/react`: ^19.3.0 (latest)
@@ -104,6 +114,7 @@ When TypeScript 7.1 ships with stable API and ecosystem tools update:
 ## Technical Details
 
 **Current setup (dual TypeScript)**:
+
 - `typescript`: ^5 (for typescript-eslint, ts-jest, Next.js build)
 - `typescript-7`: npm:typescript@^7.0 (for fast CLI type-checking)
 - typescript-eslint: ^8.54.0 (peer: `typescript >=4.8.4 <6.1.0`)
@@ -111,10 +122,12 @@ When TypeScript 7.1 ships with stable API and ecosystem tools update:
 - Jest: ^29.7.0
 
 **Performance comparison**:
+
 - TypeScript 5.x: Baseline speed
 - TypeScript 7.0: **~10x faster** due to native Go compiler + parallelism
 
 **Scripts added**:
+
 - `npm run type-check` — Uses TS 5.x (existing workflow)
 - `npm run type-check:ts7` — Uses TS 7.0 (new, 10x faster)
 
@@ -124,6 +137,7 @@ Both TypeScript versions read the same `tsconfig.json` and check the same code. 
 ---
 
 ## References
+
 - [TypeScript 7.0 Migration Readiness Check](https://www.digitalapplied.com/blog/typescript-7-native-compiler-early-adopter-migration-readiness)
 - [Why Angular, Vue, and ESLint Can't Upgrade to TypeScript 7.0 Yet](https://dev.to/the-modern-web/why-angular-vue-and-eslint-cant-upgrade-to-typescript-70-yet-and-why-ts-71-changes-441g)
 - [ts-jest TypeScript 7 Usage Guide](https://kulshekhar.github.io/ts-jest/docs/next/guides/typescript-7)

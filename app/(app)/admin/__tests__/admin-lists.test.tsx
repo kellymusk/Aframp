@@ -7,6 +7,7 @@ import AdminTransactionsPage from '../transactions/page'
 import AdminWalletsPage from '../wallets/page'
 import AdminWithdrawalsPage from '../withdrawals/page'
 import { api } from '@/lib/api'
+import { getTransactionExplorerUrl } from '@/lib/config/network'
 import { downloadCsv } from '@/lib/csv'
 
 jest.mock('@/components/session-provider', () => ({
@@ -25,6 +26,7 @@ jest.mock('@/lib/api', () => ({
 }))
 
 jest.mock('@/lib/csv', () => ({
+  ...jest.requireActual('@/lib/csv'),
   downloadCsv: jest.fn(),
 }))
 
@@ -279,8 +281,8 @@ describe('admin transactions explorer links', () => {
     render(<AdminTransactionsPage />)
 
     const link = await screen.findByRole('link', { name: txRow.tx_hash })
-    expect(link).toHaveAttribute('href', expect.stringContaining('/explorer/'))
-    expect(link.getAttribute('href')).not.toMatch(/\/explorer\/testnet\//)
+    // The page must follow the configured network, not a hard-coded one.
+    expect(link).toHaveAttribute('href', getTransactionExplorerUrl(txRow.tx_hash))
   })
 })
 

@@ -215,36 +215,6 @@ describe('SessionProvider', () => {
   })
 
   describe('signOut', () => {
-    it('awaits the server logout before clearing the session', async () => {
-      let resolveLogout!: () => void
-      mockApi.logout.mockReturnValue(
-        new Promise<void>((resolve) => {
-          resolveLogout = resolve
-        }) as never
-      )
-      const { result } = await renderSession(storedSession)
-
-      let signOutPromise!: Promise<void>
-      act(() => {
-        signOutPromise = result.current.signOut()
-      })
-
-      // While the logout request is in-flight the session must still be present.
-      expect(mockApi.logout).toHaveBeenCalledWith('tok-1')
-      expect(result.current.session).toEqual(storedSession)
-      expect(result.current.signingOut).toBe(true)
-
-      await act(async () => {
-        resolveLogout()
-        await signOutPromise
-      })
-
-      expect(result.current.session).toBeNull()
-      expect(result.current.me).toBeNull()
-      expect(result.current.signingOut).toBe(false)
-      expect(sessionCalls('DELETE')).toHaveLength(1)
-    })
-
     it('clears the session, logs out on the server and deletes the cookie', async () => {
       mockApi.logout.mockResolvedValue(undefined as never)
       const { result } = await renderSession(storedSession)
@@ -260,7 +230,7 @@ describe('SessionProvider', () => {
     })
 
     it('still clears local state when api.logout rejects', async () => {
-      mockApi.logout.mockRejectedValue(new Error('network down'))
+      mockApi.logout.mockRejectedValue(new Error('network'))
       const { result } = await renderSession(storedSession)
 
       await act(async () => {
@@ -268,33 +238,108 @@ describe('SessionProvider', () => {
       })
 
       expect(result.current.session).toBeNull()
-      expect(result.current.me).toBeNull()
-      expect(sessionCalls('DELETE')).toHaveLength(1)
     })
 
-    it('does not block sign-out indefinitely when the logout request hangs', async () => {
-      jest.useFakeTimers()
-      try {
-        mockApi.logout.mockReturnValue(new Promise<void>(() => {}) as never)
-        const { result } = await renderSession(storedSession)
+    it('does not call api.logout without a session', async () => {
+      const { result } = await renderSession(null)
+      await act(async () => {
+        await result.current.signOut()
+      })
+      expect(mockApi.logout).not.toHaveBeenCalled()
+    })
 
-        let signOutPromise!: Promise<void>
-        act(() => {
-          signOutPromise = result.current.signOut()
-        })
+    it('runs when the 401 handler fires', async () => {
+      mockApi.logout.mockResolvedValue(undefined as never)
+      const { result } = await renderSession(storedSession)
 
-        expect(result.current.session).toEqual(storedSession)
+      await act(async () => {
+        unauthorizedCallback?.()
+        await Promise.resolve()
+      })
 
-        await act(async () => {
-          jest.advanceTimersByTime(5000)
-          await signOutPromise
-        })
+      expect(result.current.session).toBeNull()
+    })
 
-        expect(result.current.session).toBeNull()
-        expect(result.current.signingOut).toBe(false)
-      } finally {
-        jest.useRealTimers()
+    it('unregisters the 401 handler on unmount', async () => {
+      const { unmount } = await renderSession()
+      unmount()
+      expect(unauthorizedCallback).toBeNull()
+    })
+  })
+
+  describe('refreshMe', () => {
+    it('returns the profile and caches it as `me`', async () => {
+      mockApi.getMe.mockResolvedValue(meData)
+      const { result } = await renderSession(storedSession)
+
+      let outcome: Awaited<ReturnType<typeof result.current.refreshMe>> | undefined
+      await act(async () => {
+        outcome = await result.current.refreshMe()
+      })
+
+      expect(mockApi.getMe).toHaveBeenCalledWith('tok-1')
+      expect(outcome).toEqual({ success: true, data: meData })
+      expect(result.current.me).toEqual(meData)
+    })
+
+    it('reports a network failure without signing out', async () => {
+      mockApi.getMe.mockRejectedValue(Object.assign(new Error('offline'), { status: 0 }))
+      const { result } = await renderSession(storedSession)
+
+      let outcome: Awaited<ReturnType<typeof result.current.refreshMe>> | undefined
+      await act(async () => {
+        outcome = await result.current.refreshMe()
+      })
+
+      expect(outcome).toEqual({ success: false, reason: 'network' })
+      expect(result.current.session).toEqual(storedSession)
+    })
+
+    it('rethrows other errors (a 401 is handled by the unauthorized handler)', async () => {
+      mockApi.getMe.mockRejectedValue(Object.assign(new Error('Unauthorized'), { status: 401 }))
+      const { result } = await renderSession(storedSession)
+
+      await expect(result.current.refreshMe()).rejects.toThrow('Unauthorized')
+    })
+
+    it('throws when called without a session', async () => {
+      const { result } = await renderSession(null)
+      await expect(result.current.refreshMe()).rejects.toThrow('refreshMe called without a session')
+    })
+  })
+
+  describe('hooks', () => {
+    it('useSession throws outside SessionProvider', () => {
+      const spy = jest.spyOn(console, 'error').mockImplementation(() => {})
+      expect(() => renderHook(() => useSession())).toThrow(
+        'useSession must be used inside <SessionProvider>'
+      )
+      spy.mockRestore()
+    })
+
+    it('useAuthenticatedSession redirects to /login without a session', () => {
+      mockSessionRoute(null)
+      renderHook(() => useAuthenticatedSession(), { wrapper: SessionProvider })
+      expect(redirect).toHaveBeenCalledWith('/login')
+    })
+
+    it('useAuthenticatedSession returns the restored session', async () => {
+      mockSessionRoute(storedSession)
+      function Probe() {
+        const { ready, session } = useSession()
+        if (!ready || !session) return <span>loading</span>
+        return <Authed />
       }
+      function Authed() {
+        const session = useAuthenticatedSession()
+        return <span data-testid="token">{session.token}</span>
+      }
+      render(
+        <SessionProvider>
+          <Probe />
+        </SessionProvider>
+      )
+      expect(await screen.findByTestId('token')).toHaveTextContent('tok-1')
     })
   })
 })

@@ -24,9 +24,9 @@ describe('validateOzowPaymentUrl', () => {
     })
 
     it('rejects javascript: pseudo-URLs', () => {
-      expect(() =>
-        validateOzowPaymentUrl('javascript:alert(document.cookie)')
-      ).toThrow('Payment URL must use HTTPS.')
+      expect(() => validateOzowPaymentUrl('javascript:alert(document.cookie)')).toThrow(
+        'Payment URL must use HTTPS.'
+      )
     })
 
     it('rejects data: URIs', () => {
@@ -39,9 +39,7 @@ describe('validateOzowPaymentUrl', () => {
   // --- unparseable / empty ---
   describe('rejects malformed URLs', () => {
     it('rejects an empty string', () => {
-      expect(() => validateOzowPaymentUrl('')).toThrow(
-        'Invalid payment URL received from server.'
-      )
+      expect(() => validateOzowPaymentUrl('')).toThrow('Invalid payment URL received from server.')
     })
 
     it('rejects a bare string with no scheme', () => {

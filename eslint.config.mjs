@@ -23,7 +23,7 @@ const config = [
       '*.d.ts',
     ],
   },
-  nextPlugin.flatConfig.coreWebVitals,
+  nextPlugin.configs['core-web-vitals'],
   jsxA11y.flatConfigs.recommended,
   ...tseslint.configs.recommended,
   {

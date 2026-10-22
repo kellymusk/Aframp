@@ -42,9 +42,7 @@ describe('AppLayout skip-to-main-content link (#476)', () => {
     expect(skipLink.className).toMatch(/focus:not-sr-only/)
 
     // First focusable element: nothing focusable appears before it in the DOM.
-    const focusable = screen
-      .getAllByRole('link')
-      .concat(screen.queryAllByRole('button'))
+    const focusable = screen.getAllByRole('link').concat(screen.queryAllByRole('button'))
     expect(focusable[0]).toBe(skipLink)
   })
 

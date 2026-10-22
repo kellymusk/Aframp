@@ -35,10 +35,7 @@ export const api = {
  * whichever comes first. Used by sign-out so a hanging logout request cannot
  * keep the local session alive indefinitely.
  */
-export function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-): Promise<T | undefined> {
+export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | undefined> {
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve(undefined), timeoutMs)
     promise.then(
@@ -49,7 +46,7 @@ export function withTimeout<T>(
       () => {
         clearTimeout(timer)
         resolve(undefined)
-      },
+      }
     )
   })
 }

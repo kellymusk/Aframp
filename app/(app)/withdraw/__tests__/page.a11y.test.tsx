@@ -33,7 +33,7 @@ jest.mock('@/components/session-provider', () => ({
 // Replace Radix Select with a plain <select> so value changes can be driven
 // through ordinary DOM events in jsdom.
 jest.mock('@/components/ui/select', () => {
-  const React = jest.requireActual('react')
+  const React = jest.requireActual<typeof import('react')>('react')
   type SelectNodeProps = { id?: string; value?: string; children?: ReactNode }
   type SelectNode = ReactElement<SelectNodeProps>
   type SelectMockProps = {

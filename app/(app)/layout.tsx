@@ -65,6 +65,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       ref={setScopeNode}
       className="dark bg-ink font-brand flex min-h-dvh flex-col text-white lg:flex-row"
     >
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-brand focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white"
+      >
+        Skip to main content
+      </a>
       {isOffline && (
         <div
           role="status"
@@ -75,7 +81,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       )}
       {!isAdmin && <WalletSidebar />}
-      <main className={isAdmin ? 'min-w-0 flex-1' : 'min-w-0 flex-1 p-4 sm:p-6 lg:p-8'}>
+      <main
+        id="main-content"
+        className={isAdmin ? 'min-w-0 flex-1' : 'min-w-0 flex-1 p-4 sm:p-6 lg:p-8'}
+      >
         <DarkScopeContext.Provider value={scopeNode}>{children}</DarkScopeContext.Provider>
       </main>
       <Toaster position="top-right" richColors theme="dark" />

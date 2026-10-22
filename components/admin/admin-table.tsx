@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
 import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration'
-import { downloadCsv } from '@/lib/csv'
+import { downloadCsv, toCsv } from '@/lib/csv'
 
 interface Column<T> {
   header: string
@@ -61,9 +61,10 @@ export function AdminTable<T>({
   const handleExport = () => {
     const header = columns.map((col) => col.header)
     const body = matches.map((row) =>
-      columns.map((col) => (col.csvValue ? col.csvValue(row) : '')),
+      columns.map((col) => (col.csvValue ? (col.csvValue(row) ?? null) : ''))
     )
-    downloadCsv(exportFilename, [header, ...body])
+    const filename = exportFilename.endsWith('.csv') ? exportFilename : `${exportFilename}.csv`
+    downloadCsv(filename, toCsv(header, body))
   }
 
   if (error) return <ErrorState message={error} onRetry={onRetry} />

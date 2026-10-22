@@ -13,7 +13,13 @@ export const PHONE_COUNTRIES: PhoneCountry[] = [
   { code: 'NG', name: 'Nigeria', dialCode: '234', nationalLengths: [10], example: '0801 234 5678' },
   { code: 'GH', name: 'Ghana', dialCode: '233', nationalLengths: [9], example: '024 123 4567' },
   { code: 'KE', name: 'Kenya', dialCode: '254', nationalLengths: [9], example: '0712 345 678' },
-  { code: 'ZA', name: 'South Africa', dialCode: '27', nationalLengths: [9], example: '082 123 4567' },
+  {
+    code: 'ZA',
+    name: 'South Africa',
+    dialCode: '27',
+    nationalLengths: [9],
+    example: '082 123 4567',
+  },
   { code: 'UG', name: 'Uganda', dialCode: '256', nationalLengths: [9], example: '0712 345 678' },
   { code: 'TZ', name: 'Tanzania', dialCode: '255', nationalLengths: [9], example: '0712 345 678' },
 ]

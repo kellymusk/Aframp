@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import { api, ApiError, type Remittance } from '@/lib/api'
 import RemittancesPage from '../page'
 
@@ -191,8 +191,8 @@ describe('RemittancesPage', () => {
       expect(screen.getByText(/0.1 XLM/)).toBeInTheDocument()
       expect(screen.getByText(/0.2 XLM/)).toBeInTheDocument()
       expect(screen.getByText(/Failure reason: Invalid destination address/)).toBeInTheDocument()
-      expect(screen.getByText('Confirmed')).toBeInTheDocument()
-      expect(screen.getByText('Failed')).toBeInTheDocument()
+      expect(within(screen.getByRole('list')).getByText('Confirmed')).toBeInTheDocument()
+      expect(within(screen.getByRole('list')).getByText('Failed')).toBeInTheDocument()
     })
   })
 
