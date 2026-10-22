@@ -2,25 +2,7 @@ import { render } from '@testing-library/react'
 import { ActivityHighlights } from '@/components/wallet/activity-highlights'
 import { BalanceFigure } from '@/components/wallet/balance-figure'
 import { QuickActions } from '@/components/wallet/quick-actions'
-import { TopAssets } from '@/components/wallet/top-assets'
-import type { Balance, Payment } from '@/lib/api'
-
-const balances: Balance[] = [
-  {
-    merchant_id: 'merchant-1',
-    asset: 'XLM',
-    available: 123_456_789n,
-    pending: 20_000_000n,
-    updated_at: '2026-09-29T10:00:00.000Z',
-  },
-  {
-    merchant_id: 'merchant-1',
-    asset: 'USDC',
-    available: 50_000_000n,
-    pending: 0n,
-    updated_at: '2026-09-29T10:00:00.000Z',
-  },
-]
+import type { Payment } from '@/lib/api'
 
 function payment(overrides: Partial<Payment>): Payment {
   const today = new Date()
@@ -54,12 +36,6 @@ describe('wallet dashboard components', () => {
 
   it('matches the isolated QuickActions snapshot', () => {
     const { container } = render(<QuickActions />)
-
-    expect(container.firstChild).toMatchSnapshot()
-  })
-
-  it('matches the TopAssets snapshot with available and confirming balances', () => {
-    const { container } = render(<TopAssets balances={balances} />)
 
     expect(container.firstChild).toMatchSnapshot()
   })

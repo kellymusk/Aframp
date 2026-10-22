@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import PaymentRequestPage from '../page'
 import { api, ApiError, type PaymentRequest } from '@/lib/api'
 
@@ -121,5 +121,74 @@ describe('PaymentRequestPage polling', () => {
 
     await advance(POLL_INTERVAL_MS * 5)
     expect(mockGetPaymentRequest).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('PaymentRequestPage share link', () => {
+  const writeText = jest.fn()
+  const share = jest.fn()
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+    mockGetPaymentRequest.mockReset().mockResolvedValue(pendingRequest())
+    writeText.mockReset().mockResolvedValue(undefined)
+    share.mockReset().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+  })
+
+  afterEach(() => {
+    delete (navigator as { share?: unknown }).share
+    jest.useRealTimers()
+  })
+
+  async function click(name: RegExp) {
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name }))
+      await Promise.resolve()
+    })
+  }
+
+  it('copies the page URL and resets the label after two seconds', async () => {
+    await renderPage()
+    await click(/copy payment link/i)
+
+    expect(writeText).toHaveBeenCalledWith(window.location.href)
+    expect(screen.getByRole('button', { name: /payment link copied/i })).toBeInTheDocument()
+
+    await advance(2000)
+    expect(screen.getByRole('button', { name: /copy payment link/i })).toBeInTheDocument()
+  })
+
+  it('keeps the copy label when the clipboard is blocked', async () => {
+    writeText.mockRejectedValue(new Error('denied'))
+    await renderPage()
+    await click(/copy payment link/i)
+
+    expect(screen.getByRole('button', { name: /copy payment link/i })).toBeInTheDocument()
+  })
+
+  it('hides Share when the browser has no share sheet', async () => {
+    await renderPage()
+    expect(screen.queryByRole('button', { name: /^share$/i })).not.toBeInTheDocument()
+  })
+
+  it('opens the share sheet with the amount and page URL', async () => {
+    Object.defineProperty(navigator, 'share', { value: share, configurable: true })
+    await renderPage()
+    await click(/^share$/i)
+
+    expect(share).toHaveBeenCalledWith({
+      title: expect.stringContaining('2.5'),
+      url: window.location.href,
+    })
+  })
+
+  it('ignores a dismissed share sheet', async () => {
+    share.mockRejectedValue(new DOMException('cancelled', 'AbortError'))
+    Object.defineProperty(navigator, 'share', { value: share, configurable: true })
+    await renderPage()
+    await click(/^share$/i)
+
+    expect(screen.getByRole('button', { name: /^share$/i })).toBeInTheDocument()
   })
 })

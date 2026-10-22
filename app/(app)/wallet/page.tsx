@@ -6,8 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { BalanceFigure } from '@/components/wallet/balance-figure'
+import { ZarOnramp } from '@/components/onramp/zar-onramp'
 import { api, ApiError, type Balance, type Wallet } from '@/lib/api'
 import { useAuthenticatedSession, useSession } from '@/components/session-provider'
+
+/** Gate the ZAR on-ramp (Ozow flow) behind an env flag so it only renders when enabled. */
+const ZAR_ONRAMP_ENABLED = process.env.NEXT_PUBLIC_ZAR_ONRAMP_ENABLED === 'true'
 
 export default function WalletPage() {
   const { token } = useAuthenticatedSession()
@@ -167,6 +171,13 @@ export default function WalletPage() {
             </Button>
           </section>
         ) : null}
+
+        {wallet && ZAR_ONRAMP_ENABLED && (
+          <section aria-label="Add funds" className="space-y-3">
+            <h2 className="text-dim text-xs font-bold tracking-widest uppercase">Add funds</h2>
+            <ZarOnramp token={token} />
+          </section>
+        )}
       </div>
     </div>
   )

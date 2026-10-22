@@ -60,6 +60,7 @@ export function WalletSidebar() {
       links={links}
       badge={
         <div
+          role="img"
           className={cn('size-2.5 rounded-full', statusColor)}
           title={`Stellar Network: ${stellarDescription}`}
           aria-label={`Stellar Network status: ${stellarDescription}`}
