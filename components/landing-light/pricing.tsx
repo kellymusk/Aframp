@@ -40,7 +40,7 @@ export function Pricing() {
             id="pricing-country"
             value={country}
             onChange={(e) => setCountry(e.target.value as CountryCode)}
-            className="border-black/10 dark:border-edge text-charcoal dark:text-white bg-white dark:bg-surface rounded-lg border px-3 py-2 text-sm outline-none"
+            className="border-black/10 dark:border-edge text-charcoal dark:text-white bg-white dark:bg-surface rounded-lg border px-3 py-2 text-sm outline-none focus-visible:ring-brand focus-visible:ring-2 focus-visible:ring-offset-1"
           >
             {countryPricing.map(({ code, name }) => (
               <option key={code} value={code}>

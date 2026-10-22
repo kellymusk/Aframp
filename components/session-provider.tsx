@@ -52,15 +52,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setSession(toSession(await api.signup(email, password, name)))
   }, [])
 
-  const signOut = useCallback(async () => {
-    try {
-      await api.logout()
-    } catch {
-      // Logout failed, but clear session anyway
-    }
-    setSession(null)
-  }, [])
-
   const signInWithFreighter = useCallback(async () => {
     const address = await connectFreighter()
     const challenge = await api.getStellarChallenge(address)
@@ -69,6 +60,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       challenge.network_passphrase
     )
     setSession(toSession(await api.verifyStellarChallenge(signedTransaction)))
+  }, [])
+
+  const signOut = useCallback(() => {
+    void api.logout().catch(() => {
+      // Logout failed, but clear session anyway
+    })
+    setSession(null)
   }, [])
 
   // Tokens expire after 24h with no refresh path, so drop the session on any
