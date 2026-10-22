@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/kellymusk/Aframp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kellymusk/Aframp/actions/workflows/ci.yml)
 [![Uptime](https://github.com/kellymusk/Aframp/actions/workflows/uptime-monitor.yml/badge.svg?branch=main)](https://github.com/kellymusk/Aframp/actions/workflows/uptime-monitor.yml)
-[![codecov](https://img.shields.io/badge/coverage-70%25-brightgreen)](https://codecov.io/gh/kellymusk/Aframp)
+[![Coverage](https://codecov.io/gh/kellymusk/Aframp/branch/main/graph/badge.svg)](https://codecov.io/gh/kellymusk/Aframp)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/typescript-5.0-blue)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/next.js-16.1-black)](https://nextjs.org/)
