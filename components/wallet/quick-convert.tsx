@@ -1,10 +1,15 @@
+import { memo } from 'react'
 import Link from 'next/link'
 import { ArrowRight, Clock } from 'lucide-react'
 
 import type { PaymentRequest } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
 
-export function QuickConvert({ openRequests }: { openRequests: PaymentRequest[] }) {
+export const QuickConvert = memo(function QuickConvert({
+  openRequests,
+}: {
+  openRequests: PaymentRequest[]
+}) {
   return (
     <section className="bg-panel border-hairline rounded-2xl border p-5">
       <div className="flex items-start justify-between">
@@ -44,4 +49,4 @@ export function QuickConvert({ openRequests }: { openRequests: PaymentRequest[] 
       </Link>
     </section>
   )
-}
+})
