@@ -62,10 +62,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setSession(toSession(await api.verifyStellarChallenge(signedTransaction)))
   }, [])
 
-  const signOut = useCallback(() => {
-    void api.logout().catch(() => {
+  const signOut = useCallback(async () => {
+    try {
+      await api.logout()
+    } catch {
       // Logout failed, but clear session anyway
-    })
+    }
     setSession(null)
   }, [])
 

@@ -23,7 +23,9 @@ describe('SendPageClient', () => {
     render(<SendPageClient />)
 
     fireEvent.change(screen.getByPlaceholderText('G... or @username'), {
-      target: { value: 'GABCDEF123' },
+      // A real, checksum-valid address — #483 now validates StrKey, and this
+      // test only cares about layout, not address handling.
+      target: { value: 'GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H' },
     })
     fireEvent.click(screen.getByRole('button', { name: /continue/i }))
 
