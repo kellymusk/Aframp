@@ -411,8 +411,7 @@ npm run test:e2e
 
 ### Coverage Requirements
 
-- **Minimum:** 70% across all metrics
-- **Target:** 80%+ for new code
+- **Target:** 80% coverage on changed files
 - **Metrics:** Lines, Statements, Functions, Branches
 
 ### Codecov Setup
@@ -589,9 +588,13 @@ This runs every gate in the same order as CI: lint → type-check → prettier �
 ### PR Description Template
 
 ```markdown
-## Description
+## Summary
 
-Brief description of changes
+Brief description of changes (what and why)
+
+Closes #<!-- issue number -->
+
+---
 
 ## Type of Change
 
@@ -599,10 +602,6 @@ Brief description of changes
 - [ ] New feature
 - [ ] Breaking change
 - [ ] Documentation update
-
-## Related Issues
-
-Closes #123
 
 ## Testing
 

@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { WalletSidebar } from '@/components/wallet/wallet-sidebar'
+import { Toaster } from 'sonner'
 import { useSession } from '@/components/session-provider'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { DarkScopeContext } from '@/components/dark-scope'
+import { usePaymentPoller } from '@/hooks/use-payment-poller'
 
 // Only allow same-origin relative paths; reject absolute URLs, protocol-relative
 // (//evil.com), and backslash tricks (\\evil.com) to prevent open redirects.
@@ -25,6 +27,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [scopeNode, setScopeNode] = useState<HTMLDivElement | null>(null)
   const redirectRef = useRef(false)
   const [isOffline, setIsOffline] = useState(false)
+
+  // Enable automatic 30s polling for confirmed payment notifications
+  usePaymentPoller()
 
   useEffect(() => {
     if (!ready || session || redirectRef.current) return
@@ -73,6 +78,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <main className={isAdmin ? 'min-w-0 flex-1' : 'min-w-0 flex-1 p-4 sm:p-6 lg:p-8'}>
         <DarkScopeContext.Provider value={scopeNode}>{children}</DarkScopeContext.Provider>
       </main>
+      <Toaster position="top-right" richColors theme="dark" />
     </div>
   )
 }

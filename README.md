@@ -5,7 +5,7 @@
 [![Coverage](https://codecov.io/gh/kellymusk/Aframp/branch/main/graph/badge.svg)](https://codecov.io/gh/kellymusk/Aframp)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/typescript-5.0-blue)](https://www.typescriptlang.org/)
-[![Next.js](https://img.shields.io/badge/next.js-16.1-black)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/next.js-15.3-black)](https://nextjs.org/)
 
 ## Don't Trust, Verify
 
@@ -28,16 +28,12 @@ The AFRAMP frontend repository is organized for clarity and scalability:
 ```
 Aframp/
 ├── public/                 # Static assets
-├── src/
-│   ├── assets/            # Images, fonts, icons
-│   ├── components/        # Reusable UI components (Buttons, Modals, etc.)
-│   ├── contexts/          # React contexts (Auth, Wallet, Theme)
-│   ├── hooks/             # Custom React hooks
-│   ├── pages/             # Top-level page components (Dashboard, Onramp, Bills)
-│   ├── services/          # API and blockchain service integrations
-│   ├── styles/            # Global and module CSS/Tailwind config
-│   ├── utils/             # Helper functions and constants
-│   └── App.js             # Main application component
+├── app/                    # Next.js App Router
+│   ├── (app)/            # Authenticated routes
+│   ├── layout.tsx        # Root layout
+│   └── page.tsx          # Auth/login page
+├── components/             # Reusable UI components
+├── lib/                    # Utilities, API client, types
 ├── .env.example           # Environment variables template
 ├── package.json
 └── README.md
@@ -115,7 +111,7 @@ Access the app at `http://localhost:3001` ✅ (the frontend is mapped to 3001 so
 
 #### Option 2: Node.js
 
-**Prerequisites:** Node.js v18+ & npm
+**Prerequisites:** Node.js v20+ & npm
 
 ```bash
 # Clone and install
@@ -134,38 +130,27 @@ Access the app at `http://localhost:3001` ✅ (run on 3001 so the backend's defa
 
 ## 🔧 Environment Variables
 
-Copy `.env.example` to `.env.local` and configure the following:
+Copy `.env.example` to `.env.local` and configure the following. This table
+is generated from `.env.example` — run `npm run docs:env` after editing that
+file to regenerate it, rather than hand-editing the table below; CI fails if
+the two ever drift apart.
 
-### Required Variables
+<!-- ENV_VARS_TABLE:START -->
 
-| Variable                  | Description                                                   | Example      |
-| ------------------------- | ------------------------------------------------------------- | ------------ |
-| `NEXT_PUBLIC_DEMO_MODE`   | Enable mock wallet for testing (set to `false` in production) | `false`      |
-| `NEXT_PUBLIC_CNGN_ISSUER` | Stellar CNGN token issuer address                             | `GXXXXXX...` |
+| Variable | Type | Required | Default | Example |
+| --- | --- | --- | --- | --- |
+| `NEXT_PUBLIC_API_URL` | string (URL) | Yes | — | `http://127.0.0.1:3000` |
+| `NEXT_PUBLIC_STELLAR_NETWORK` | string (enum: testnet | public) | No | `testnet` | `testnet` |
+| `NEXT_PUBLIC_SENTRY_DSN` | string (Sentry DSN URL) | No | `(unset — client-side error reporting disabled)` | `https://examplePublicKey@o0.ingest.sentry.io/0` |
+| `SENTRY_DSN` | string (Sentry DSN URL) | No | `(falls back to NEXT_PUBLIC_SENTRY_DSN, then disabled)` | `https://examplePrivateKey@o0.ingest.sentry.io/1` |
+| `SENTRY_AUTH_TOKEN` | string (Sentry auth token) | No | `(unset — source map upload skipped)` | `sntrys_eyJpYXQiOjE3MDAwMDAwMDAuMCwidXJsIjoiaHR0cHM6Ly9zZW50cnkuaW8ifQ==` |
+| `SENTRY_ORG` | string | No | `(unset — source map upload skipped)` | `aframp` |
+| `SENTRY_PROJECT` | string | No | `(unset — source map upload skipped)` | `aframp-pay` |
+| `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY` | string (Paystack public key) | No | `(unset — Paystack hidden from the onramp provider selector)` | `pk_test_examplekey1234567890` |
+| `NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY` | string (Flutterwave public key) | No | `(unset — Flutterwave hidden from the onramp provider selector)` | `FLWPUBK_TEST-1234567890abcdef1234567890abcdef-X` |
+| `NEXT_PUBLIC_CNGN_ISSUER` | string (Stellar account address, G...) | No | `(unset — cNGN charges disabled, shown as "Coming soon")` | `GCNGNEXAMPLE234567890234567890234567890234567890234` |
 
-### Payment Gateway Configuration
-
-| Variable                             | Description                          | Required For        |
-| ------------------------------------ | ------------------------------------ | ------------------- |
-| `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY`    | Paystack public key                  | Card payments       |
-| `PAYSTACK_SECRET_KEY`                | Paystack secret key (server-side)    | Payment processing  |
-| `NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY` | Flutterwave public key               | Mobile money        |
-| `FLUTTERWAVE_SECRET_KEY`             | Flutterwave secret key (server-side) | Payment processing  |
-| `FLUTTERWAVE_ENCRYPTION_KEY`         | Flutterwave encryption key           | Secure transactions |
-
-### Optional Variables
-
-| Variable                   | Description                              | Default |
-| -------------------------- | ---------------------------------------- | ------- |
-| `NEXT_PUBLIC_BILLS_WS_URL` | WebSocket URL for real-time bill updates | N/A     |
-
-### Getting API Keys
-
-- **Paystack**: Sign up at [paystack.com](https://paystack.com) → Settings → API Keys
-- **Flutterwave**: Sign up at [flutterwave.com](https://flutterwave.com) → Settings → API
-- **Stellar Issuer**: Use testnet issuer for development or contact AFRAMP team for production issuer
-
----
+<!-- ENV_VARS_TABLE:END -->
 
 ## 🐳 Docker Deployment
 
@@ -197,7 +182,7 @@ docker-compose down
 docker build -t aframp:latest .
 
 # Run production container
-docker run -p 3000:3000 --env-file .env.local aframp:latest
+docker run -p 3001:3001 --env-file .env.local aframp:latest
 
 # Or use docker-compose
 docker-compose -f docker-compose.prod.yml up -d

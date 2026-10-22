@@ -20,10 +20,15 @@ export interface KycSubmission {
   verificationNotes?: string
 }
 
+/** Which identity document the user is submitting — drives which field the KYC form shows. */
+export type KycDocumentType = 'bvn' | 'nin' | 'passport'
+
 export interface KycInitiateRequest {
   idFront: string // base64
   idBack: string // base64
   selfie: string // base64
+  documentType: KycDocumentType
+  documentNumber: string
 }
 
 export interface KycInitiateResponse {
