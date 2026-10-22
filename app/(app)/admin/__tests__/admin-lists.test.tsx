@@ -259,6 +259,31 @@ describe.each(cases)('admin $name page', ({ Page, load, rows, shows, search, emp
   })
 })
 
+describe('admin transactions explorer links', () => {
+  const txRow = {
+    ...base,
+    id: 't1',
+    merchant_id: 'm1',
+    merchant_name: 'Okafor Textiles',
+    wallet_address: ADDRESS,
+    tx_hash: 'a'.repeat(64),
+    amount_stroops: 250_000_000n,
+    asset: 'cNGN',
+    network: 'stellar',
+    status: 'detected',
+    confirmations: 0,
+  }
+
+  it('links transaction hashes to the configured network explorer', async () => {
+    ;(api.adminTransactions as jest.Mock).mockResolvedValue([txRow])
+    render(<AdminTransactionsPage />)
+
+    const link = await screen.findByRole('link', { name: txRow.tx_hash })
+    expect(link).toHaveAttribute('href', expect.stringContaining('/explorer/'))
+    expect(link.getAttribute('href')).not.toMatch(/\/explorer\/testnet\//)
+  })
+})
+
 describe('admin overview page', () => {
   const overview = {
     total_users: 1284,
