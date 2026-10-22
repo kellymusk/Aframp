@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import QRCode from 'react-qr-code'
-import { Check, Clock, Copy, TriangleAlert } from 'lucide-react'
+import { Check, Clock, Copy, Share2, TriangleAlert } from 'lucide-react'
 import { AframpMark } from '@/components/brand/aframp-mark'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -72,6 +72,70 @@ function CopyField({ label, value }: { label: string; value: string }) {
         </Button>
       </dd>
     </>
+  )
+}
+
+/** Lets the merchant hand the page to a customer on another device. */
+function ShareLink({ amount }: { amount: string }) {
+  const [copied, setCopied] = useState(false)
+  const [canShare, setCanShare] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // navigator.share only exists in the browser, so check after mount.
+  useEffect(() => {
+    setCanShare(typeof navigator.share === 'function')
+    return () => {
+      if (timer.current) clearTimeout(timer.current)
+    }
+  }, [])
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setCopied(true)
+      if (timer.current) clearTimeout(timer.current)
+      timer.current = setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard blocked (e.g. insecure context): the URL is still in the address bar.
+    }
+  }
+
+  const share = async () => {
+    try {
+      await navigator.share({ title: `Pay ${amount}`, url: window.location.href })
+    } catch {
+      // The customer dismissed the share sheet, or sharing isn't allowed here.
+    }
+  }
+
+  return (
+    <div className="flex gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        className="flex-1 gap-1.5"
+        onClick={() => void copy()}
+        aria-label={copied ? 'Payment link copied' : 'Copy payment link'}
+      >
+        {copied ? (
+          <Check className="size-4" aria-hidden />
+        ) : (
+          <Copy className="size-4" aria-hidden />
+        )}
+        {copied ? 'Copied' : 'Copy payment link'}
+      </Button>
+      {canShare && (
+        <Button
+          type="button"
+          variant="outline"
+          className="flex-1 gap-1.5"
+          onClick={() => void share()}
+        >
+          <Share2 className="size-4" aria-hidden />
+          Share
+        </Button>
+      )}
+    </div>
   )
 }
 
@@ -282,6 +346,8 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
       <p className="text-muted-foreground -mt-3 text-center text-xs">
         The reference must be included exactly, or the payment can&apos;t be matched to this charge.
       </p>
+
+      <ShareLink amount={amount} />
 
       <p
         className="flex items-center justify-center gap-2 text-sm text-foreground"

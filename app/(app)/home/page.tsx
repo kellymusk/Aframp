@@ -129,6 +129,15 @@ export default function HomePage() {
       <div className="mt-5">
         <RevenueChart payments={payments} />
       </div>
+
+      <div className="mt-5 flex justify-end">
+        <Link
+          href="/transactions"
+          className="text-dim hover:text-foreground flex items-center gap-1 text-sm font-medium transition-colors"
+        >
+          View all <ArrowRight className="size-4" strokeWidth={2.5} />
+        </Link>
+      </div>
     </div>
   )
 }

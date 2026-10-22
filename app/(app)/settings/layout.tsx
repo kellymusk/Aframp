@@ -22,7 +22,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <aside className="shrink-0 lg:w-48">
-          <nav className="space-y-1">
+          <nav aria-label="Settings" className="space-y-1">
             {SETTINGS_LINKS.map(({ label, icon: Icon, href }) => {
               const active = pathname === href || pathname.startsWith(`${href}/`)
               return (
@@ -45,7 +45,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           </nav>
         </aside>
 
-        <main className="min-w-0 flex-1">{children}</main>
+        <div className="min-w-0 flex-1">{children}</div>
       </div>
     </div>
   )

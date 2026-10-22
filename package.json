@@ -21,7 +21,8 @@
     "lighthouse": "lhci autorun",
     "security:audit": "npm audit --audit-level=high",
     "security:owasp": "bash scripts/owasp-scan.sh",
-    "security:all": "npm run security:audit && npm run security:owasp"
+    "security:all": "npm run security:audit && npm run security:owasp",
+    "lint:deadcode": "knip"
   },
   "engines": {
     "node": "22.x"
@@ -57,6 +58,7 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
     "@commitlint/cli": "^21.2.1",
     "@commitlint/config-conventional": "^20.3.1",
     "@eslint/eslintrc": "^3.3.3",
@@ -83,6 +85,7 @@
     "jest": "^29.7.0",
     "jest-axe": "^11.0.0",
     "jest-environment-jsdom": "^30.4.1",
+    "knip": "^6.42.1",
     "postcss": "^8.5",
     "prettier": "^3.9.4",
     "tailwindcss": "^4.1.9",

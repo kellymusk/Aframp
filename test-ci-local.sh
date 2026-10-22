@@ -84,8 +84,48 @@ else
 fi
 echo ""
 
-# 3. Build
-echo -e "${BLUE}🏗️  Step 3: Production Build${NC}"
+# 3. Diff Coverage (80% on changed files)
+echo -e "${BLUE}🔍 Step 3: Diff Coverage (80% on changed files)${NC}"
+echo "--------------------------------------------"
+echo "Checking coverage on files changed since origin/main..."
+# coverage/coverage-summary.json was written by the previous step.
+if node scripts/check-diff-coverage.js; then
+    echo -e "${GREEN}✅${NC} Diff coverage passed"
+else
+    echo -e "${RED}❌${NC} Diff coverage failed — add tests for the files listed above"
+    exit 1
+fi
+echo ""
+
+# 4. E2E (Playwright)
+echo -e "${BLUE}🎭 Step 4: E2E Tests (Playwright)${NC}"
+echo "--------------------------------------------"
+
+# Verify the Chromium binary is present; guide the contributor if it isn't.
+if ! npx playwright --version > /dev/null 2>&1 || \
+   ! npx playwright install --dry-run chromium 2>&1 | grep -q "already installed"; then
+    echo -e "${YELLOW}⚠️  Playwright Chromium browser not found.${NC}"
+    echo "Run the following once to install it:"
+    echo "  npx playwright install --with-deps chromium"
+    echo ""
+    echo "Skipping E2E tests. Re-run this script after installing the browser."
+    E2E_SKIPPED=true
+fi
+
+if [ -z "$E2E_SKIPPED" ]; then
+    echo "Running Playwright E2E tests..."
+    if npm run test:e2e; then
+        echo -e "${GREEN}✅${NC} E2E tests passed"
+    else
+        echo -e "${RED}❌${NC} E2E tests failed"
+        echo "Run 'npx playwright show-report' for a detailed HTML report."
+        exit 1
+    fi
+fi
+echo ""
+
+# 5. Build
+echo -e "${BLUE}🏗️  Step 5: Production Build${NC}"
 echo "--------------------------------------------"
 
 echo "Building production bundle..."
@@ -104,13 +144,40 @@ else
 fi
 echo ""
 
+# 6. Bundle Budget (40 KB per route, gzipped)
+echo -e "${BLUE}📦 Step 6: Bundle Budget (40 KB per route)${NC}"
+echo "--------------------------------------------"
+echo "Checking route-specific JS bundle sizes..."
+# .next/ was written by the previous step.
+if node scripts/check-bundle-budget.mjs; then
+    echo -e "${GREEN}✅${NC} Bundle budget passed"
+else
+    echo -e "${RED}❌${NC} Bundle budget exceeded — see output above for the offending route(s)"
+    echo ""
+    echo "Tips:"
+    echo "  • Move large imports behind 'next/dynamic' to code-split them out of the route."
+    echo "  • Run 'npm run build:analyze' and open .next/analyze/ to find large dependencies."
+    exit 1
+fi
+echo ""
+
 # Summary
 echo "======================================"
-echo -e "${GREEN}✅ All CI checks passed!${NC}"
+if [ -n "$E2E_SKIPPED" ]; then
+    echo -e "${YELLOW}⚠️  Almost ready to push — E2E tests were skipped.${NC}"
+    echo "Install the Playwright browser and re-run:"
+    echo "  npx playwright install --with-deps chromium"
+    echo "  ./test-ci-local.sh"
+else
+    echo -e "${GREEN}✅ All CI checks passed!${NC}"
+fi
 echo "======================================"
 echo ""
-echo "Ready to push. The following will run on GitHub:"
-echo "  1. Code Quality (ESLint, Prettier, TypeScript)"
-echo "  2. Tests & Coverage (Jest with Codecov upload)"
-echo "  3. Production Build"
+echo "The following jobs will run on GitHub Actions:"
+echo "  1. Code Quality   — ESLint, Prettier, TypeScript"
+echo "  2. Tests          — Jest + coverage report + Codecov upload"
+echo "  3. Diff Coverage  — 80% statement/line on changed files (PR only)"
+echo "  4. E2E            — Playwright Chromium suite"
+echo "  5. Build          — Next.js production build"
+echo "  6. Bundle Budget  — 40 KB gzipped per route"
 echo ""

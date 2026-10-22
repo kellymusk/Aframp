@@ -45,23 +45,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (gate.status === 'loading') {
     return (
-      <main className="dark bg-ink flex min-h-dvh items-center justify-center">
+      <div className="dark bg-ink flex min-h-dvh items-center justify-center">
         <LoadingSpinner />
-      </main>
+      </div>
     )
   }
 
   if (gate.status === 'error') {
     return (
-      <main className="dark bg-ink flex min-h-dvh items-center justify-center p-6">
+      <div className="dark bg-ink flex min-h-dvh items-center justify-center p-6">
         <ErrorState message={gate.message} onRetry={() => setGate({ status: 'loading' })} />
-      </main>
+      </div>
     )
   }
 
   if (!me?.is_admin) {
     return (
-      <main className="dark bg-ink font-brand flex min-h-dvh flex-col items-center justify-center gap-3 p-6 text-center text-white">
+      <div className="dark bg-ink font-brand flex min-h-dvh flex-col items-center justify-center gap-3 p-6 text-center text-white">
         <h1 className="text-xl font-bold">Admin access required</h1>
         <p className="text-dim max-w-sm text-sm">
           This account doesn&apos;t have admin privileges. If you believe this is a mistake, contact
@@ -73,14 +73,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         >
           Back to your dashboard
         </Link>
-      </main>
+      </div>
     )
   }
 
   return (
     <div className="dark bg-ink font-brand flex min-h-dvh flex-col text-white lg:flex-row">
       <AdminSidebar />
-      <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+      <div className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">{children}</div>
     </div>
   )
 }

@@ -58,7 +58,7 @@ export function NavShell({ subtitle, links, badge, footer }: NavShellProps) {
       </div>
       <p className="text-dim mt-1.5 px-1 text-xs">{subtitle}</p>
 
-      <nav className="mt-8 space-y-1">
+      <nav aria-label="Main" className="mt-8 space-y-1">
         {links.map((link) => {
           const active = isActive(pathname, link)
           const Icon = link.icon
@@ -115,7 +115,10 @@ export function NavShell({ subtitle, links, badge, footer }: NavShellProps) {
             className="absolute inset-0 bg-black/60"
             onClick={() => setOpen(false)}
           />
-          <aside className="bg-rail border-hairline absolute inset-y-0 left-0 flex w-[280px] max-w-[85vw] flex-col overflow-y-auto border-r p-4 pb-6">
+          <aside
+            aria-label="Main"
+            className="bg-rail border-hairline absolute inset-y-0 left-0 flex w-[280px] max-w-[85vw] flex-col overflow-y-auto border-r p-4 pb-6"
+          >
             <button
               type="button"
               onClick={() => setOpen(false)}
@@ -129,7 +132,10 @@ export function NavShell({ subtitle, links, badge, footer }: NavShellProps) {
         </div>
       )}
 
-      <aside className="bg-rail border-hairline sticky top-0 hidden h-dvh w-[260px] shrink-0 flex-col overflow-y-auto border-r p-4 pb-6 lg:flex">
+      <aside
+        aria-label="Main"
+        className="bg-rail border-hairline sticky top-0 hidden h-dvh w-[260px] shrink-0 flex-col overflow-y-auto border-r p-4 pb-6 lg:flex"
+      >
         {!open && content}
       </aside>
     </>
