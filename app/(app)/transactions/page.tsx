@@ -20,6 +20,7 @@ import { ErrorState } from '@/components/ui/error-state'
 import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration'
 import { api, ApiError, type Payment, type PaymentStatus, type Refund } from '@/lib/api'
 import { formatStroops, parseAmountToStroops } from '@/lib/money'
+import { exportPaymentsToCSV } from '@/lib/export'
 import {
   filterPaymentsByDateRange,
   filterPaymentsByStatus,
