@@ -27,3 +27,29 @@ export const api = {
   ...remittanceApi,
   ...adminApi,
 }
+
+/**
+ * Await a promise but never block longer than `timeoutMs`.
+ *
+ * Resolves (never rejects) once the promise settles or the timeout elapses,
+ * whichever comes first. Used by sign-out so a hanging logout request cannot
+ * keep the local session alive indefinitely.
+ */
+export function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+): Promise<T | undefined> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(undefined), timeoutMs)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      () => {
+        clearTimeout(timer)
+        resolve(undefined)
+      },
+    )
+  })
+}

@@ -1,6 +1,37 @@
 import { withSentryConfig } from '@sentry/nextjs'
 import withBundleAnalyzer from '@next/bundle-analyzer'
 
+/**
+ * Validate NEXT_API_URL at startup.
+ *
+ * The rewrite below forwards every `/backend/*` request to this host, so an
+ * attacker-controlled value would turn the proxy into an SSRF vector and leak
+ * auth tokens. We therefore require an absolute http(s) URL and refuse to
+ * start otherwise.
+ *
+ * @param {string | undefined} raw
+ * @returns {string} normalized backend URL without a trailing slash
+ */
+export function resolveBackendUrl(raw) {
+  const value = raw ?? 'http://127.0.0.1:3000'
+  let parsed
+  try {
+    parsed = new URL(value)
+  } catch {
+    throw new Error(
+      `Invalid NEXT_API_URL: "${value}" is not an absolute URL. ` +
+        'Expected format: http(s)://host[:port] (e.g. https://api.example.com).',
+    )
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(
+      `Invalid NEXT_API_URL: "${value}" must use http or https, got "${parsed.protocol}". ` +
+        'Expected format: http(s)://host[:port] (e.g. https://api.example.com).',
+    )
+  }
+  return value.replace(/\/$/, '')
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
@@ -28,7 +59,7 @@ const nextConfig = {
   // can't leak via devtools, a bundle diff, or CSP `connect-src`.
   // See docs/adr-001-backend-proxy.md for the rationale and consequences.
   rewrites() {
-    const backendUrl = (process.env.NEXT_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
+    const backendUrl = resolveBackendUrl(process.env.NEXT_API_URL)
     return [
       {
         source: '/backend/:path*',
