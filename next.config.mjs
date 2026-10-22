@@ -13,7 +13,8 @@ import withBundleAnalyzer from '@next/bundle-analyzer'
  * @returns {string} normalized backend URL without a trailing slash
  */
 export function resolveBackendUrl(raw) {
-  const value = raw ?? 'http://127.0.0.1:3000'
+  // An empty value (e.g. an unset CI secret, which arrives as "") means unset.
+  const value = raw?.trim() || 'http://127.0.0.1:3000'
   let parsed
   try {
     parsed = new URL(value)
