@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  globalSetup: './e2e/global-setup.ts',
   reporter: 'list',
   // The suite runs against `next dev`, which compiles each route on first
   // visit (several seconds per page on a cold CI runner).
