@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { WifiOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,9 +16,24 @@ import { AuthHeader } from '@/components/brand/auth-header'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// #868: only allow same-origin relative paths as post-login destinations.
+// Reject absolute URLs, protocol-relative (//), backslash tricks, and
+// anything that could escape the origin.
+function safeNextPath(raw: string | null): string {
+  if (!raw) return '/home'
+  if (!raw.startsWith('/')) return '/home'
+  if (raw.startsWith('//') || raw.startsWith('/\\')) return '/home'
+  if (raw.includes('\\')) return '/home'
+  // Reject control characters and whitespace that could smuggle a scheme.
+  if (/[\u0000-\u001f\s]/.test(raw)) return '/home'
+  return raw
+}
+
 export default function LoginPage() {
   const { session, ready, signIn } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const nextPath = safeNextPath(searchParams.get('next'))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -29,8 +44,8 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    if (ready && session) router.replace('/home')
-  }, [ready, session, router])
+    if (ready && session) router.replace(nextPath)
+  }, [ready, session, router, nextPath])
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -60,7 +75,7 @@ export default function LoginPage() {
         sessionStorage.setItem(CHALLENGE_SESSION_KEY, result.challenge_id)
         router.push('/verify?flow=login')
       } else {
-        router.replace('/home')
+        router.replace(nextPath)
       }
     } catch (cause) {
       // #637: handle 429 rate-limit separately with clear guidance

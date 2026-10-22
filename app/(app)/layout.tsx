@@ -7,6 +7,15 @@ import { useSession } from '@/components/session-provider'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { DarkScopeContext } from '@/components/dark-scope'
 
+// Only allow same-origin relative paths; reject absolute URLs, protocol-relative
+// (//evil.com), and backslash tricks (\\evil.com) to prevent open redirects.
+function safeNextPath(pathname: string | null): string | null {
+  if (!pathname) return null
+  if (!pathname.startsWith('/')) return null
+  if (pathname.startsWith('//') || pathname.startsWith('/\\')) return null
+  return pathname
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, ready } = useSession()
   const router = useRouter()
@@ -20,8 +29,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready || session || redirectRef.current) return
     redirectRef.current = true
-    router.replace('/login')
-  }, [ready, session, router])
+    const next = safeNextPath(pathname)
+    router.replace(next ? `/login?next=${encodeURIComponent(next)}` : '/login')
+  }, [ready, session, router, pathname])
 
   // Global connectivity banner: initialize from navigator.onLine and track events.
   useEffect(() => {
