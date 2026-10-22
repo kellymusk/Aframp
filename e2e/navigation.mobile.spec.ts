@@ -43,7 +43,9 @@ test.beforeEach(async ({ page }) => {
 test('the sidebar is collapsed behind a menu button on a phone', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible()
   // The desktop sidebar is hidden, so its links are not on screen yet.
-  await expect(page.getByRole('link', { name: 'Cash out' })).toBeHidden()
+  await expect(
+    page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Cash out' })
+  ).toBeHidden()
   await expectNoHorizontalScroll(page)
 })
 

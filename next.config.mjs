@@ -34,6 +34,10 @@ export function resolveBackendUrl(raw) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Next 16 blocks cross-origin requests to dev-only resources (HMR, dev
+  // chunks). The E2E suite browses http://127.0.0.1:3001, so allow it; this has
+  // no effect on production builds.
+  allowedDevOrigins: ['127.0.0.1'],
   experimental: {
     // Limit concurrency only in resource-constrained CI environments.
     // Set CI_LOW_RESOURCES=1 in your CI pipeline to enable these caps;
