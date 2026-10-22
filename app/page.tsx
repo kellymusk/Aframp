@@ -44,7 +44,6 @@ export default function Home() {
         <UseCases />
         <HowItWorks />
         <Features />
-        <UseCases />
         <Pricing />
         <Trust />
         <Faq />

@@ -129,14 +129,14 @@ export const trust = {
       blurb:
         'We maintain a public security policy and a private channel for reporting vulnerabilities. We have not yet commissioned a third-party audit — this is our current process, not a certification.',
       linkLabel: 'Read our security policy',
-      href: 'https://github.com/aframp/aframp/blob/main/SECURITY.md',
+      href: 'https://github.com/kellymusk/Aframp/blob/main/SECURITY.md',
     },
     {
       title: 'Open Source',
       blurb:
         'The code behind this site and our platform is public on GitHub — you can read it, not just trust it.',
       linkLabel: 'View source on GitHub',
-      href: 'https://github.com/aframp/aframp',
+      href: 'https://github.com/kellymusk/Aframp',
     },
   ],
 }
