@@ -5,7 +5,7 @@ function loadWith(network: string | undefined) {
   else process.env.NEXT_PUBLIC_STELLAR_NETWORK = network
   let mod: typeof import('../config/network') | undefined
   jest.isolateModules(() => {
-    mod = jest.requireActual('../config/network')
+    mod = jest.requireActual<typeof import('../config/network')>('../config/network')
   })
   if (previous === undefined) delete process.env.NEXT_PUBLIC_STELLAR_NETWORK
   else process.env.NEXT_PUBLIC_STELLAR_NETWORK = previous
