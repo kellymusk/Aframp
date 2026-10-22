@@ -83,14 +83,27 @@ export interface Withdrawal {
   updated_at: string
 }
 
+/** What an API key may do: read data, take charges, or cash out. */
+export type ApiKeyScope = 'read' | 'charges' | 'payouts'
+
 export interface ApiKey {
   id: UUID
   merchant_id: UUID
   name: string
   key_preview: string // e.g. "ak_live_••••••••••••••••"
+  /** Empty or missing on keys created before scopes existed — those have full access. */
+  scopes?: ApiKeyScope[]
+  /** null when the key never expires. */
+  expires_at?: string | null
   created_at: string
   last_used_at: string | null
   revoked_at: string | null
+}
+
+export interface CreateApiKeyOptions {
+  scopes?: ApiKeyScope[]
+  /** ISO timestamp; omit or null for a key that never expires. */
+  expiresAt?: string | null
 }
 
 export function createWallet(token: string, signal?: AbortSignal): Promise<Wallet> {
@@ -200,12 +213,17 @@ export function listApiKeys(token: string, signal?: AbortSignal): Promise<ApiKey
 
 export function createApiKey(
   token: string,
-  name: string
+  name: string,
+  { scopes, expiresAt }: CreateApiKeyOptions = {}
 ): Promise<{ api_key: ApiKey; full_key: string }> {
   return request<{ api_key: ApiKey; full_key: string }>('/api-keys', {
     method: 'POST',
     token,
-    body: { name },
+    body: {
+      name,
+      ...(scopes ? { scopes } : {}),
+      ...(expiresAt ? { expires_at: expiresAt } : {}),
+    },
   })
 }
 

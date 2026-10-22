@@ -20,8 +20,15 @@ import {
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
 import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration'
-import { api, ApiError, type ApiKey } from '@/lib/api'
+import { api, ApiError, type ApiKey, type ApiKeyScope } from '@/lib/api'
 import { formatLastUsedAt, isApiKeyUsageStale } from '@/lib/api-key-usage'
+import {
+  API_KEY_EXPIRY_OPTIONS,
+  API_KEY_SCOPES,
+  describeScopes,
+  expiryFromOption,
+  isApiKeyExpired,
+} from '@/lib/api-key-scopes'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { formatDateTime } from '@/lib/format-date'
 
@@ -33,6 +40,9 @@ export default function ApiKeysPage() {
   const [creating, setCreating] = useState(false)
   const [revokingId, setRevokingId] = useState<string | null>(null)
   const [newKeyName, setNewKeyName] = useState('')
+  // Least privilege by default: a new key can only read until more is ticked.
+  const [newKeyScopes, setNewKeyScopes] = useState<ApiKeyScope[]>(['read'])
+  const [newKeyExpiry, setNewKeyExpiry] = useState('90')
   const [newKeyResult, setNewKeyResult] = useState<{ apiKey: ApiKey; fullKey: string } | null>(null)
   const [copied, setCopied] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -68,14 +78,19 @@ export default function ApiKeysPage() {
   async function createKey(event: React.FormEvent) {
     event.preventDefault()
     const name = newKeyName.trim()
-    if (!name) return
+    if (!name || newKeyScopes.length === 0) return
 
     setCreating(true)
     setError(null)
     try {
-      const result = await api.createApiKey(token, name)
+      const result = await api.createApiKey(token, name, {
+        scopes: newKeyScopes,
+        expiresAt: expiryFromOption(newKeyExpiry),
+      })
       setNewKeyResult({ apiKey: result.api_key, fullKey: result.full_key })
       setNewKeyName('')
+      setNewKeyScopes(['read'])
+      setNewKeyExpiry('90')
       setCreateDialogOpen(false)
       setKeyRevealDialogOpen(true)
       setHasAcknowledgedCopy(false)
@@ -99,6 +114,12 @@ export default function ApiKeysPage() {
     setKeyRevealDialogOpen(false)
     setHasAcknowledgedCopy(false)
     setCopied(false)
+  }
+
+  function toggleScope(scope: ApiKeyScope, checked: boolean) {
+    setNewKeyScopes((current) =>
+      checked ? [...new Set([...current, scope])] : current.filter((s) => s !== scope)
+    )
   }
 
   function openRevoke(key: ApiKey) {
@@ -167,8 +188,47 @@ export default function ApiKeysPage() {
                   onChange={(e) => setNewKeyName(e.target.value)}
                 />
               </div>
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium">Permissions</legend>
+                {API_KEY_SCOPES.map(({ scope, label, description }) => (
+                  <div key={scope} className="flex items-start gap-3">
+                    <Checkbox
+                      id={`scope-${scope}`}
+                      checked={newKeyScopes.includes(scope)}
+                      onCheckedChange={(checked) => toggleScope(scope, checked === true)}
+                    />
+                    <div className="space-y-0.5">
+                      <Label htmlFor={`scope-${scope}`} className="cursor-pointer text-sm">
+                        {label}
+                      </Label>
+                      <p className="text-dim text-xs">{description}</p>
+                    </div>
+                  </div>
+                ))}
+                {newKeyScopes.length === 0 && (
+                  <p className="text-destructive text-xs">Pick at least one permission.</p>
+                )}
+              </fieldset>
+              <div className="space-y-2">
+                <Label htmlFor="key-expiry">Expires</Label>
+                <select
+                  id="key-expiry"
+                  className="border-hairline bg-panel h-9 w-full rounded-md border px-2 text-sm"
+                  value={newKeyExpiry}
+                  onChange={(e) => setNewKeyExpiry(e.target.value)}
+                >
+                  {API_KEY_EXPIRY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <DialogFooter>
-                <Button type="submit" disabled={creating || !newKeyName.trim()}>
+                <Button
+                  type="submit"
+                  disabled={creating || !newKeyName.trim() || newKeyScopes.length === 0}
+                >
                   {creating ? 'Creating…' : 'Create key'}
                 </Button>
               </DialogFooter>
@@ -300,19 +360,38 @@ export default function ApiKeysPage() {
                         Revoked
                       </Badge>
                     )}
-                    {!key.revoked_at && isApiKeyUsageStale(key.last_used_at) && (
-                      <Badge
-                        variant="outline"
-                        className="border-amber-500/30 bg-amber-500/10 text-xs text-amber-200"
-                      >
-                        {key.last_used_at ? 'Inactive 90+ days' : 'Never used'}
+                    {!key.revoked_at && isApiKeyExpired(key) && (
+                      <Badge variant="destructive" className="text-xs">
+                        Expired
                       </Badge>
                     )}
+                    {!key.revoked_at &&
+                      !isApiKeyExpired(key) &&
+                      isApiKeyUsageStale(key.last_used_at) && (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500/30 bg-amber-500/10 text-xs text-amber-200"
+                        >
+                          {key.last_used_at ? 'Inactive 90+ days' : 'Never used'}
+                        </Badge>
+                      )}
                   </div>
                   <p className="text-dim text-xs font-mono">{key.key_preview}</p>
+                  <ul className="flex flex-wrap gap-1" aria-label={`Permissions for ${key.name}`}>
+                    {describeScopes(key.scopes).map((scope) => (
+                      <li key={scope}>
+                        <Badge variant="outline" className="text-xs">
+                          {scope}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
                   <p className="text-dim text-xs">
                     Created {formatDateTime(key.created_at)} · Last used{' '}
-                    {formatLastUsedAt(key.last_used_at)}
+                    {formatLastUsedAt(key.last_used_at)} ·{' '}
+                    {key.expires_at
+                      ? `${isApiKeyExpired(key) ? 'Expired' : 'Expires'} ${formatDateTime(key.expires_at)}`
+                      : 'Never expires'}
                   </p>
                 </div>
 

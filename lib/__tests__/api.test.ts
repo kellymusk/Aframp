@@ -376,6 +376,20 @@ describe('api', () => {
     expect(init.body).toBe('{"name":"My Key"}')
   })
 
+  it('createApiKey sends scopes and expiry when given', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({}))
+    await api.createApiKey('tok', 'Reporting', {
+      scopes: ['read'],
+      expiresAt: '2027-01-01T00:00:00.000Z',
+    })
+    const [, init] = fetchMock.mock.calls[0]
+    expect(JSON.parse(init.body)).toEqual({
+      name: 'Reporting',
+      scopes: ['read'],
+      expires_at: '2027-01-01T00:00:00.000Z',
+    })
+  })
+
   it('revokeApiKey sends DELETE to /api-keys/:id', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
     await api.revokeApiKey('tok', 'key-uuid-1')

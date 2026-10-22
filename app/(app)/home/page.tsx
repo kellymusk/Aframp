@@ -8,6 +8,7 @@ import { ActivityHighlights } from '@/components/wallet/activity-highlights'
 import { BalanceFigure } from '@/components/wallet/balance-figure'
 import { QuickActions } from '@/components/wallet/quick-actions'
 import { QuickConvert } from '@/components/wallet/quick-convert'
+import { RecentPayments } from '@/components/wallet/recent-payments'
 import { ErrorState } from '@/components/ui/error-state'
 import { HomePageSkeleton } from '@/components/wallet/home-page-skeleton'
 import { OnboardingChecklist } from '@/components/onboarding/onboarding-checklist'
@@ -124,6 +125,10 @@ export default function HomePage() {
           <QuickConvert openRequests={openRequests} />
           <ActivityHighlights payments={payments} openRequestCount={openRequests.length} />
         </div>
+      </div>
+
+      <div className="mt-5">
+        <RecentPayments payments={payments} />
       </div>
 
       <div className="mt-5">
