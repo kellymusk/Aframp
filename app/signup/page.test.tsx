@@ -98,7 +98,7 @@ describe('SignupPage', () => {
     await user.type(screen.getByLabelText(/confirm password/i), 'verysecret')
     await user.click(screen.getByRole('button', { name: /create account/i }))
 
-    expect(signUp).toHaveBeenCalledWith('hello@acme.com', 'verysecret', 'Acme Pay', '08011122233')
+    expect(signUp).toHaveBeenCalledWith('hello@acme.com', 'verysecret', 'Acme Pay', '+2348011122233')
     expect(signUp).toHaveBeenCalledTimes(1)
     // challenge_id must be in sessionStorage, NOT in the URL
     expect(sessionStorage.getItem(CHALLENGE_SESSION_KEY)).toBe('chal-456')
@@ -137,5 +137,20 @@ describe('SignupPage', () => {
     expect(await screen.findByText('Network unavailable')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveClass('bg-muted/40')
     expect(signUp).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects a malformed phone number with a clear message', async () => {
+    const user = userEvent.setup()
+    render(<SignupPage />)
+
+    await user.type(screen.getByLabelText(/business name/i), 'Acme Pay')
+    await user.type(screen.getByLabelText(/email/i), 'hello@acme.com')
+    await user.type(screen.getByLabelText(/phone number/i), '0801112223')
+    await user.type(screen.getByLabelText(/^password$/i), 'verysecret')
+    await user.type(screen.getByLabelText(/confirm password/i), 'verysecret')
+    await user.click(screen.getByRole('button', { name: /create account/i }))
+
+    expect(screen.getByText(/nigeria number has 10 digits/i)).toBeInTheDocument()
+    expect(signUp).not.toHaveBeenCalled()
   })
 })

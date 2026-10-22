@@ -15,6 +15,12 @@ import { CHALLENGE_SESSION_KEY } from '@/lib/otp-challenge'
 import { getPasswordStrength, isCommonPassword } from '@/lib/password-strength'
 import { PasswordInput } from '@/components/ui/password-input'
 import { AuthHeader } from '@/components/brand/auth-header'
+import {
+  DEFAULT_PHONE_COUNTRY,
+  PHONE_COUNTRIES,
+  getPhoneCountry,
+  normalizePhone,
+} from '@/lib/phone'
 
 const MIN_PASSWORD_LENGTH = 8
 
@@ -36,6 +42,8 @@ export default function SignupPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [phone, setPhone] = useState('')
+  const [countryCode, setCountryCode] = useState(DEFAULT_PHONE_COUNTRY.code)
+  const country = getPhoneCountry(countryCode)
   const strength = getPasswordStrength(password)
   const [error, setError] = useState<string | null>(null)
   const [emailError, setEmailError] = useState<string | null>(null)
@@ -64,6 +72,13 @@ export default function SignupPage() {
       return
     }
 
+    const normalizedPhone = normalizePhone(phone, country)
+    if (!normalizedPhone.ok) {
+      setError(normalizedPhone.message)
+      setSubmitting(false)
+      return
+    }
+
     // Mirrors the server's own check so the error lands next to the field.
     if (password.length < MIN_PASSWORD_LENGTH) {
       setError(`Use at least ${MIN_PASSWORD_LENGTH} characters for your password.`)
@@ -85,7 +100,7 @@ export default function SignupPage() {
 
     setSubmitting(true)
     try {
-      const challenge = await signUp(email.trim(), password, name.trim(), phone.trim())
+      const challenge = await signUp(email.trim(), password, name.trim(), normalizedPhone.e164)
       // #638: store challenge_id in sessionStorage instead of the URL
       sessionStorage.setItem(CHALLENGE_SESSION_KEY, challenge.challenge_id)
       router.push('/verify?flow=signup')
@@ -146,15 +161,29 @@ export default function SignupPage() {
 
         <div className="space-y-2">
           <Label htmlFor="phone">Phone number</Label>
-          <Input
-            id="phone"
-            type="tel"
-            autoComplete="tel"
-            placeholder="0801 234 5678"
-            required
-            value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-          />
+          <div className="flex gap-2">
+            <select
+              aria-label="Country"
+              value={countryCode}
+              onChange={(event) => setCountryCode(event.target.value)}
+              className="border-input bg-background h-9 shrink-0 rounded-md border px-2 text-sm"
+            >
+              {PHONE_COUNTRIES.map((option) => (
+                <option key={option.code} value={option.code}>
+                  {option.code} +{option.dialCode}
+                </option>
+              ))}
+            </select>
+            <Input
+              id="phone"
+              type="tel"
+              autoComplete="tel"
+              placeholder={country.example}
+              required
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+            />
+          </div>
           <p className="text-muted-foreground text-xs">
             We&apos;ll text you a code to verify it — every sign-in after this uses it too.
           </p>
