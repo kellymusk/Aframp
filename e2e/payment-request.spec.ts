@@ -36,8 +36,15 @@ test('creates a payment request and displays its QR code', async ({ page }) => {
 
   await page.goto('/charge')
   // Don't interact with the server-rendered keypad before React hydrates it.
+  // networkidle alone isn't enough on a cold CI runner: a click that lands
+  // before hydration is dropped, so retry until the amount actually updates.
   await page.waitForLoadState('networkidle')
-  await page.getByRole('button', { name: '1', exact: true }).click()
+  await expect(async () => {
+    if ((await page.getByTestId('charge-amount').textContent()) !== '1') {
+      await page.getByRole('button', { name: '1', exact: true }).click()
+    }
+    await expect(page.getByTestId('charge-amount')).toHaveText('1', { timeout: 1_000 })
+  }).toPass({ timeout: 20_000 })
   await page.getByRole('button', { name: 'Show payment code' }).click()
 
   await expect(page).toHaveURL(new RegExp(`/request/${requestId}$`))

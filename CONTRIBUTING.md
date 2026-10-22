@@ -11,6 +11,7 @@ Thank you for your interest in contributing to AFRAMP! This guide will help you 
 - [Code Standards](#code-standards)
 - [Error Display Conventions](#error-display-conventions)
 - [Testing](#testing)
+- [Local CI Gates](#local-ci-gates)
 - [Submitting Changes](#submitting-changes)
 - [CI/CD Pipeline](#cicd-pipeline)
 - [Troubleshooting](#troubleshooting)
@@ -397,16 +398,16 @@ npm run test:coverage
 
 ### End-to-End Tests
 
-Install the Chromium browser once after installing npm dependencies, then run the Playwright suite:
+The E2E suite is covered in detail in [Local CI Gates → E2E (Playwright)](#e2e-playwright).
+Quick reference:
 
 ```bash
-npm ci
-npx playwright install chromium
+# One-time browser install
+npx playwright install --with-deps chromium
+
+# Run the suite
 npm run test:e2e
 ```
-
-The Playwright configuration starts the Next.js development server on port 3001. The E2E tests
-intercept backend requests so the login and payment-request flows do not require a running API.
 
 ### Coverage Requirements
 
@@ -419,6 +420,133 @@ intercept backend requests so the login and payment-request flows do not require
 This repository uploads coverage reports to Codecov in CI. Before opening or updating a PR, add the repository secret `CODECOV_TOKEN` in the GitHub repository settings under `Settings -> Secrets and variables -> Actions`.
 
 The token is required for the `codecov/codecov-action` step in the CI workflow to publish results to Codecov after `npm run test:coverage` completes.
+
+---
+
+## Local CI Gates
+
+Every gate listed here mirrors exactly what GitHub Actions runs. Run them all before pushing so you get the same result the CI server will.
+
+The fastest way is the all-in-one script:
+
+```bash
+./test-ci-local.sh
+```
+
+Or run each gate individually as described below.
+
+---
+
+### E2E (Playwright)
+
+**What it checks:** Full browser flows — login, onramp, payment request — against an intercepted mock backend. Fails the same as the `e2e` CI job.
+
+**One-time setup** (after `npm install` / `npm ci`):
+
+```bash
+# Downloads the Chromium binary that Playwright uses.
+# --with-deps also installs required OS libraries on Linux.
+npx playwright install --with-deps chromium
+```
+
+On a Mac or if you already have the system libraries you can omit `--with-deps`:
+
+```bash
+npx playwright install chromium
+```
+
+**Run:**
+
+```bash
+npm run test:e2e
+```
+
+Playwright starts the Next.js dev server on port 3001 automatically (configured in `playwright.config.ts`). The tests intercept all backend requests with `page.route()` so no running API is required.
+
+**View the HTML report after a failure:**
+
+```bash
+npx playwright show-report
+```
+
+---
+
+### Diff Coverage (80% on changed files)
+
+**What it checks:** Every source file you added or changed in this branch (under `app/`, `components/`, `lib/`, `hooks/`) must have ≥80% statement _and_ line coverage. This is stricter than the repo-wide 70% floor — it applies only to what your PR touches.
+
+The check reads `coverage/coverage-summary.json`, so run the Jest coverage step first:
+
+```bash
+# Step 1 — produce the coverage report
+npm run test:coverage
+
+# Step 2 — check the diff against origin/main
+npm run test:diff-coverage
+```
+
+`test:diff-coverage` resolves the base automatically via `git merge-base origin/main HEAD`, so it works from any branch.
+
+To check against a specific base:
+
+```bash
+node scripts/check-diff-coverage.js <base-sha> <head-sha>
+# or via env vars:
+DIFF_BASE=origin/main node scripts/check-diff-coverage.js
+```
+
+**Interpreting the output:**
+
+```
+FAIL  app/onramp/page.tsx: statements 61%, lines 65% — below 80%
+FAIL  components/ui/amount-input.tsx: statements 0%, lines 0% — no coverage collected (untested)
+```
+
+A file shown as "no coverage collected" means Jest never executed it — add at least one test for it.
+
+---
+
+### Bundle Budget (40 KB per route, gzipped)
+
+**What it checks:** The route-specific JavaScript each App Router page adds on top of the shared framework runtime and layouts must stay under **40 KB gzipped**. Shared chunks (runtime, polyfills, layouts) are excluded — they are cached and not counted against any single route.
+
+The check reads the `.next/` build output, so run the production build first:
+
+```bash
+# Step 1 — production build with bundle analysis
+npm run build:analyze
+
+# Step 2 — check each route's gzipped JS size
+node scripts/check-bundle-budget.mjs
+```
+
+`npm run build:analyze` is identical to `npm run build` but also writes the bundle-analyzer HTML report to `.next/analyze/`.
+
+**Interpreting the output:**
+
+```
+OK   /home: 12.34 KB gzipped
+OK   /onramp: 28.91 KB gzipped
+FAIL /admin/users: 47.22 KB gzipped
+
+Bundle budget exceeded for 1 route(s). Maximum route-specific JS is 40 KB gzipped.
+```
+
+To reduce a route's weight:
+
+- Move heavy imports behind `next/dynamic` so they are code-split and not counted.
+- Audit `import` statements in the page and its direct dependencies with the analyzer report.
+- Replace large libraries with lighter alternatives.
+
+---
+
+### Running all gates together
+
+```bash
+./test-ci-local.sh
+```
+
+This runs every gate in the same order as CI: lint → type-check → prettier → tests + diff-coverage → E2E → build + bundle-budget. A single failing step exits early with a non-zero code.
 
 ---
 
@@ -436,8 +564,9 @@ The token is required for the `codecov/codecov-action` step in the CI workflow t
    - ✅ ESLint
    - ✅ Prettier
    - ✅ TypeScript
-   - ✅ Tests
-   - ✅ Build
+   - ✅ Tests & diff coverage (80% on changed files — see [Local CI Gates](#diff-coverage-80-on-changed-files))
+   - ✅ E2E (Playwright — see [Local CI Gates](#e2e-playwright))
+   - ✅ Build & bundle budget (40 KB/route — see [Local CI Gates](#bundle-budget-40-kb-per-route-gzipped))
 
 3. **Update documentation**
    - Add/update comments
@@ -449,11 +578,13 @@ The token is required for the `codecov/codecov-action` step in the CI workflow t
 - [ ] Branch created from `develop` or `main`
 - [ ] Commits follow conventional format
 - [ ] Tests added/updated
-- [ ] Coverage maintained (≥70%)
+- [ ] Coverage maintained (≥70% overall; ≥80% on changed files)
 - [ ] Code follows style guide
 - [ ] Documentation updated
 - [ ] No console errors/warnings
-- [ ] Local CI checks pass
+- [ ] Local CI checks pass (`./test-ci-local.sh`)
+- [ ] E2E tests pass (`npm run test:e2e`)
+- [ ] Bundle budget passes (`npm run build:analyze && node scripts/check-bundle-budget.mjs`)
 
 ### PR Description Template
 
@@ -501,12 +632,19 @@ When you push or create a PR, GitHub Actions automatically runs:
    - Prettier
    - TypeScript
 
-2. **Tests** (3-5 min)
+2. **Tests & Coverage** (3-5 min)
    - Jest tests
    - Coverage report
    - Codecov upload
+   - Route bundle budget (40 KB gzipped — `scripts/check-bundle-budget.mjs`)
 
-3. **Build** (4-6 min)
+3. **Diff Coverage** (PR only, 2-3 min)
+   - 80% statement + line coverage required on every changed file (`scripts/check-diff-coverage.js`)
+
+4. **E2E** (3-5 min)
+   - Playwright Chromium suite (`npm run test:e2e`)
+
+5. **Build** (4-6 min)
    - Next.js production build
    - Artifact upload
 
