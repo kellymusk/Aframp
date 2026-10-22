@@ -17,6 +17,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check '**/*.{ts,tsx,css,json,md}'",
     "type-check": "tsc --noEmit",
+    "type-check:ts7": "npx -p typescript-7 tsc --noEmit",
     "prepare": "husky install || true",
     "lighthouse": "lhci autorun",
     "security:audit": "npm audit --audit-level=high",
@@ -92,6 +93,7 @@
     "ts-jest": "^29.4.6",
     "tw-animate-css": "1.3.3",
     "typescript": "^5",
+    "typescript-7": "npm:typescript@^7.0",
     "typescript-eslint": "^8.54.0",
     "undici": "^8.3.0"
   },
