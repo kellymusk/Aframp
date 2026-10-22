@@ -2,16 +2,21 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Toaster } from 'sonner'
 import { WalletSidebar } from '@/components/wallet/wallet-sidebar'
 import { MobileBottomNav } from '@/components/wallet/mobile-bottom-nav'
 import { useSession } from '@/components/session-provider'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { DarkScopeContext } from '@/components/dark-scope'
+import { usePaymentPoller } from '@/hooks/use-payment-poller'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, ready } = useSession()
   const router = useRouter()
   const [scopeNode, setScopeNode] = useState<HTMLDivElement | null>(null)
+
+  // Enable automatic 30s polling for confirmed payment notifications
+  usePaymentPoller()
 
   useEffect(() => {
     if (ready && !session) router.replace('/login')
@@ -34,6 +39,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       >
         Skip to main content
       </a>
+      <Toaster position="top-right" richColors theme="dark" />
       <WalletSidebar />
       <main id="main-content" className="min-w-0 flex-1 px-6 pt-6 pb-24 md:p-6 lg:p-8">
         <DarkScopeContext.Provider value={scopeNode}>{children}</DarkScopeContext.Provider>

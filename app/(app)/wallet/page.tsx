@@ -30,12 +30,6 @@ export default function WalletPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      // The JWT holds only ids, so identity comes from /me on every load.
-      setMe(await api.getMe(token))
-    } catch {
-      // Non-fatal: the address below is the part that matters.
-    }
-    try {
       setWallet(await api.getWallet(token))
       setError(null)
     } catch (cause) {
