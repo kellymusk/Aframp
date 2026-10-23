@@ -40,19 +40,19 @@ export default function HomePage() {
   const { token } = useAuthenticatedSession()
 
   const { data, error, loading, reload } = useDataLoader<DashboardData>(
-    async (signal) => {
+    ['dashboard', token],
+    async () => {
       const [balances, payments, requests, wallet, withdrawals] = await Promise.all([
-        api.getBalances(token, signal),
-        api.listTransactions(token, 50, signal),
-        api.listPaymentRequests(token, 20, signal),
+        api.getBalances(token),
+        api.listTransactions(token, 50),
+        api.listPaymentRequests(token, 20),
         // Only used to tick off the getting-started steps, so a failure here
         // shouldn't take the whole dashboard down.
-        api.getWallet(token, signal).catch(() => null),
-        api.listWithdrawals(token, 1, signal).catch(() => [] as Withdrawal[]),
+        api.getWallet(token).catch(() => null),
+        api.listWithdrawals(token, 1).catch(() => [] as Withdrawal[]),
       ])
       return { balances, payments, requests, wallet, withdrawals }
-    },
-    [token]
+    }
   )
 
   const openRequests = useMemo(

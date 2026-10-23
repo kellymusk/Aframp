@@ -1,5 +1,12 @@
 import { renderHook, waitFor } from '@testing-library/react'
+import { SWRConfig } from 'swr'
+import { createElement, type ReactNode } from 'react'
 import { useDataLoader } from '../use-data-loader'
+
+// Every test gets its own cache so results never leak between them.
+function wrapper({ children }: { children: ReactNode }) {
+  return createElement(SWRConfig, { value: { provider: () => new Map() } }, children)
+}
 
 describe('useDataLoader', () => {
   beforeEach(() => {
@@ -8,7 +15,7 @@ describe('useDataLoader', () => {
 
   it('starts with loading state', () => {
     const fetcher = jest.fn().mockResolvedValue({ data: 'test' })
-    const { result } = renderHook(() => useDataLoader(fetcher, []))
+    const { result } = renderHook(() => useDataLoader(['test'], fetcher), { wrapper })
 
     expect(result.current.loading).toBe(true)
     expect(result.current.data).toBe(null)
@@ -18,7 +25,7 @@ describe('useDataLoader', () => {
   it('loads data successfully', async () => {
     const mockData = { id: 1, name: 'Test' }
     const fetcher = jest.fn().mockResolvedValue(mockData)
-    const { result } = renderHook(() => useDataLoader(fetcher, []))
+    const { result } = renderHook(() => useDataLoader(['test'], fetcher), { wrapper })
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false)
@@ -26,66 +33,44 @@ describe('useDataLoader', () => {
 
     expect(result.current.data).toEqual(mockData)
     expect(result.current.error).toBe(null)
-    expect(fetcher).toHaveBeenCalledWith(expect.any(AbortSignal))
   })
 
   it('handles errors correctly', async () => {
     const errorMessage = 'Failed to fetch data'
     const fetcher = jest.fn().mockRejectedValue(new Error(errorMessage))
-    const { result } = renderHook(() => useDataLoader(fetcher, []))
+    const { result } = renderHook(() => useDataLoader(['test'], fetcher), { wrapper })
 
     await waitFor(() => {
-      expect(result.current.loading).toBe(false)
+      expect(result.current.error).toBe(errorMessage)
     })
 
+    expect(result.current.loading).toBe(false)
     expect(result.current.data).toBe(null)
-    expect(result.current.error).toBe(errorMessage)
   })
 
   it('handles non-Error rejections', async () => {
     const fetcher = jest.fn().mockRejectedValue('string error')
-    const { result } = renderHook(() => useDataLoader(fetcher, []))
+    const { result } = renderHook(() => useDataLoader(['test'], fetcher), { wrapper })
 
     await waitFor(() => {
-      expect(result.current.loading).toBe(false)
+      expect(result.current.error).toBe('An error occurred')
     })
 
     expect(result.current.data).toBe(null)
-    expect(result.current.error).toBe('An error occurred')
   })
 
-  it('ignores AbortError', async () => {
-    const abortError = new DOMException('Aborted', 'AbortError')
-    const fetcher = jest.fn().mockRejectedValue(abortError)
-    const { result } = renderHook(() => useDataLoader(fetcher, []))
+  it('does not fetch while the key is null', () => {
+    const fetcher = jest.fn().mockResolvedValue({ data: 'test' })
+    renderHook(() => useDataLoader(null, fetcher), { wrapper })
 
-    await waitFor(() => {
-      expect(fetcher).toHaveBeenCalled()
-    })
-
-    // Should remain in loading state since abort doesn't set error
-    expect(result.current.error).toBe(null)
+    expect(fetcher).not.toHaveBeenCalled()
   })
 
-  it('aborts the request on unmount', async () => {
-    let abortSignal: AbortSignal | null = null
-    const fetcher = jest.fn().mockImplementation((signal: AbortSignal) => {
-      abortSignal = signal
-      return new Promise((resolve) => setTimeout(() => resolve({ data: 'test' }), 100))
-    })
-
-    const { unmount } = renderHook(() => useDataLoader(fetcher, []))
-    unmount()
-
-    await waitFor(() => {
-      expect(abortSignal?.aborted).toBe(true)
-    })
-  })
-
-  it('reloads data when deps change', async () => {
+  it('reloads data when the key changes', async () => {
     const fetcher = jest.fn().mockResolvedValue({ data: 'initial' })
-    const { result, rerender } = renderHook(({ dep }) => useDataLoader(fetcher, [dep]), {
+    const { result, rerender } = renderHook(({ dep }) => useDataLoader(['test', dep], fetcher), {
       initialProps: { dep: 'value1' },
+      wrapper,
     })
 
     await waitFor(() => {
@@ -97,8 +82,9 @@ describe('useDataLoader', () => {
     rerender({ dep: 'value2' })
 
     await waitFor(() => {
-      expect(fetcher).toHaveBeenCalledTimes(2)
+      expect(result.current.data).toEqual({ data: 'updated' })
     })
+    expect(fetcher).toHaveBeenCalledTimes(2)
   })
 
   it('reload function triggers a new fetch', async () => {
@@ -107,12 +93,11 @@ describe('useDataLoader', () => {
       .mockResolvedValueOnce({ data: 'first' })
       .mockResolvedValueOnce({ data: 'second' })
 
-    const { result } = renderHook(() => useDataLoader(fetcher, []))
+    const { result } = renderHook(() => useDataLoader(['test'], fetcher), { wrapper })
 
     await waitFor(() => {
-      expect(result.current.loading).toBe(false)
+      expect(result.current.data).toEqual({ data: 'first' })
     })
-    expect(result.current.data).toEqual({ data: 'first' })
 
     result.current.reload()
 
@@ -120,5 +105,44 @@ describe('useDataLoader', () => {
       expect(result.current.data).toEqual({ data: 'second' })
     })
     expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
+  it('renders cached data immediately on remount while revalidating', async () => {
+    const cache = new Map()
+    const shared = ({ children }: { children: ReactNode }) =>
+      createElement(SWRConfig, { value: { provider: () => cache } }, children)
+    const fetcher = jest
+      .fn()
+      .mockResolvedValueOnce({ data: 'first' })
+      .mockResolvedValueOnce({ data: 'second' })
+
+    const first = renderHook(() => useDataLoader(['test'], fetcher), { wrapper: shared })
+    await waitFor(() => {
+      expect(first.result.current.data).toEqual({ data: 'first' })
+    })
+    first.unmount()
+
+    const second = renderHook(() => useDataLoader(['test'], fetcher), { wrapper: shared })
+    // Cached result is there on the first render, with no loading state.
+    expect(second.result.current.loading).toBe(false)
+    expect(second.result.current.data).toEqual({ data: 'first' })
+
+    await waitFor(() => {
+      expect(second.result.current.data).toEqual({ data: 'second' })
+    })
+  })
+
+  it('shares one in-flight request between components using the same key', async () => {
+    const fetcher = jest.fn().mockResolvedValue({ data: 'shared' })
+    const { result } = renderHook(
+      () => [useDataLoader(['test'], fetcher), useDataLoader(['test'], fetcher)] as const,
+      { wrapper }
+    )
+
+    await waitFor(() => {
+      expect(result.current[0].data).toEqual({ data: 'shared' })
+      expect(result.current[1].data).toEqual({ data: 'shared' })
+    })
+    expect(fetcher).toHaveBeenCalledTimes(1)
   })
 })

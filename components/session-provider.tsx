@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { redirect } from 'next/navigation'
+import { mutate as clearSwrCache } from 'swr'
 import {
   api,
   isOffline,
@@ -163,6 +164,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setSession(null)
       setMe(null)
+      // Cached page data belongs to the signed-out user; don't show it to the next one.
+      void clearSwrCache(() => true, undefined, { revalidate: false })
       setSigningOut(false)
     }
   }, [session])

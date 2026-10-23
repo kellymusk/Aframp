@@ -4,8 +4,14 @@ import { ReadableStream, TransformStream, WritableStream } from 'stream/web'
 import { MessageChannel, MessagePort, BroadcastChannel } from 'worker_threads'
 import '@testing-library/jest-dom'
 import { toHaveNoViolations } from 'jest-axe'
+import { mutate } from 'swr'
 
 expect.extend(toHaveNoViolations)
+
+// SWR's cache is module-level, so without this a test would see the data an earlier one loaded.
+afterEach(async () => {
+  await mutate(() => true, undefined, { revalidate: false })
+})
 
 // Set TextEncoder/Decoder and Streams/Message globals first because undici needs them on load
 // Jest 30 already provides many of these globals in jsdom; only fill in what's missing to avoid

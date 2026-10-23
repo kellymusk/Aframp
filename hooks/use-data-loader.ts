@@ -1,65 +1,53 @@
-import { useCallback, useEffect, useState } from 'react'
+import useSWR from 'swr'
 
 export interface UseDataLoaderResult<T> {
   data: T | null
   error: string | null
+  /** True only while there is nothing to show yet; a revalidation behind cached data is not "loading". */
   loading: boolean
   reload: () => void
 }
 
 /**
- * Generic hook for loading data with automatic abort cleanup.
+ * Loads data with stale-while-revalidate caching and request deduplication.
  *
- * @param fetcher - Async function that accepts an AbortSignal and returns the data
- * @param deps - Dependency array that triggers a reload when changed
- * @returns Object containing data, error, loading state, and reload function
+ * Results are cached by `key`, so revisiting a page renders the last result
+ * immediately while it refetches in the background, and components asking for
+ * the same key share a single in-flight request. Include anything the data
+ * depends on (the session token, a page size, ...) in the key.
+ *
+ * Pass `null` to skip loading until a dependency is ready.
  *
  * @example
  * const { data, error, loading, reload } = useDataLoader(
- *   async (signal) => api.getBalances(token, signal),
- *   [token]
+ *   ['balances', token],
+ *   () => api.getBalances(token)
  * )
  */
 export function useDataLoader<T>(
-  fetcher: (signal: AbortSignal) => Promise<T>,
-  deps: React.DependencyList
+  key: readonly unknown[] | null,
+  fetcher: () => Promise<T>
 ): UseDataLoaderResult<T> {
-  const [data, setData] = useState<T | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async (signal: AbortSignal) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const result = await fetcher(signal)
-      if (!signal.aborted) {
-        setData(result)
-        setLoading(false)
-      }
-    } catch (cause) {
-      if (cause instanceof DOMException && cause.name === 'AbortError') {
-        return
-      }
-      if (!signal.aborted) {
-        setError(cause instanceof Error ? cause.message : 'An error occurred')
-        setData(null)
-        setLoading(false)
-      }
+  const { data, error, isLoading, mutate } = useSWR<T, unknown, readonly unknown[] | null>(
+    key,
+    fetcher,
+    {
+      // A failed load is surfaced once and retried by the user, as before.
+      shouldRetryOnError: false,
+      revalidateOnFocus: false,
     }
-  }, deps)
+  )
 
-  const reload = useCallback(() => {
-    const controller = new AbortController()
-    void load(controller.signal)
-    return () => controller.abort()
-  }, [load])
-
-  useEffect(() => {
-    const controller = new AbortController()
-    void load(controller.signal)
-    return () => controller.abort()
-  }, [load])
-
-  return { data, error, loading, reload }
+  return {
+    data: data ?? null,
+    // Keep showing cached data if a background refresh fails.
+    error:
+      data === undefined && error !== undefined
+        ? error instanceof Error
+          ? error.message
+          : 'An error occurred'
+        : null,
+    loading: isLoading,
+    reload: () => void mutate(),
+  }
 }
