@@ -18,7 +18,8 @@ export function AframpMark({
       alt={decorative ? '' : 'Aframp'}
       width={100}
       height={107}
-      className={cn('size-9 shrink-0', className)}
+      // The mark is 100x107; object-contain keeps it unsquashed in square boxes.
+      className={cn('size-9 shrink-0 object-contain', className)}
       priority
     />
   )

@@ -11,6 +11,7 @@
         "http://localhost:3001/withdraw"
       ],
       "puppeteerScript": "./scripts/lh-seed-session.cjs",
+      "puppeteerLaunchOptions": { "args": ["--no-sandbox", "--disable-dev-shm-usage"] },
       "settings": {
         "chromeFlags": "--no-sandbox --disable-dev-shm-usage",
         "throttlingMethod": "simulate",
