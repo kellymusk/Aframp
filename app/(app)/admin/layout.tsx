@@ -1,49 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { AdminSidebar } from '@/components/admin/admin-sidebar'
 import { useSession } from '@/components/session-provider'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
-import { api, ApiError, type Me } from '@/lib/api'
-
-type GateState = { status: 'loading' } | { status: 'error'; message: string } | { status: 'done' }
+import { ApiError } from '@/lib/api'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { session } = useSession()
-  const [me, setMe] = useState<Me | null>(null)
-  const [gate, setGate] = useState<GateState>({ status: 'loading' })
+  const { me, meLoading, meError, refreshMe } = useSession()
 
-  useEffect(() => {
-    if (!session) return
-    let cancelled = false
-    setGate({ status: 'loading' })
-
-    api
-      .getMe(session.token)
-      .then((data) => {
-        if (cancelled) return
-        setMe(data)
-        setGate({ status: 'done' })
-      })
-      .catch((cause) => {
-        if (cancelled) return
-        const message =
-          cause instanceof ApiError && cause.status === 0
-            ? "Can't reach the payment server right now."
-            : cause instanceof Error
-              ? cause.message
-              : 'Could not verify admin access.'
-        setGate({ status: 'error', message })
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [session])
-
-  if (gate.status === 'loading') {
+  // No profile and no failure yet means the session is still starting up.
+  if (meLoading || (!me && !meError)) {
     return (
       <div className="dark bg-ink flex min-h-dvh items-center justify-center">
         <LoadingSpinner />
@@ -51,10 +19,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     )
   }
 
-  if (gate.status === 'error') {
+  if (!me && meError) {
+    const message =
+      meError instanceof ApiError && meError.status === 0
+        ? "Can't reach the payment server right now."
+        : meError instanceof Error
+          ? meError.message
+          : 'Could not verify admin access.'
     return (
       <div className="dark bg-ink flex min-h-dvh items-center justify-center p-6">
-        <ErrorState message={gate.message} onRetry={() => setGate({ status: 'loading' })} />
+        <ErrorState message={message} onRetry={() => void refreshMe().catch(() => {})} />
       </div>
     )
   }

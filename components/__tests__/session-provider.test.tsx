@@ -77,6 +77,8 @@ beforeEach(() => {
   globalThis.fetch = fetchMock as unknown as typeof fetch
   window.localStorage.clear()
   unauthorizedCallback = null
+  // A session triggers a /me load on its own.
+  mockApi.getMe.mockResolvedValue(meData)
 })
 
 describe('SessionProvider', () => {
@@ -264,6 +266,80 @@ describe('SessionProvider', () => {
       const { unmount } = await renderSession()
       unmount()
       expect(unauthorizedCallback).toBeNull()
+    })
+  })
+
+  describe('profile (/me)', () => {
+    it('loads /me once when the session is restored', async () => {
+      const { result } = await renderSession(storedSession)
+
+      await waitFor(() => expect(result.current.me).toEqual(meData))
+      expect(mockApi.getMe).toHaveBeenCalledTimes(1)
+      expect(mockApi.getMe).toHaveBeenCalledWith('tok-1')
+      expect(result.current.meLoading).toBe(false)
+      expect(result.current.meError).toBeNull()
+    })
+
+    it('does not request /me without a session', async () => {
+      const { result } = await renderSession(null)
+
+      expect(mockApi.getMe).not.toHaveBeenCalled()
+      expect(result.current.meLoading).toBe(false)
+    })
+
+    it('reports loading until /me settles', async () => {
+      let resolve!: (value: Me) => void
+      mockApi.getMe.mockReturnValue(new Promise<Me>((r) => (resolve = r)))
+      const { result } = await renderSession(storedSession)
+
+      expect(result.current.meLoading).toBe(true)
+
+      await act(async () => {
+        resolve(meData)
+      })
+      expect(result.current.meLoading).toBe(false)
+    })
+
+    it('shares one request between concurrent refreshMe calls', async () => {
+      let resolve!: (value: Me) => void
+      mockApi.getMe.mockReturnValue(new Promise<Me>((r) => (resolve = r)))
+      const { result } = await renderSession(storedSession)
+
+      let outcomes: unknown[] = []
+      await act(async () => {
+        const pending = [result.current.refreshMe(), result.current.refreshMe()]
+        resolve(meData)
+        outcomes = await Promise.all(pending)
+      })
+
+      expect(mockApi.getMe).toHaveBeenCalledTimes(1)
+      expect(outcomes).toEqual([
+        { success: true, data: meData },
+        { success: true, data: meData },
+      ])
+    })
+
+    it('exposes the failure as meError', async () => {
+      const failure = Object.assign(new Error('offline'), { status: 0 })
+      mockApi.getMe.mockRejectedValue(failure)
+      const { result } = await renderSession(storedSession)
+
+      await waitFor(() => expect(result.current.meError).toBe(failure))
+      expect(result.current.me).toBeNull()
+      expect(result.current.meLoading).toBe(false)
+    })
+
+    it('forgets the profile on sign-out', async () => {
+      mockApi.logout.mockResolvedValue(undefined as never)
+      const { result } = await renderSession(storedSession)
+      await waitFor(() => expect(result.current.me).toEqual(meData))
+
+      await act(async () => {
+        await result.current.signOut()
+      })
+
+      expect(result.current.me).toBeNull()
+      expect(result.current.meError).toBeNull()
     })
   })
 

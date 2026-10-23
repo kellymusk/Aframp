@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { ChangeEvent, ReactNode } from 'react'
 import { api, ApiError } from '@/lib/api'
 import SendPage from '../page'
 
@@ -32,38 +31,6 @@ jest.mock('@/components/session-provider', () => ({
 jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }))
-
-// Replace Radix Select with a plain <select> so value changes can be driven
-// through ordinary DOM events in jsdom.
-jest.mock('@/components/ui/select', () => {
-  const React = jest.requireActual('react')
-  type SelectMockProps = {
-    value?: string
-    onValueChange?: (value: string) => void
-    disabled?: boolean
-    children?: ReactNode
-  }
-  type SelectItemMockProps = { value: string; children?: ReactNode }
-
-  return {
-    Select: ({ value, onValueChange, disabled, children }: SelectMockProps) =>
-      React.createElement(
-        'select',
-        {
-          value,
-          disabled,
-          onChange: (event: ChangeEvent<HTMLSelectElement>) =>
-            onValueChange?.(event.currentTarget.value),
-        },
-        children
-      ),
-    SelectTrigger: () => null,
-    SelectValue: () => null,
-    SelectContent: ({ children }: { children?: ReactNode }) => children,
-    SelectItem: ({ value, children }: SelectItemMockProps) =>
-      React.createElement('option', { value }, children),
-  }
-})
 
 const mockGetBalances = api.getBalances as jest.Mock
 const mockListRemittances = api.listRemittances as jest.Mock

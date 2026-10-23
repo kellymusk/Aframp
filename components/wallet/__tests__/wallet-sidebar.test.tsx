@@ -20,18 +20,15 @@ jest.mock('next/navigation', () => ({
 describe('WalletSidebar', () => {
   const signOut = jest.fn()
   const replace = jest.fn()
-  const refreshMe = jest.fn()
 
   beforeEach(() => {
     signOut.mockReset()
     replace.mockReset()
-    refreshMe.mockReset().mockResolvedValue(undefined)
     ;(useRouter as jest.Mock).mockReturnValue({ replace })
     ;(useSession as jest.Mock).mockReturnValue({
       session: { token: 't', user_id: 'u', merchant_id: 'm' },
       ready: true,
       me: undefined,
-      refreshMe,
       signOut,
       signIn: jest.fn(),
       signUp: jest.fn(),

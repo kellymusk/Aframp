@@ -14,7 +14,6 @@ import {
   Wallet as WalletIcon,
 } from 'lucide-react'
 
-import { useEffect } from 'react'
 import { NavShell, type NavLink } from '@/components/nav/nav-shell'
 import { useSession } from '@/components/session-provider'
 import { useStellarStatus } from '@/hooks/use-stellar-status'
@@ -32,14 +31,9 @@ const LINKS: NavLink[] = [
 ]
 
 export function WalletSidebar() {
-  const { session, me, refreshMe, signOut } = useSession()
+  const { me, signOut } = useSession()
   const router = useRouter()
   const { status: stellarStatus, description: stellarDescription } = useStellarStatus()
-
-  // The Admin link depends on the profile; load it once if nothing has yet.
-  useEffect(() => {
-    if (session && !me && refreshMe) refreshMe().catch(() => {})
-  }, [session, me, refreshMe])
 
   const statusColor =
     stellarStatus === 'operational'

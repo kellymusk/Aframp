@@ -1,7 +1,6 @@
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { ChangeEvent, ReactNode } from 'react'
-import { api, ApiError, type Balance, type Withdrawal } from '@/lib/api'
+import { api, ApiError, type Balance, type Me, type Withdrawal } from '@/lib/api'
 import WithdrawPage from '../page'
 
 jest.mock('@/lib/api', () => {
@@ -16,7 +15,6 @@ jest.mock('@/lib/api', () => {
   }
   return {
     api: {
-      getMe: jest.fn(),
       getBalances: jest.fn(),
       listWithdrawals: jest.fn(),
       createWithdrawal: jest.fn(),
@@ -25,43 +23,13 @@ jest.mock('@/lib/api', () => {
   }
 })
 
+// The session provider loads /me once; the page reads it from context.
+let mockMe: Me | null = null
 jest.mock('@/components/session-provider', () => ({
   useAuthenticatedSession: () => ({ token: 'test-token' }),
+  useSession: () => ({ me: mockMe, meLoading: false, meError: null }),
 }))
 
-// Replace Radix Select with a plain <select> so value changes can be driven
-// through ordinary DOM events in jsdom.
-jest.mock('@/components/ui/select', () => {
-  const React = jest.requireActual('react')
-  type SelectMockProps = {
-    value?: string
-    onValueChange?: (value: string) => void
-    disabled?: boolean
-    children?: ReactNode
-  }
-  type SelectItemMockProps = { value: string; children?: ReactNode }
-
-  return {
-    Select: ({ value, onValueChange, disabled, children }: SelectMockProps) =>
-      React.createElement(
-        'select',
-        {
-          value,
-          disabled,
-          onChange: (event: ChangeEvent<HTMLSelectElement>) =>
-            onValueChange?.(event.currentTarget.value),
-        },
-        children
-      ),
-    SelectTrigger: () => null,
-    SelectValue: () => null,
-    SelectContent: ({ children }: { children?: ReactNode }) => children,
-    SelectItem: ({ value, children }: SelectItemMockProps) =>
-      React.createElement('option', { value }, children),
-  }
-})
-
-const mockGetMe = jest.mocked(api.getMe)
 const mockGetBalances = jest.mocked(api.getBalances)
 const mockListWithdrawals = jest.mocked(api.listWithdrawals)
 const mockCreateWithdrawal = jest.mocked(api.createWithdrawal)
@@ -90,7 +58,7 @@ function withdrawal(overrides: Partial<Withdrawal> = {}): Withdrawal {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockGetMe.mockResolvedValue({
+  mockMe = {
     user_id: 'u',
     email: 'user@example.com',
     name: 'Test User',
@@ -99,7 +67,7 @@ beforeEach(() => {
     merchant_id: 'm',
     merchant_name: 'Test Merchant',
     kyc_status: 'approved',
-  })
+  }
   mockGetBalances.mockResolvedValue([])
   mockListWithdrawals.mockResolvedValue([])
   mockCreateWithdrawal.mockResolvedValue(withdrawal())

@@ -32,9 +32,8 @@ if (!data) return <LoadingSpinner /> // ❌ Layout shift
 ### After: useDataLoader Hook (DRY)
 
 ```typescript
-const { data, error, loading, reload } = useDataLoader(
-  async (signal) => api.getData(token, signal),
-  [token]
+const { data, error, loading, reload } = useDataLoader(['data', token], () =>
+  api.getData(token)
 )
 
 if (loading) return <SkeletonComponent /> // ✅ No layout shift
@@ -46,9 +45,10 @@ if (loading) return <SkeletonComponent /> // ✅ No layout shift
 ┌─────────────────────────────────────────────────────────────┐
 │                        Component                             │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │  useDataLoader<T>(fetcher, deps)                       │ │
+│  │  useDataLoader<T>(key, fetcher)                        │ │
 │  │  • Manages loading state                               │ │
-│  │  • Handles AbortController cleanup                     │ │
+│  │  • SWR cache: stale data first, revalidate behind it   │ │
+│  │  • Deduplicates in-flight requests per key             │ │
 │  │  • Provides reload function                            │ │
 │  │  • Consistent error handling                           │ │
 │  └────────────────────────────────────────────────────────┘ │
@@ -109,8 +109,8 @@ Component Tests
 │   ├── useDataLoader.test.ts
 │   │   • Loading states
 │   │   • Error handling
-│   │   • AbortController cleanup
-│   │   • Dependency changes
+│   │   • Cached data on revisit
+│   │   • Key changes
 │   │   └── Reload functionality
 │   │
 │   ├── quick-convert.test.tsx

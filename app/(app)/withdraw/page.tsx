@@ -1,40 +1,19 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  api,
-  ApiError,
-  type Balance,
-  type Me,
-  type Withdrawal,
-  type WithdrawalStatus,
-} from '@/lib/api'
+import { NativeSelect } from '@/components/ui/native-select'
+import type { WithdrawalConfirmation } from '@/components/withdraw/confirm-withdrawal-dialog'
+import { api, ApiError, type Balance, type Withdrawal, type WithdrawalStatus } from '@/lib/api'
 import { formatStroops, parseAmountToStroops } from '@/lib/money'
-import { useAuthenticatedSession } from '@/components/session-provider'
+import { useAuthenticatedSession, useSession } from '@/components/session-provider'
 import {
   getBankOptions,
   getWithdrawableAssets,
@@ -51,6 +30,16 @@ import {
   snapshotStatuses,
   type WithdrawalNotice,
 } from '@/lib/withdrawal-notifications'
+
+// The confirmation dialog only opens after the form is submitted, so keep the
+// Radix alert-dialog code out of the route's initial JavaScript.
+const ConfirmWithdrawalDialog = dynamic(
+  () =>
+    import('@/components/withdraw/confirm-withdrawal-dialog').then(
+      (mod) => mod.ConfirmWithdrawalDialog
+    ),
+  { ssr: false }
+)
 
 const STATUS_LABEL: Record<WithdrawalStatus, string> = {
   pending: 'Pending',
@@ -71,7 +60,7 @@ const POLL_INTERVAL_MS = 10_000
 
 export default function WithdrawPage() {
   const { token } = useAuthenticatedSession()
-  const [me, setMe] = useState<Me | null>(null)
+  const { me, meLoading, meError } = useSession()
   const [balances, setBalances] = useState<Balance[] | null>(null)
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
   const [asset, setAsset] = useState<WithdrawalAsset>('cNGN')
@@ -127,23 +116,15 @@ export default function WithdrawPage() {
   // The API only takes a limit, so a full page back means there may be older entries.
   const hasMore = withdrawals.length >= limit
 
-  const [confirmation, setConfirmation] = useState<{
-    amount: bigint
-    asset: WithdrawalAsset
-    bankCode: string
-    bankName: string
-    accountNumber: string
-  } | null>(null)
+  const [confirmation, setConfirmation] = useState<WithdrawalConfirmation | null>(null)
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
       try {
-        const [nextMe, nextBalances, nextWithdrawals] = await Promise.all([
-          api.getMe(token, signal),
+        const [nextBalances, nextWithdrawals] = await Promise.all([
           api.getBalances(token, signal),
           api.listWithdrawals(token, limit, signal),
         ])
-        setMe(nextMe)
         setBalances(nextBalances)
         setWithdrawals(nextWithdrawals)
       } catch (cause) {
@@ -269,8 +250,17 @@ export default function WithdrawPage() {
     }
   }
 
-  // A failed load leaves `me` null; fall through so the error below is shown.
-  if (!balances || (!me && !error)) {
+  // A failed /me leaves `me` null; fall through so the error below is shown.
+  const profileError = !meError
+    ? null
+    : meError instanceof ApiError && meError.status === 0
+      ? 'backend-down'
+      : meError instanceof Error
+        ? meError.message
+        : 'Could not load your cash-out details'
+  const shownError = error ?? profileError
+
+  if (!balances || meLoading) {
     return (
       <div className="flex justify-center py-16">
         <LoadingSpinner />
@@ -346,12 +336,12 @@ export default function WithdrawPage() {
           onSubmit={submit}
           className="bg-panel border-hairline flex flex-col gap-4 rounded-2xl border p-5"
         >
-          {error && (
+          {shownError && (
             <Alert variant="destructive">
               <AlertDescription>
-                {error === 'backend-down'
+                {shownError === 'backend-down'
                   ? "We can't connect to the payment server right now. Please try again in a moment."
-                  : error}
+                  : shownError}
               </AlertDescription>
             </Alert>
           )}
@@ -359,21 +349,18 @@ export default function WithdrawPage() {
           {withdrawableAssets.length > 1 && (
             <div className="space-y-2">
               <Label htmlFor="asset">Asset</Label>
-              <Select
+              <NativeSelect
+                id="asset"
                 value={asset}
+                placeholder="Choose an asset"
                 onValueChange={(value) => selectAsset(value as WithdrawalAsset)}
               >
-                <SelectTrigger id="asset">
-                  <SelectValue placeholder="Choose an asset" />
-                </SelectTrigger>
-                <SelectContent>
-                  {withdrawableAssets.map((withdrawable) => (
-                    <SelectItem key={withdrawable} value={withdrawable}>
-                      {withdrawable}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {withdrawableAssets.map((withdrawable) => (
+                  <option key={withdrawable} value={withdrawable}>
+                    {withdrawable}
+                  </option>
+                ))}
+              </NativeSelect>
             </div>
           )}
 
@@ -409,22 +396,19 @@ export default function WithdrawPage() {
 
           <div className="space-y-2">
             <Label htmlFor="bank">Bank</Label>
-            <Select
+            <NativeSelect
+              id="bank"
               value={bankCode}
+              placeholder={banksLoading ? 'Loading banks…' : 'Choose your bank'}
               onValueChange={setBankCode}
               disabled={available === 0n || banksLoading}
             >
-              <SelectTrigger id="bank">
-                <SelectValue placeholder={banksLoading ? 'Loading banks…' : 'Choose your bank'} />
-              </SelectTrigger>
-              <SelectContent>
-                {(asset === 'cNGN' ? nigeriaBanks : getBankOptions(asset)).map((bank) => (
-                  <SelectItem key={bank.code} value={bank.code}>
-                    {bank.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              {(asset === 'cNGN' ? nigeriaBanks : getBankOptions(asset)).map((bank) => (
+                <option key={bank.code} value={bank.code}>
+                  {bank.name}
+                </option>
+              ))}
+            </NativeSelect>
           </div>
 
           <div className="space-y-2">
@@ -449,41 +433,14 @@ export default function WithdrawPage() {
           </Button>
         </form>
 
-        <AlertDialog
-          open={confirmation !== null}
-          onOpenChange={(open) => {
-            if (!open) setConfirmation(null)
-          }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirm cash-out</AlertDialogTitle>
-              <AlertDialogDescription>
-                Review the details before sending your withdrawal.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            {confirmation && (
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-                <dt className="text-muted-foreground">Amount</dt>
-                <dd className="font-medium">
-                  {formatStroops(confirmation.amount)} {confirmation.asset}
-                </dd>
-                <dt className="text-muted-foreground">Asset</dt>
-                <dd>{confirmation.asset}</dd>
-                <dt className="text-muted-foreground">Bank</dt>
-                <dd>{confirmation.bankName}</dd>
-                <dt className="text-muted-foreground">Account</dt>
-                <dd>••••••{confirmation.accountNumber.slice(-4)}</dd>
-              </dl>
-            )}
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
-              <AlertDialogAction disabled={submitting} onClick={() => void confirmWithdrawal()}>
-                {submitting ? 'Sending…' : 'Confirm cash out'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {confirmation && (
+          <ConfirmWithdrawalDialog
+            confirmation={confirmation}
+            submitting={submitting}
+            onCancel={() => setConfirmation(null)}
+            onConfirm={() => void confirmWithdrawal()}
+          />
+        )}
 
         <section className="space-y-3">
           <h2 className="text-lg font-semibold tracking-tight">Recent cash-outs</h2>

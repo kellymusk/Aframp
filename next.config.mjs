@@ -21,13 +21,13 @@ export function resolveBackendUrl(raw) {
   } catch {
     throw new Error(
       `Invalid NEXT_API_URL: "${value}" is not an absolute URL. ` +
-        'Expected format: http(s)://host[:port] (e.g. https://api.example.com).',
+        'Expected format: http(s)://host[:port] (e.g. https://api.example.com).'
     )
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     throw new Error(
       `Invalid NEXT_API_URL: "${value}" must use http or https, got "${parsed.protocol}". ` +
-        'Expected format: http(s)://host[:port] (e.g. https://api.example.com).',
+        'Expected format: http(s)://host[:port] (e.g. https://api.example.com).'
     )
   }
   return value.replace(/\/$/, '')

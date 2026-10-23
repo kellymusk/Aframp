@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, Bell, Mail, Save, Trash2, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { api, ApiError, type Me } from '@/lib/api'
+import { api, type Me } from '@/lib/api'
 import { useAuthenticatedSession, useSession } from '@/components/session-provider'
 
 /** RFC-5322-inspired regex that catches obviously malformed addresses client-side. */
@@ -41,11 +41,10 @@ function getInitials(name: string | null): string {
 
 export default function ProfilePage() {
   const { token } = useAuthenticatedSession()
-  const { signOut, refreshMe, me: cachedMe } = useSession()
+  const { signOut, refreshMe, me: cachedMe, meLoading, meError } = useSession()
   const router = useRouter()
 
   const [me, setMe] = useState<Me | null>(null)
-  const [loading, setLoading] = useState(true)
   const [savingProfile, setSavingProfile] = useState(false)
   const [savingEmail, setSavingEmail] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -60,42 +59,13 @@ export default function ProfilePage() {
   const [emailFormatError, setEmailFormatError] = useState<string | null>(null)
   const [emailSent, setEmailSent] = useState(false)
 
-  const load = useCallback(
-    async (signal?: AbortSignal) => {
-      setLoading(true)
-      setError(null)
-      try {
-        const data = await api.getMe(token, signal)
-        setMe(data)
-        setName(data.name ?? '')
-        setMerchantName(data.merchant_name ?? '')
-        setNewEmail(data.email ?? '')
-        setEmailFormatError(null)
-      } catch (cause) {
-        if (cause instanceof DOMException && cause.name === 'AbortError') return
-        if (cause instanceof ApiError && cause.status === 0) throw cause
-        setError(cause instanceof Error ? cause.message : 'Could not load profile')
-      } finally {
-        setLoading(false)
-      }
-    },
-    [token]
-  )
-
-  useEffect(() => {
-    const controller = new AbortController()
-    void load(controller.signal)
-    return () => controller.abort()
-  }, [load])
-
-  // If session provider already has cached me data, use it to avoid flash
+  // The profile is loaded once by the session provider; seed the editable form from it.
   useEffect(() => {
     if (cachedMe && !me) {
       setMe(cachedMe)
       setName(cachedMe.name ?? '')
       setMerchantName(cachedMe.merchant_name ?? '')
       setNewEmail(cachedMe.email ?? '')
-      setLoading(false)
     }
   }, [cachedMe, me])
 
@@ -188,7 +158,7 @@ export default function ProfilePage() {
     await deleteAccount()
   }
 
-  if (loading && !me) {
+  if (!me && (meLoading || cachedMe)) {
     return (
       <div className="flex justify-center py-16">
         <LoadingSpinner />
@@ -196,6 +166,12 @@ export default function ProfilePage() {
     )
   }
 
+  const loadError = meError
+    ? meError instanceof Error
+      ? meError.message
+      : 'Could not load profile'
+    : null
+  const shownError = error ?? loadError
   const displayName = me?.merchant_name ?? me?.name ?? 'Merchant'
   const displayEmail = me?.email ?? ''
 
@@ -218,9 +194,9 @@ export default function ProfilePage() {
         </Alert>
       )}
 
-      {error && (
+      {shownError && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{shownError}</AlertDescription>
         </Alert>
       )}
 

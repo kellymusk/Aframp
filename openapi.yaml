@@ -376,7 +376,21 @@ components:
           format: date-time
     Payment:
       type: object
-      required: [id, merchant_id, wallet_id, wallet_address, tx_hash, amount_stroops, asset, network, status, confirmations, created_at, updated_at]
+      required:
+        [
+          id,
+          merchant_id,
+          wallet_id,
+          wallet_address,
+          tx_hash,
+          amount_stroops,
+          asset,
+          network,
+          status,
+          confirmations,
+          created_at,
+          updated_at,
+        ]
       properties:
         id:
           type: string
@@ -411,7 +425,19 @@ components:
           format: date-time
     PaymentRequest:
       type: object
-      required: [id, merchant_id, address, network, amount_stroops, asset, memo, status, expires_at, created_at]
+      required:
+        [
+          id,
+          merchant_id,
+          address,
+          network,
+          amount_stroops,
+          asset,
+          memo,
+          status,
+          expires_at,
+          created_at,
+        ]
       properties:
         id:
           type: string
@@ -450,7 +476,18 @@ components:
           nullable: true
     Refund:
       type: object
-      required: [id, payment_id, merchant_id, amount_stroops, asset, status, recipient, created_at, updated_at]
+      required:
+        [
+          id,
+          payment_id,
+          merchant_id,
+          amount_stroops,
+          asset,
+          status,
+          recipient,
+          created_at,
+          updated_at,
+        ]
       properties:
         id:
           type: string
@@ -480,7 +517,21 @@ components:
           format: date-time
     Withdrawal:
       type: object
-      required: [id, merchant_id, amount_stroops, asset, status, provider, provider_reference, bank_code, account_number, failure_reason, created_at, updated_at]
+      required:
+        [
+          id,
+          merchant_id,
+          amount_stroops,
+          asset,
+          status,
+          provider,
+          provider_reference,
+          bank_code,
+          account_number,
+          failure_reason,
+          created_at,
+          updated_at,
+        ]
       properties:
         id:
           type: string

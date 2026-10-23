@@ -54,17 +54,15 @@ self.addEventListener('notificationclick', (event) => {
   const targetUrl = event.notification.data?.url ?? '/'
 
   event.waitUntil(
-    clients
-      .matchAll({ type: 'window', includeUncontrolled: true })
-      .then((windowClients) => {
-        // Focus an existing tab if one matches the target URL
-        const existing = windowClients.find((c) => c.url === targetUrl)
-        if (existing) {
-          return existing.focus()
-        }
-        // Otherwise open a new tab
-        return clients.openWindow(targetUrl)
-      })
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Focus an existing tab if one matches the target URL
+      const existing = windowClients.find((c) => c.url === targetUrl)
+      if (existing) {
+        return existing.focus()
+      }
+      // Otherwise open a new tab
+      return clients.openWindow(targetUrl)
+    })
   )
 })
 

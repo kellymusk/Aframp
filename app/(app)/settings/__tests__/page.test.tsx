@@ -14,7 +14,6 @@ const mockMe = {
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getMe: jest.fn(() => Promise.resolve(mockMe)),
     changeEmail: jest.fn().mockResolvedValue({ message: 'ok' }),
     updateProfile: jest.fn(() => Promise.resolve(mockMe)),
     deleteAccount: jest.fn().mockResolvedValue({}),

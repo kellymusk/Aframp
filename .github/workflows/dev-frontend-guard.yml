@@ -30,7 +30,7 @@ on:
 
 jobs:
   guard-main-frontend:
-    name: "Guard — No changes to main frontend"
+    name: 'Guard — No changes to main frontend'
     runs-on: ubuntu-latest
 
     steps:
