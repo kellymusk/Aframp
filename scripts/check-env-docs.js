@@ -138,7 +138,7 @@ function main() {
   }
 
   if (current !== table) {
-    console.error('README.md\'s Environment Variables table is out of sync with .env.example.')
+    console.error("README.md's Environment Variables table is out of sync with .env.example.")
     console.error('Run `npm run docs:env` to regenerate it, then commit the change.\n')
     console.error('Expected:\n' + table + '\n')
     console.error('Found:\n' + current + '\n')

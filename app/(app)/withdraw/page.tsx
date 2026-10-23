@@ -11,13 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { NativeSelect } from '@/components/ui/native-select'
 import type { WithdrawalConfirmation } from '@/components/withdraw/confirm-withdrawal-dialog'
-import {
-  api,
-  ApiError,
-  type Balance,
-  type Withdrawal,
-  type WithdrawalStatus,
-} from '@/lib/api'
+import { api, ApiError, type Balance, type Withdrawal, type WithdrawalStatus } from '@/lib/api'
 import { formatStroops, parseAmountToStroops } from '@/lib/money'
 import { useAuthenticatedSession, useSession } from '@/components/session-provider'
 import {

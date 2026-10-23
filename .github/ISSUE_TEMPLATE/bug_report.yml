@@ -1,6 +1,6 @@
 name: 🐛 Bug Report
 description: Report a reproducible bug or unexpected behaviour
-labels: ["bug", "needs-triage"]
+labels: ['bug', 'needs-triage']
 body:
   - type: markdown
     attributes:
@@ -96,7 +96,7 @@ body:
     attributes:
       label: App Version / Commit SHA
       description: Run `git rev-parse --short HEAD` or find it in the Vercel deployment URL.
-      placeholder: "e.g. 6b7a0c0 or v0.1.0"
+      placeholder: 'e.g. 6b7a0c0 or v0.1.0'
     validations:
       required: true
 

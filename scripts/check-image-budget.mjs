@@ -21,12 +21,12 @@ const PUBLIC_DIR = path.join(ROOT, 'public')
 
 // Budgets in bytes
 const BUDGETS = {
-  webp: 200 * 1024,   // 200 KB — generous since WebP is already compressed
-  avif: 200 * 1024,   // 200 KB
+  webp: 200 * 1024, // 200 KB — generous since WebP is already compressed
+  avif: 200 * 1024, // 200 KB
   // PNG icons are required by the PWA manifest spec
   pngIcon: 60 * 1024, // 60 KB  (icon-192x192.png ≈ 12 KB, icon-512x512.png ≈ 49 KB)
   // Any remaining PNGs should have been converted; keep a tight budget
-  png: 30 * 1024,     // 30 KB  — trips if a large unconverted PNG is committed
+  png: 30 * 1024, // 30 KB  — trips if a large unconverted PNG is committed
 }
 
 /**

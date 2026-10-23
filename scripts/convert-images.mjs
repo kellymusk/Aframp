@@ -20,8 +20,8 @@ const sharp = require('sharp')
 
 const ROOT = process.cwd()
 const PUBLIC_DIR = path.join(ROOT, 'public')
-const QUALITY = 85  // WebP quality (0-100); 85 is a good balance of size/quality
-const EFFORT = 6    // WebP compression effort (0-6); higher = smaller file but slower
+const QUALITY = 85 // WebP quality (0-100); 85 is a good balance of size/quality
+const EFFORT = 6 // WebP compression effort (0-6); higher = smaller file but slower
 
 function collectPngs(dir) {
   const results = []
@@ -65,9 +65,7 @@ async function main() {
     }
 
     try {
-      await sharp(pngPath)
-        .webp({ quality: QUALITY, effort: EFFORT })
-        .toFile(webpPath)
+      await sharp(pngPath).webp({ quality: QUALITY, effort: EFFORT }).toFile(webpPath)
 
       const pngSize = fs.statSync(pngPath).size
       const webpSize = fs.statSync(webpPath).size

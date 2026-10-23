@@ -26,17 +26,18 @@ module.exports = async (browser, context) => {
   const page = await browser.newPage()
   try {
     await page.goto(new URL('/login', url).toString(), { waitUntil: 'domcontentloaded' })
-    await page.evaluate((session) =>
-      fetch('/api/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(session),
-      }).then((res) => {
-        if (!res.ok) {
-          throw new Error(`seed session failed: ${res.status}`)
-        }
-      }),
-      SEEDED_SESSION,
+    await page.evaluate(
+      (session) =>
+        fetch('/api/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(session),
+        }).then((res) => {
+          if (!res.ok) {
+            throw new Error(`seed session failed: ${res.status}`)
+          }
+        }),
+      SEEDED_SESSION
     )
   } finally {
     await page.close()
