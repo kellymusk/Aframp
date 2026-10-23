@@ -9,13 +9,7 @@ import { Label } from '@/components/ui/label'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { NativeSelect } from '@/components/ui/native-select'
 import { api, ApiError, type Balance, type FeeEstimate, type Remittance } from '@/lib/api'
 import { formatStroops, isWholeKobo, parseAmountToStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
@@ -207,21 +201,17 @@ export default function SendPage() {
 
           <div className="space-y-2">
             <Label htmlFor="asset">Asset</Label>
-            <Select
+            <NativeSelect
+              id="asset"
               value={state.asset}
               onValueChange={(asset) => setState((prev) => ({ ...prev, asset }))}
             >
-              <SelectTrigger id="asset">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ASSETS.map((asset) => (
-                  <SelectItem key={asset} value={asset}>
-                    {asset}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              {ASSETS.map((asset) => (
+                <option key={asset} value={asset}>
+                  {asset}
+                </option>
+              ))}
+            </NativeSelect>
           </div>
 
           <div className="space-y-2">

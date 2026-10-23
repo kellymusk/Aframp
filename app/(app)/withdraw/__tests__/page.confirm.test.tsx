@@ -1,6 +1,5 @@
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { ChangeEvent, ReactNode } from 'react'
 import { api, ApiError, type Balance, type Withdrawal } from '@/lib/api'
 import WithdrawPage from '../page'
 
@@ -28,38 +27,6 @@ jest.mock('@/lib/api', () => {
 jest.mock('@/components/session-provider', () => ({
   useAuthenticatedSession: () => ({ token: 'test-token' }),
 }))
-
-// Replace Radix Select with a plain <select> so value changes can be driven
-// through ordinary DOM events in jsdom.
-jest.mock('@/components/ui/select', () => {
-  const React = jest.requireActual('react')
-  type SelectMockProps = {
-    value?: string
-    onValueChange?: (value: string) => void
-    disabled?: boolean
-    children?: ReactNode
-  }
-  type SelectItemMockProps = { value: string; children?: ReactNode }
-
-  return {
-    Select: ({ value, onValueChange, disabled, children }: SelectMockProps) =>
-      React.createElement(
-        'select',
-        {
-          value,
-          disabled,
-          onChange: (event: ChangeEvent<HTMLSelectElement>) =>
-            onValueChange?.(event.currentTarget.value),
-        },
-        children
-      ),
-    SelectTrigger: () => null,
-    SelectValue: () => null,
-    SelectContent: ({ children }: { children?: ReactNode }) => children,
-    SelectItem: ({ value, children }: SelectItemMockProps) =>
-      React.createElement('option', { value }, children),
-  }
-})
 
 const mockGetMe = jest.mocked(api.getMe)
 const mockGetBalances = jest.mocked(api.getBalances)
