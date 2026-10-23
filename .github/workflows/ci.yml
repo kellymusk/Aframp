@@ -372,8 +372,17 @@ jobs:
       - name: Install Lighthouse CI
         run: npm install -g @lhci/cli@0.14.0
 
+      # Not every ubuntu-latest image exposes Chrome where LHCI's launcher looks
+      # ("Chrome installation not found"), so install Playwright's Chromium and
+      # point LHCI at it explicitly.
+      - name: Install Chromium for Lighthouse
+        run: |
+          npx playwright install --with-deps chromium
+          echo "CHROME_PATH=$(node -e "console.log(require('@playwright/test').chromium.executablePath())")" >> "$GITHUB_ENV"
+
       - name: Start server and run Lighthouse CI
         run: |
+          echo "Using Chrome at $CHROME_PATH"
           npm start &
           SERVER_PID=$!
           echo "Server PID: $SERVER_PID"
