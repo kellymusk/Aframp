@@ -219,7 +219,9 @@ describe('SessionProvider', () => {
       mockApi.logout.mockResolvedValue(undefined as never)
       const { result } = await renderSession(storedSession)
 
-      act(() => result.current.signOut())
+      await act(async () => {
+        await result.current.signOut()
+      })
 
       expect(result.current.session).toBeNull()
       expect(result.current.me).toBeNull()
@@ -231,14 +233,18 @@ describe('SessionProvider', () => {
       mockApi.logout.mockRejectedValue(new Error('network'))
       const { result } = await renderSession(storedSession)
 
-      act(() => result.current.signOut())
+      await act(async () => {
+        await result.current.signOut()
+      })
 
       expect(result.current.session).toBeNull()
     })
 
     it('does not call api.logout without a session', async () => {
       const { result } = await renderSession(null)
-      act(() => result.current.signOut())
+      await act(async () => {
+        await result.current.signOut()
+      })
       expect(mockApi.logout).not.toHaveBeenCalled()
     })
 
@@ -246,7 +252,10 @@ describe('SessionProvider', () => {
       mockApi.logout.mockResolvedValue(undefined as never)
       const { result } = await renderSession(storedSession)
 
-      act(() => unauthorizedCallback?.())
+      await act(async () => {
+        unauthorizedCallback?.()
+        await Promise.resolve()
+      })
 
       expect(result.current.session).toBeNull()
     })

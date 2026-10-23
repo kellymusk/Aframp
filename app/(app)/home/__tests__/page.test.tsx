@@ -41,6 +41,11 @@ jest.mock('@/components/wallet/quick-convert', () => ({
 jest.mock('@/components/wallet/activity-highlights', () => ({
   ActivityHighlights: () => null,
 }))
+jest.mock('@/components/wallet/recent-payments', () => ({
+  RecentPayments: ({ payments }: { payments: Payment[] }) => (
+    <span>recent payments from {payments.length} payments</span>
+  ),
+}))
 jest.mock('@/components/wallet/home-page-skeleton', () => ({
   HomePageSkeleton: () => <span>loading dashboard</span>,
 }))
@@ -97,6 +102,11 @@ describe('HomePage', () => {
   it('lazy-loads the revenue chart with the payments', async () => {
     render(<HomePage />)
     expect(await screen.findByText('revenue chart for 2 payments')).toBeInTheDocument()
+  })
+
+  it('shows the recent payments alongside balances', async () => {
+    render(<HomePage />)
+    expect(await screen.findByText('recent payments from 2 payments')).toBeInTheDocument()
   })
 
   it('ticks off the getting-started steps from real activity', async () => {

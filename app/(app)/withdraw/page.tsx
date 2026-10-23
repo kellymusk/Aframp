@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,6 +44,13 @@ import {
 } from '@/lib/withdraw'
 import { BANKS, type Bank } from '@/lib/banks'
 import { formatDateTime } from '@/lib/format-date'
+import {
+  detectWithdrawalChanges,
+  hasActiveWithdrawal,
+  showSystemNotification,
+  snapshotStatuses,
+  type WithdrawalNotice,
+} from '@/lib/withdrawal-notifications'
 
 const STATUS_LABEL: Record<WithdrawalStatus, string> = {
   pending: 'Pending',
@@ -60,6 +67,7 @@ const STATUS_VARIANT: Record<WithdrawalStatus, 'default' | 'secondary' | 'destru
 }
 
 const PAGE_SIZE = 20
+const POLL_INTERVAL_MS = 10_000
 
 export default function WithdrawPage() {
   const { token } = useAuthenticatedSession()
@@ -72,6 +80,7 @@ export default function WithdrawPage() {
   const [accountNumber, setAccountNumber] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [notices, setNotices] = useState<WithdrawalNotice[]>([])
   const [nigeriaBanks, setNigeriaBanks] = useState<Bank[]>(BANKS)
   const bankName = (code: string) =>
     nigeriaBanks.find((bank) => bank.code === code)?.name ??
@@ -156,6 +165,36 @@ export default function WithdrawPage() {
     void load(controller.signal)
     return () => controller.abort()
   }, [load])
+
+  // Remember each withdrawal's last status so a pending → paid/failed
+  // transition can be announced, whether it lands via polling or a reload.
+  const seenStatuses = useRef<Map<string, WithdrawalStatus> | null>(null)
+  useEffect(() => {
+    if (seenStatuses.current) {
+      const changes = detectWithdrawalChanges(seenStatuses.current, withdrawals)
+      if (changes.length > 0) {
+        setNotices((current) => [...changes, ...current])
+        changes.forEach((notice) => void showSystemNotification(notice))
+      }
+    }
+    seenStatuses.current = snapshotStatuses(withdrawals)
+  }, [withdrawals])
+
+  // Keep checking while a cash-out is still with the provider, so the merchant
+  // hears the outcome without reopening the page.
+  const active = hasActiveWithdrawal(withdrawals)
+  useEffect(() => {
+    if (!active) return
+    const timer = setInterval(() => {
+      api
+        .listWithdrawals(token, limit)
+        .then(setWithdrawals)
+        .catch(() => {
+          // Transient; the next tick retries.
+        })
+    }, POLL_INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [active, token, limit])
 
   async function loadMore() {
     const nextLimit = limit + PAGE_SIZE
@@ -273,6 +312,27 @@ export default function WithdrawPage() {
       </header>
 
       <div className="mt-6 max-w-xl space-y-5">
+        {notices.map((notice) => (
+          <Alert
+            key={notice.id}
+            role="status"
+            variant={notice.kind === 'failure' ? 'destructive' : 'default'}
+          >
+            <AlertDescription className="flex items-start justify-between gap-3">
+              <span>
+                <strong>{notice.title}.</strong> {notice.body}
+              </span>
+              <button
+                type="button"
+                className="shrink-0 text-xs underline"
+                onClick={() => setNotices((current) => current.filter((n) => n.id !== notice.id))}
+              >
+                Dismiss
+              </button>
+            </AlertDescription>
+          </Alert>
+        ))}
+
         {withdrawableAssets.length === 0 && (
           <Alert>
             <AlertDescription>

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { Payment } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
 
@@ -21,7 +22,7 @@ function takingsToday(payments: Payment[]): Map<string, bigint> {
   return totals
 }
 
-export function ActivityHighlights({
+export const ActivityHighlights = memo(function ActivityHighlights({
   payments,
   openRequestCount,
 }: {
@@ -56,4 +57,4 @@ export function ActivityHighlights({
       </dl>
     </section>
   )
-}
+})

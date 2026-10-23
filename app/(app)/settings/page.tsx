@@ -356,25 +356,28 @@ export default function ProfilePage() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete your account?</AlertDialogTitle>
-              <AlertDialogDescription className="space-y-3">
-                <p>
-                  This will permanently delete your merchant account, wallet, payment history, and
-                  all API keys. Any pending payments or withdrawals will be lost.
-                </p>
-                <p className="font-semibold text-destructive">This action cannot be undone.</p>
-                <div className="space-y-2 pt-2">
-                  <Label htmlFor="delete-confirm-email" className="text-foreground">
-                    Type your email address to confirm: <strong>{displayEmail}</strong>
-                  </Label>
-                  <Input
-                    id="delete-confirm-email"
-                    type="email"
-                    placeholder={displayEmail}
-                    value={deleteConfirmEmail}
-                    onChange={(e) => setDeleteConfirmEmail(e.target.value)}
-                    disabled={deleting}
-                    autoComplete="off"
-                  />
+              {/* AlertDialogDescription renders a <p>; asChild avoids nesting <p>/<div> in it. */}
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p>
+                    This will permanently delete your merchant account, wallet, payment history, and
+                    all API keys. Any pending payments or withdrawals will be lost.
+                  </p>
+                  <p className="font-semibold text-destructive">This action cannot be undone.</p>
+                  <div className="space-y-2 pt-2">
+                    <Label htmlFor="delete-confirm-email" className="text-foreground">
+                      Type your email address to confirm: <strong>{displayEmail}</strong>
+                    </Label>
+                    <Input
+                      id="delete-confirm-email"
+                      type="email"
+                      placeholder={displayEmail}
+                      value={deleteConfirmEmail}
+                      onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                      disabled={deleting}
+                      autoComplete="off"
+                    />
+                  </div>
                 </div>
               </AlertDialogDescription>
             </AlertDialogHeader>

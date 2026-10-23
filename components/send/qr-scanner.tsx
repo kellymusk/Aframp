@@ -5,6 +5,10 @@ interface QRScannerProps {
   onClose: () => void
 }
 
+// NOTE: Camera access for this scanner requires the `Permissions-Policy`
+// response header to allow same-origin camera use (`camera=(self)`).
+// See `next.config.mjs` — the policy must not be `camera=()` or the
+// underlying `getUserMedia` call will be silently blocked in production.
 export function QRScanner({ onScan, onClose }: QRScannerProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">

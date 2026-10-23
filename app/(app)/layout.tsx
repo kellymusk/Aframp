@@ -3,9 +3,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { WalletSidebar } from '@/components/wallet/wallet-sidebar'
+import { Toaster } from 'sonner'
 import { useSession } from '@/components/session-provider'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { DarkScopeContext } from '@/components/dark-scope'
+import { usePaymentPoller } from '@/hooks/use-payment-poller'
+
+// Only allow same-origin relative paths; reject absolute URLs, protocol-relative
+// (//evil.com), and backslash tricks (\\evil.com) to prevent open redirects.
+function safeNextPath(pathname: string | null): string | null {
+  if (!pathname) return null
+  if (!pathname.startsWith('/')) return null
+  if (pathname.startsWith('//') || pathname.startsWith('/\\')) return null
+  return pathname
+}
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { session, ready } = useSession()
@@ -15,12 +26,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isAdmin = pathname === '/admin' || pathname.startsWith('/admin/')
   const [scopeNode, setScopeNode] = useState<HTMLDivElement | null>(null)
   const redirectRef = useRef(false)
+  const [isOffline, setIsOffline] = useState(false)
+
+  // Enable automatic 30s polling for confirmed payment notifications
+  usePaymentPoller()
 
   useEffect(() => {
     if (!ready || session || redirectRef.current) return
     redirectRef.current = true
-    router.replace('/login')
-  }, [ready, session, router])
+    const next = safeNextPath(pathname)
+    router.replace(next ? `/login?next=${encodeURIComponent(next)}` : '/login')
+  }, [ready, session, router, pathname])
+
+  // Global connectivity banner: initialize from navigator.onLine and track events.
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) setIsOffline(true)
+    const handleOnline = () => setIsOffline(false)
+    const handleOffline = () => setIsOffline(true)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   // Children below assume a session exists; don't mount them until it does.
   if (!ready || !session) {
@@ -36,10 +65,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       ref={setScopeNode}
       className="dark bg-ink font-brand flex min-h-dvh flex-col text-white lg:flex-row"
     >
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-brand focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white"
+      >
+        Skip to main content
+      </a>
+      {isOffline && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="bg-amber-500 px-4 py-2 text-center text-sm font-medium text-black"
+        >
+          You&apos;re offline. Some features may be unavailable until your connection returns.
+        </div>
+      )}
       {!isAdmin && <WalletSidebar />}
-      <main className={isAdmin ? 'min-w-0 flex-1' : 'min-w-0 flex-1 p-4 sm:p-6 lg:p-8'}>
+      <main
+        id="main-content"
+        className={isAdmin ? 'min-w-0 flex-1' : 'min-w-0 flex-1 p-4 sm:p-6 lg:p-8'}
+      >
         <DarkScopeContext.Provider value={scopeNode}>{children}</DarkScopeContext.Provider>
       </main>
+      <Toaster position="top-right" richColors theme="dark" />
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { formatDate } from '@/lib/format-date'
+import { captureError } from '@/lib/observability'
 
 interface Contact {
   id: string
@@ -44,7 +45,7 @@ export default function ContactsPage() {
         setContacts(parsed)
       }
     } catch (error) {
-      console.error('Failed to load contacts:', error)
+      captureError(error, { context: 'Failed to load contacts' })
     } finally {
       setLoading(false)
     }
@@ -55,7 +56,7 @@ export default function ContactsPage() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedContacts))
     } catch (error) {
-      console.error('Failed to save contacts:', error)
+      captureError(error, { context: 'Failed to save contacts' })
     }
   }
 
@@ -141,7 +142,11 @@ export default function ContactsPage() {
   return (
     <div>
       <header className="flex items-center gap-4">
-        <Link href="/send" className="text-dim hover:text-bright transition-colors">
+        <Link
+          href="/send"
+          aria-label="Back to Send money"
+          className="text-dim hover:text-bright transition-colors"
+        >
           <ArrowLeft className="size-5" />
         </Link>
         <div>

@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import {
@@ -19,18 +19,12 @@ import {
 import { api, ApiError, type Balance, type FeeEstimate, type Remittance } from '@/lib/api'
 import { formatStroops, isWholeKobo, parseAmountToStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
+import { REMITTANCE_STATUS } from '@/lib/status'
+import { useContacts } from '@/lib/contacts'
 import { Plus } from 'lucide-react'
 
 const ASSETS = ['XLM', 'cNGN']
 const STELLAR_ADDRESS_LENGTH = 56
-const STORAGE_KEY = 'aframp_contacts'
-
-interface Contact {
-  id: string
-  name: string
-  address: string
-  createdAt: string
-}
 
 interface SendState {
   address: string
@@ -44,14 +38,6 @@ interface SendState {
   submitting: boolean
   remittances: Remittance[]
   showContacts: boolean
-  contacts: Contact[]
-}
-
-const STATUS_LABEL: Record<Remittance['status'], string> = {
-  pending: 'Pending',
-  submitted: 'Submitted',
-  confirmed: 'Confirmed',
-  failed: 'Failed',
 }
 
 export default function SendPage() {
@@ -70,8 +56,8 @@ export default function SendPage() {
     submitting: false,
     remittances: [],
     showContacts: false,
-    contacts: [],
   })
+  const { contacts } = useContacts()
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -100,19 +86,6 @@ export default function SendPage() {
     void load(controller.signal)
     return () => controller.abort()
   }, [load])
-
-  // Load contacts from localStorage
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        const parsed = JSON.parse(stored) as Contact[]
-        setState((prev) => ({ ...prev, contacts: parsed }))
-      }
-    } catch (error) {
-      console.error('Failed to load contacts:', error)
-    }
-  }, [])
 
   // Load fee estimate when amount or asset changes
   useEffect(() => {
@@ -262,19 +235,19 @@ export default function SendPage() {
                   setState((prev) => ({
                     ...prev,
                     address: event.target.value.toUpperCase(),
-                    showContacts: event.target.value.length > 0 ? false : state.contacts.length > 0,
+                    showContacts: event.target.value.length > 0 ? false : contacts.length > 0,
                   }))
                 }
                 onFocus={() =>
                   setState((prev) => ({
                     ...prev,
-                    showContacts: prev.address.length === 0 && prev.contacts.length > 0,
+                    showContacts: prev.address.length === 0 && contacts.length > 0,
                   }))
                 }
               />
-              {state.showContacts && state.contacts.length > 0 && (
+              {state.showContacts && contacts.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-panel border border-hairline rounded-lg z-10 max-h-48 overflow-y-auto">
-                  {state.contacts.map((contact) => (
+                  {contacts.map((contact) => (
                     <button
                       key={contact.id}
                       type="button"
@@ -399,17 +372,7 @@ export default function SendPage() {
                         {remittance.destination_address}
                       </p>
                     </div>
-                    <Badge
-                      variant={
-                        remittance.status === 'confirmed'
-                          ? 'default'
-                          : remittance.status === 'failed'
-                            ? 'destructive'
-                            : 'secondary'
-                      }
-                    >
-                      {STATUS_LABEL[remittance.status]}
-                    </Badge>
+                    <StatusBadge status={remittance.status} config={REMITTANCE_STATUS} />
                   </div>
                   {remittance.tx_hash && (
                     <a

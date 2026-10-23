@@ -1,5 +1,6 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ChangeEvent, ReactNode } from 'react'
 import { api } from '@/lib/api'
 import { ZarOnramp } from '../zar-onramp'
 import { redirectTo } from '@/lib/navigation'
@@ -14,6 +15,7 @@ jest.mock('@/lib/api', () => ({
 }))
 
 jest.mock('@/lib/payment-providers', () => ({
+  validateOzowPaymentUrl: jest.requireActual('@/lib/payment-providers').validateOzowPaymentUrl,
   OZOW_BANKS: [{ code: 'ABSA', name: 'ABSA Bank' }],
   calculateFees: () => ({ processingFee: 1.5, totalCost: 101.5 }),
   formatCurrency: (amount: number, currency: string) => `${currency} ${amount}`,
@@ -22,21 +24,30 @@ jest.mock('@/lib/payment-providers', () => ({
 // Mock Select so we can drive it with simple DOM events in jsdom.
 jest.mock('@/components/ui/select', () => {
   const React = jest.requireActual('react')
+  type SelectMockProps = {
+    value?: string
+    onValueChange?: (value: string) => void
+    children?: ReactNode
+  }
+  type SelectItemMockProps = { value: string; children?: ReactNode }
+
   return {
-    Select: ({ value, onValueChange, children }: any) =>
+    Select: ({ value, onValueChange, children }: SelectMockProps) =>
       React.createElement(
         'select',
         {
           value,
-          onChange: (e: any) => onValueChange(e.target.value),
+          onChange: (event: ChangeEvent<HTMLSelectElement>) =>
+            onValueChange?.(event.currentTarget.value),
           'data-testid': 'bank-select',
         },
         children
       ),
     SelectTrigger: () => null,
     SelectValue: () => null,
-    SelectContent: ({ children }: any) => children,
-    SelectItem: ({ value, children }: any) => React.createElement('option', { value }, children),
+    SelectContent: ({ children }: { children?: ReactNode }) => children,
+    SelectItem: ({ value, children }: SelectItemMockProps) =>
+      React.createElement('option', { value }, children),
   }
 })
 

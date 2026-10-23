@@ -27,18 +27,14 @@ import {
 } from '@/lib/transaction-filters'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { formatDateTime } from '@/lib/format-date'
+import { PAYMENT_STATUS_LABEL, paymentStatusVariant } from '@/lib/payment-status'
 import { downloadCsv, toCsv } from '@/lib/csv'
 
 const EXPLORER_BASE = `https://stellar.expert/explorer/${
   process.env.NEXT_PUBLIC_STELLAR_NETWORK === 'PUBLIC' ? 'public' : 'testnet'
 }/tx`
 
-const STATUS_LABEL: Record<PaymentStatus, string> = {
-  detected: 'Incoming',
-  verified: 'Confirming',
-  confirmed: 'Paid',
-  failed: 'Failed',
-}
+const STATUS_LABEL = PAYMENT_STATUS_LABEL
 
 const FILTERABLE_STATUSES: PaymentStatus[] = ['detected', 'verified', 'confirmed', 'failed']
 
@@ -59,12 +55,6 @@ function DebouncedSearchInput({ onSearch }: { onSearch: (query: string) => void 
       onChange={(event) => setQuery(event.target.value)}
     />
   )
-}
-
-function statusVariant(status: PaymentStatus) {
-  if (status === 'confirmed') return 'default' as const
-  if (status === 'failed') return 'destructive' as const
-  return 'secondary' as const
 }
 
 export default function TransactionsPage() {
@@ -329,7 +319,7 @@ export default function TransactionsPage() {
                   </Button>
                 )}
                 <Badge
-                  variant={statusVariant(payment.status)}
+                  variant={paymentStatusVariant(payment.status)}
                   role="status"
                   aria-live="polite"
                   aria-label={`Payment status: ${STATUS_LABEL[payment.status] ?? payment.status}`}

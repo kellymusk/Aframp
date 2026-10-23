@@ -13,8 +13,12 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { OZOW_BANKS } from '@/lib/payment-providers'
-import { calculateFees, formatCurrency } from '@/lib/payment-providers'
+import {
+  OZOW_BANKS,
+  calculateFees,
+  formatCurrency,
+  validateOzowPaymentUrl,
+} from '@/lib/payment-providers'
 import { api } from '@/lib/api'
 import { redirectTo } from '@/lib/navigation'
 
@@ -90,22 +94,19 @@ export function ZarOnramp({ token, onSuccess }: ZarOnrampProps) {
         returnUrl
       )
 
-      // Validate the URL before redirecting: must be https:// and on the
-      // expected Ozow domain to prevent open-redirect / javascript: attacks.
-      let parsedUrl: URL
+      // Validate the URL before redirecting: it must be https:// on a real Ozow
+      // host, to prevent open-redirect / javascript: attacks (#639).
       try {
-        parsedUrl = new URL(payment_url)
-      } catch {
-        throw new Error('Invalid payment URL received from server.')
-      }
-      if (parsedUrl.protocol !== 'https:' || !parsedUrl.hostname.endsWith('ozow.com')) {
+        validateOzowPaymentUrl(payment_url)
+      } catch (cause) {
+        if (cause instanceof Error && cause.message.startsWith('Invalid payment URL')) throw cause
         throw new Error('Payment URL failed security validation. Please contact support.')
       }
 
       sessionStorage.setItem(OZOW_TRANSACTION_ID_KEY, transaction_id)
 
       // Redirect to Ozow payment page
-      redirectTo(parsedUrl.href)
+      redirectTo(new URL(payment_url).href)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to initiate payment')
       setIsProcessing(false)

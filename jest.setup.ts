@@ -8,25 +8,27 @@ import { toHaveNoViolations } from 'jest-axe'
 expect.extend(toHaveNoViolations)
 
 // Set TextEncoder/Decoder and Streams/Message globals first because undici needs them on load
-global.TextDecoder = TextDecoder as any
-global.TextEncoder = TextEncoder
-globalThis.TextDecoder = TextDecoder as any
-globalThis.TextEncoder = TextEncoder
+// Jest 30 already provides many of these globals in jsdom; only fill in what's missing to avoid
+// overwriting native implementations that undici may depend on.
+const setGlobalIf = (name: string, value: unknown) => {
+  if (typeof (globalThis as Record<string, unknown>)[name] === 'undefined') {
+    Object.defineProperty(globalThis, name, {
+      value,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    })
+  }
+}
 
-global.ReadableStream = ReadableStream as any
-global.TransformStream = TransformStream as any
-global.WritableStream = WritableStream as any
-globalThis.ReadableStream = ReadableStream as any
-globalThis.TransformStream = TransformStream as any
-globalThis.WritableStream = WritableStream as any
-
-global.MessageChannel = MessageChannel as any
-global.MessagePort = MessagePort as any
-globalThis.MessageChannel = MessageChannel as any
-globalThis.MessagePort = MessagePort as any
-
-global.BroadcastChannel = BroadcastChannel as any
-globalThis.BroadcastChannel = BroadcastChannel as any
+setGlobalIf('TextDecoder', TextDecoder)
+setGlobalIf('TextEncoder', TextEncoder)
+setGlobalIf('ReadableStream', ReadableStream)
+setGlobalIf('TransformStream', TransformStream)
+setGlobalIf('WritableStream', WritableStream)
+setGlobalIf('MessageChannel', MessageChannel)
+setGlobalIf('MessagePort', MessagePort)
+setGlobalIf('BroadcastChannel', BroadcastChannel)
 
 // Now load undici after globals are set
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- a static import would hoist above the globals this module reads at load time
@@ -62,6 +64,15 @@ const polyfills = {
 
 Object.defineProperties(global, polyfills)
 Object.defineProperties(globalThis, polyfills)
+
+// jsdom has no ResizeObserver; Radix primitives (e.g. Checkbox) measure with it.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver
+}
 
 // jsdom has no matchMedia; hooks/use-media-query.ts needs it. Default to "no match".
 if (typeof window !== 'undefined' && !window.matchMedia) {

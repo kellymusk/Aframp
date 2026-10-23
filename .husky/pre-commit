@@ -13,3 +13,18 @@ elif command -v lint-staged >/dev/null 2>&1; then
 else
   echo "husky(pre-commit): lint-staged not found; skipping. Install dependencies to re-enable."
 fi
+
+# Type-check staged TypeScript changes. tsc needs full-program context to
+# type-check correctly (it can't check one file in isolation), so this runs
+# the same `tsc --noEmit` as `npm run type-check` -- but only when a staged
+# file is actually TypeScript, which keeps docs/config-only commits fast.
+if git diff --cached --name-only --diff-filter=ACMR | grep -qE '\.(ts|tsx)$'; then
+  echo "husky(pre-commit): type-checking staged TypeScript changes..."
+  if [ -x "./node_modules/.bin/tsc" ]; then
+    ./node_modules/.bin/tsc --noEmit
+  elif command -v tsc >/dev/null 2>&1; then
+    tsc --noEmit
+  else
+    echo "husky(pre-commit): tsc not found; skipping type-check. Install dependencies to re-enable."
+  fi
+fi

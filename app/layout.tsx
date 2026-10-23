@@ -32,7 +32,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  // Read the nonce injected by middleware.ts so we can apply it to the inline
+  // Read the nonce injected by proxy.ts so we can apply it to the inline
   // service-worker registration script, satisfying the nonce-based CSP (#632).
   const headersList = await headers()
   const nonce = headersList.get('x-nonce') ?? undefined

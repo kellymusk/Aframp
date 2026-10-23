@@ -15,6 +15,9 @@ import {
 // #633: token is now stored in an HTTP-only cookie via /api/session,
 // not in localStorage. No token is ever readable by client-side JS.
 
+/** #635: cap how long sign-out waits for the server-side logout to complete. */
+const LOGOUT_TIMEOUT_MS = 5000
+
 interface Session {
   token: string
   userId: string
@@ -25,6 +28,8 @@ interface SessionContextValue {
   session: Session | null
   /** False until the cookie has been read from the server — guards against redirecting on first paint. */
   ready: boolean
+  /** True while a sign-out request is in-flight (server logout not yet confirmed). */
+  signingOut: boolean
   signIn: (email: string, password: string) => Promise<LoginResult>
   /** Always a challenge — the account doesn't exist until `completeOtp` succeeds. */
   signUp: (
@@ -34,7 +39,7 @@ interface SessionContextValue {
     phoneNumber: string
   ) => Promise<OtpChallengeResponse>
   completeOtp: (challengeId: string, code: string) => Promise<void>
-  signOut: () => void
+  signOut: () => Promise<void>
   /** Re-fetches /me and updates any cached profile data. Returns a discriminated
    * union so callers can distinguish between success, network errors, and auth
    * failures (401). Auth failures are not caught — they propagate to trigger
@@ -68,10 +73,28 @@ async function clearCookie(): Promise<void> {
   await fetch('/api/session', { method: 'DELETE' })
 }
 
+/** #635: resolve after `promise` settles or after `ms`, whichever comes first. */
+function withTimeout(promise: Promise<unknown>, ms: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms)
+    promise.then(
+      () => {
+        clearTimeout(timer)
+        resolve()
+      },
+      () => {
+        clearTimeout(timer)
+        resolve()
+      }
+    )
+  })
+}
+
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [ready, setReady] = useState(false)
   const [me, setMe] = useState<Me | null>(null)
+  const [signingOut, setSigningOut] = useState(false)
 
   // #633: on mount, read the session from the HTTP-only cookie via
   // /api/session (GET). This replaces the localStorage read.
@@ -121,11 +144,27 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [persist]
   )
 
-  const signOut = useCallback(() => {
-    if (session) api.logout(session.token).catch(() => {})
-    clearCookie().catch(() => {})
-    setSession(null)
-    setMe(null)
+  const signOut = useCallback(async () => {
+    // #635: await the server-side logout so the token is invalidated before we
+    // drop local state. A short timeout prevents a hanging request from
+    // blocking sign-out indefinitely.
+    setSigningOut(true)
+    try {
+      if (session) {
+        await withTimeout(
+          api.logout(session.token).catch(() => {}),
+          LOGOUT_TIMEOUT_MS
+        )
+      }
+      await withTimeout(
+        clearCookie().catch(() => {}),
+        LOGOUT_TIMEOUT_MS
+      )
+    } finally {
+      setSession(null)
+      setMe(null)
+      setSigningOut(false)
+    }
   }, [session])
 
   const refreshMe = useCallback(async () => {
@@ -153,8 +192,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [signOut])
 
   const value = useMemo(
-    () => ({ session, ready, signIn, signUp, completeOtp, signOut, refreshMe, me }),
-    [session, ready, signIn, signUp, completeOtp, signOut, refreshMe, me]
+    () => ({ session, ready, signingOut, signIn, signUp, completeOtp, signOut, refreshMe, me }),
+    [session, ready, signingOut, signIn, signUp, completeOtp, signOut, refreshMe, me]
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

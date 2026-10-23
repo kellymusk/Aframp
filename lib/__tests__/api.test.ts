@@ -170,10 +170,22 @@ describe('request', () => {
   })
 
   it('falls back to a status-code message for a non-JSON error body', async () => {
-    fetchMock.mockResolvedValue(new Response('<html>Bad Gateway</html>', { status: 502 }))
+    fetchMock.mockResolvedValue(new Response('<html>Not Found</html>', { status: 404 }))
     await expect(request('/balance')).rejects.toMatchObject({
-      message: 'Request failed (502)',
-      status: 502,
+      message: 'Request failed (404)',
+      status: 404,
+    })
+  })
+
+  it('never shows a 5xx body to the user', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ error: 'pq: relation "payments" does not exist' }), {
+        status: 500,
+      })
+    )
+    await expect(request('/balance')).rejects.toMatchObject({
+      message: 'Something went wrong on our end. Please try again in a moment.',
+      status: 500,
     })
   })
 
@@ -374,6 +386,20 @@ describe('api', () => {
     expect(url).toBe('/backend/api-keys')
     expect(init.method).toBe('POST')
     expect(init.body).toBe('{"name":"My Key"}')
+  })
+
+  it('createApiKey sends scopes and expiry when given', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({}))
+    await api.createApiKey('tok', 'Reporting', {
+      scopes: ['read'],
+      expiresAt: '2027-01-01T00:00:00.000Z',
+    })
+    const [, init] = fetchMock.mock.calls[0]
+    expect(JSON.parse(init.body)).toEqual({
+      name: 'Reporting',
+      scopes: ['read'],
+      expires_at: '2027-01-01T00:00:00.000Z',
+    })
   })
 
   it('revokeApiKey sends DELETE to /api-keys/:id', async () => {

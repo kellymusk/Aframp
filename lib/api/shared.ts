@@ -90,6 +90,12 @@ export interface RequestOptions {
   signal?: AbortSignal
 }
 
+/**
+ * User-facing message for 5xx responses. Backend error text on a server error
+ * can leak internals (SQL errors, panics), so it is never shown verbatim.
+ */
+const SERVER_ERROR_MESSAGE = 'Something went wrong on our end. Please try again in a moment.'
+
 /** Exported for tests: the single fetch wrapper every `api.*` call funnels through. */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, token, signal } = options
@@ -129,12 +135,16 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     let field: string | undefined
     try {
       const parsed = JSON.parse(text) as { error?: string; code?: string; field?: string }
-      if (parsed.error) message = parsed.error
+      // Only 4xx responses carry messages meant for the user (validation,
+      // auth). A 5xx body may contain internal details, so it is never shown.
+      if (parsed.error && response.status < 500) message = parsed.error
       code = parsed.code
       field = parsed.field
     } catch {
       // Non-JSON body (proxy error page, panic); keep the status-code message.
     }
+
+    if (response.status >= 500) message = SERVER_ERROR_MESSAGE
     throw new ApiError(message, response.status, code, field)
   }
 

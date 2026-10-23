@@ -82,6 +82,42 @@ describe('buildDailyRevenue', () => {
     const entries = buildDailyRevenue(payments, NOW)
     expect(entries.every((e) => Object.keys(e.totals).length === 0)).toBe(true)
   })
+
+  describe('precision near Number.MAX_SAFE_INTEGER', () => {
+    const STROOPS_PER_UNIT = 10_000_000n
+
+    it('converts exactly at the safe boundary (MAX_SAFE_INTEGER stroops)', () => {
+      const stroops = BigInt(Number.MAX_SAFE_INTEGER)
+      const payments = [payment({ amount_stroops: stroops })]
+      const entries = buildDailyRevenue(payments, NOW)
+      expect(entries[6].totals.XLM).toBe(Number(stroops) / Number(STROOPS_PER_UNIT))
+    })
+
+    it('converts exactly just below the safe boundary', () => {
+      const stroops = BigInt(Number.MAX_SAFE_INTEGER) - 1n
+      const payments = [payment({ amount_stroops: stroops })]
+      const entries = buildDailyRevenue(payments, NOW)
+      expect(entries[6].totals.XLM).toBe(Number(stroops) / Number(STROOPS_PER_UNIT))
+    })
+
+    it('clamps totals above MAX_SAFE_INTEGER instead of silently rounding', () => {
+      const stroops = BigInt(Number.MAX_SAFE_INTEGER) + 1n
+      const payments = [payment({ amount_stroops: stroops })]
+      const entries = buildDailyRevenue(payments, NOW)
+      expect(entries[6].totals.XLM).toBe(
+        Number(BigInt(Number.MAX_SAFE_INTEGER)) / Number(STROOPS_PER_UNIT)
+      )
+    })
+
+    it('clamps aggregated totals that overflow only after summing', () => {
+      const half = BigInt(Number.MAX_SAFE_INTEGER) / 2n + 1n
+      const payments = [payment({ amount_stroops: half }), payment({ amount_stroops: half })]
+      const entries = buildDailyRevenue(payments, NOW)
+      expect(entries[6].totals.XLM).toBe(
+        Number(BigInt(Number.MAX_SAFE_INTEGER)) / Number(STROOPS_PER_UNIT)
+      )
+    })
+  })
 })
 
 describe('assetsInSeries', () => {

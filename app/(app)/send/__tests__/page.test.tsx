@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ChangeEvent, ReactNode } from 'react'
 import { api, ApiError } from '@/lib/api'
 import SendPage from '../page'
 
@@ -36,17 +37,31 @@ jest.mock('next/navigation', () => ({
 // through ordinary DOM events in jsdom.
 jest.mock('@/components/ui/select', () => {
   const React = jest.requireActual('react')
+  type SelectMockProps = {
+    value?: string
+    onValueChange?: (value: string) => void
+    disabled?: boolean
+    children?: ReactNode
+  }
+  type SelectItemMockProps = { value: string; children?: ReactNode }
+
   return {
-    Select: ({ value, onValueChange, disabled, children }: any) =>
+    Select: ({ value, onValueChange, disabled, children }: SelectMockProps) =>
       React.createElement(
         'select',
-        { value, disabled, onChange: (event: any) => onValueChange(event.target.value) },
+        {
+          value,
+          disabled,
+          onChange: (event: ChangeEvent<HTMLSelectElement>) =>
+            onValueChange?.(event.currentTarget.value),
+        },
         children
       ),
     SelectTrigger: () => null,
     SelectValue: () => null,
-    SelectContent: ({ children }: any) => children,
-    SelectItem: ({ value, children }: any) => React.createElement('option', { value }, children),
+    SelectContent: ({ children }: { children?: ReactNode }) => children,
+    SelectItem: ({ value, children }: SelectItemMockProps) =>
+      React.createElement('option', { value }, children),
   }
 })
 

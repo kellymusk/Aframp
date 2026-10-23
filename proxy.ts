@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 /**
- * Per-request CSP nonce middleware (#632).
+ * Per-request CSP nonce proxy (#632, migrated from middleware.ts for Next.js 16).
  *
  * Generates a cryptographically random nonce for every request and embeds it
  * in the Content-Security-Policy header, replacing the broad 'unsafe-inline'
@@ -9,9 +9,9 @@ import { NextResponse, type NextRequest } from 'next/server'
  * `x-nonce` response header so that layout.tsx can read it with `headers()`
  * and apply it to inline <script> tags.
  *
- * This middleware runs on every non-static, non-API-internal route.
+ * This proxy runs on every non-static, non-API-internal route.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // 16 random bytes → 22-character base64url string (no padding).
   const nonceBytes = crypto.getRandomValues(new Uint8Array(16))
   const nonce = Buffer.from(nonceBytes).toString('base64url')
@@ -50,7 +50,7 @@ export function middleware(request: NextRequest) {
   response.headers.set('X-Frame-Options', 'DENY')
   response.headers.set('X-XSS-Protection', '1; mode=block')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+  response.headers.set('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()')
 
   return response
 }

@@ -13,6 +13,7 @@ jest.mock('@/components/session-provider', () => ({
 
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
+  useSearchParams: () => new URLSearchParams(),
 }))
 
 describe('LoginPage', () => {

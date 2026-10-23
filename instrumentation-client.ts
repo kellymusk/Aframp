@@ -26,3 +26,6 @@ Sentry.init({
     return event
   },
 })
+
+// Sentry 11 instruments App Router navigations through this hook.
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart
