@@ -16,7 +16,6 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('@/lib/api', () => ({
   api: {
-    getMe: jest.fn(),
     updateProfile: jest.fn(),
     changeEmail: jest.fn(),
     deleteAccount: jest.fn(),
@@ -61,7 +60,6 @@ describe('ProfilePage - Account deletion confirmation', () => {
     ;(useRouter as jest.Mock).mockReturnValue({
       replace: jest.fn(),
     })
-    ;(api.getMe as jest.Mock).mockResolvedValue(mockMe)
   })
 
   it('requires email confirmation before calling deleteAccount API', async () => {
@@ -280,7 +278,6 @@ describe('ProfilePage - profile and account errors', () => {
     ;(useAuthenticatedSession as jest.Mock).mockReturnValue({ token: 'test-token' })
     ;(useSession as jest.Mock).mockReturnValue({ signOut: jest.fn(), refreshMe, me: mockMe })
     ;(useRouter as jest.Mock).mockReturnValue({ replace: jest.fn() })
-    ;(api.getMe as jest.Mock).mockResolvedValue(mockMe)
     refreshMe.mockResolvedValue({ success: true, data: mockMe })
   })
 

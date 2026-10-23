@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import AdminLayout from '@/app/(app)/admin/layout'
 import { useSession } from '@/components/session-provider'
-import { api, ApiError } from '@/lib/api'
+import { ApiError } from '@/lib/api'
 
 jest.mock('@/components/session-provider', () => ({
   useSession: jest.fn(),
@@ -13,9 +14,6 @@ jest.mock('next/navigation', () => ({
 }))
 
 jest.mock('@/lib/api', () => ({
-  api: {
-    getMe: jest.fn(),
-  },
   ApiError: class ApiError extends Error {
     constructor(
       message: string,
@@ -28,93 +26,79 @@ jest.mock('@/lib/api', () => ({
 }))
 
 describe('AdminLayout', () => {
-  const mockSession = {
-    token: 'test-token',
-    user_id: 'user-123',
-    merchant_id: 'merchant-123',
+  const refreshMe = jest.fn()
+
+  // The session provider loads /me once; the layout only reads it.
+  function mockSessionState(state: { me?: unknown; meLoading?: boolean; meError?: unknown }) {
+    ;(useSession as jest.Mock).mockReturnValue({
+      session: { token: 'test-token', user_id: 'user-123', merchant_id: 'merchant-123' },
+      ready: true,
+      me: null,
+      meLoading: false,
+      meError: null,
+      refreshMe,
+      signOut: jest.fn(),
+      signIn: jest.fn(),
+      signUp: jest.fn(),
+      ...state,
+    })
+  }
+
+  function renderLayout() {
+    return render(
+      <AdminLayout>
+        <div>Admin content</div>
+      </AdminLayout>
+    )
   }
 
   beforeEach(() => {
     jest.clearAllMocks()
-    ;(useSession as jest.Mock).mockReturnValue({
-      session: mockSession,
-      ready: true,
-      signOut: jest.fn(),
-      signIn: jest.fn(),
-      signUp: jest.fn(),
-    })
+    refreshMe.mockResolvedValue({ success: true })
   })
 
   it('shows loading spinner while verifying admin access', () => {
-    ;(api.getMe as jest.Mock).mockImplementation(
-      () => new Promise(() => {}) // Never resolves
-    )
-
-    render(
-      <AdminLayout>
-        <div>Admin content</div>
-      </AdminLayout>
-    )
+    mockSessionState({ meLoading: true })
+    renderLayout()
 
     expect(screen.getByRole('status')).toBeInTheDocument()
   })
 
-  it('shows error state when API call fails', async () => {
-    ;(api.getMe as jest.Mock).mockRejectedValue(new Error('Network error'))
+  it('shows error state when the profile failed to load', () => {
+    mockSessionState({ meError: new Error('Network error') })
+    renderLayout()
 
-    render(
-      <AdminLayout>
-        <div>Admin content</div>
-      </AdminLayout>
-    )
-
-    expect(await screen.findByText(/network error/i)).toBeInTheDocument()
+    expect(screen.getByText(/network error/i)).toBeInTheDocument()
   })
 
-  it('shows admin access required when user is not admin', async () => {
-    ;(api.getMe as jest.Mock).mockResolvedValue({
-      id: 'user-123',
-      merchant_id: 'merchant-123',
-      is_admin: false,
-    })
+  it('retries the profile load from the error state', async () => {
+    mockSessionState({ meError: new Error('Network error') })
+    renderLayout()
 
-    render(
-      <AdminLayout>
-        <div>Admin content</div>
-      </AdminLayout>
-    )
+    await userEvent.click(screen.getByRole('button', { name: /try again|retry/i }))
 
-    expect(await screen.findByText(/admin access required/i)).toBeInTheDocument()
+    expect(refreshMe).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows admin access required when user is not admin', () => {
+    mockSessionState({ me: { user_id: 'user-123', merchant_id: 'merchant-123', is_admin: false } })
+    renderLayout()
+
+    expect(screen.getByText(/admin access required/i)).toBeInTheDocument()
     expect(screen.getByText(/back to your dashboard/i)).toBeInTheDocument()
   })
 
-  it('renders admin content when user is admin', async () => {
-    ;(api.getMe as jest.Mock).mockResolvedValue({
-      id: 'user-123',
-      merchant_id: 'merchant-123',
-      is_admin: true,
-    })
+  it('renders admin content when user is admin', () => {
+    mockSessionState({ me: { user_id: 'user-123', merchant_id: 'merchant-123', is_admin: true } })
+    renderLayout()
 
-    render(
-      <AdminLayout>
-        <div>Admin content</div>
-      </AdminLayout>
-    )
-
-    await screen.findByText('Admin content')
     expect(screen.getByText('Admin content')).toBeInTheDocument()
   })
 
-  it('handles network error with specific message', async () => {
-    const error = new ApiError('Network error', 0)
-    ;(api.getMe as jest.Mock).mockRejectedValue(error)
+  it('handles network error with specific message', () => {
+    mockSessionState({ meError: new ApiError('Network error', 0) })
+    renderLayout()
 
-    render(
-      <AdminLayout>
-        <div>Admin content</div>
-      </AdminLayout>
-    )
-
-    expect(await screen.findByText(/can't reach the payment server right now/i)).toBeInTheDocument()
+    expect(screen.getByText(/can't reach the payment server right now/i)).toBeInTheDocument()
   })
 })

@@ -1,7 +1,7 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { axe } from 'jest-axe'
 import userEvent from '@testing-library/user-event'
-import { api, ApiError, type Balance, type Withdrawal } from '@/lib/api'
+import { api, ApiError, type Balance, type Me, type Withdrawal } from '@/lib/api'
 import WithdrawPage from '../page'
 
 jest.mock('@/lib/api', () => {
@@ -16,7 +16,6 @@ jest.mock('@/lib/api', () => {
   }
   return {
     api: {
-      getMe: jest.fn(),
       getBalances: jest.fn(),
       listWithdrawals: jest.fn(),
       createWithdrawal: jest.fn(),
@@ -25,11 +24,13 @@ jest.mock('@/lib/api', () => {
   }
 })
 
+// The session provider loads /me once; the page reads it from context.
+let mockMe: Me | null = null
 jest.mock('@/components/session-provider', () => ({
   useAuthenticatedSession: () => ({ token: 'test-token' }),
+  useSession: () => ({ me: mockMe, meLoading: false, meError: null }),
 }))
 
-const mockGetMe = jest.mocked(api.getMe)
 const mockGetBalances = jest.mocked(api.getBalances)
 const mockListWithdrawals = jest.mocked(api.listWithdrawals)
 const mockCreateWithdrawal = jest.mocked(api.createWithdrawal)
@@ -58,7 +59,7 @@ function withdrawal(overrides: Partial<Withdrawal> = {}): Withdrawal {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockGetMe.mockResolvedValue({
+  mockMe = {
     user_id: 'u',
     email: 'user@example.com',
     name: 'Test User',
@@ -67,7 +68,7 @@ beforeEach(() => {
     merchant_id: 'm',
     merchant_name: 'Test Merchant',
     kyc_status: 'approved',
-  })
+  }
   mockGetBalances.mockResolvedValue([])
   mockListWithdrawals.mockResolvedValue([])
   mockCreateWithdrawal.mockResolvedValue(withdrawal())

@@ -15,12 +15,11 @@ import {
   api,
   ApiError,
   type Balance,
-  type Me,
   type Withdrawal,
   type WithdrawalStatus,
 } from '@/lib/api'
 import { formatStroops, parseAmountToStroops } from '@/lib/money'
-import { useAuthenticatedSession } from '@/components/session-provider'
+import { useAuthenticatedSession, useSession } from '@/components/session-provider'
 import {
   getBankOptions,
   getWithdrawableAssets,
@@ -67,7 +66,7 @@ const POLL_INTERVAL_MS = 10_000
 
 export default function WithdrawPage() {
   const { token } = useAuthenticatedSession()
-  const [me, setMe] = useState<Me | null>(null)
+  const { me, meLoading, meError } = useSession()
   const [balances, setBalances] = useState<Balance[] | null>(null)
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
   const [asset, setAsset] = useState<WithdrawalAsset>('cNGN')
@@ -128,12 +127,10 @@ export default function WithdrawPage() {
   const load = useCallback(
     async (signal?: AbortSignal) => {
       try {
-        const [nextMe, nextBalances, nextWithdrawals] = await Promise.all([
-          api.getMe(token, signal),
+        const [nextBalances, nextWithdrawals] = await Promise.all([
           api.getBalances(token, signal),
           api.listWithdrawals(token, limit, signal),
         ])
-        setMe(nextMe)
         setBalances(nextBalances)
         setWithdrawals(nextWithdrawals)
       } catch (cause) {
@@ -259,8 +256,17 @@ export default function WithdrawPage() {
     }
   }
 
-  // A failed load leaves `me` null; fall through so the error below is shown.
-  if (!balances || (!me && !error)) {
+  // A failed /me leaves `me` null; fall through so the error below is shown.
+  const profileError = !meError
+    ? null
+    : meError instanceof ApiError && meError.status === 0
+      ? 'backend-down'
+      : meError instanceof Error
+        ? meError.message
+        : 'Could not load your cash-out details'
+  const shownError = error ?? profileError
+
+  if (!balances || meLoading) {
     return (
       <div className="flex justify-center py-16">
         <LoadingSpinner />
@@ -336,12 +342,12 @@ export default function WithdrawPage() {
           onSubmit={submit}
           className="bg-panel border-hairline flex flex-col gap-4 rounded-2xl border p-5"
         >
-          {error && (
+          {shownError && (
             <Alert variant="destructive">
               <AlertDescription>
-                {error === 'backend-down'
+                {shownError === 'backend-down'
                   ? "We can't connect to the payment server right now. Please try again in a moment."
-                  : error}
+                  : shownError}
               </AlertDescription>
             </Alert>
           )}
