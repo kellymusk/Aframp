@@ -296,6 +296,7 @@ describe('SessionProvider', () => {
 
       await act(async () => {
         resolve(meData)
+        await Promise.resolve()
       })
       expect(result.current.meLoading).toBe(false)
     })

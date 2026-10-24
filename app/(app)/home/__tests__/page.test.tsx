@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { SWRConfig } from 'swr'
 import HomePage from '../page'
 import { api, type Balance, type Payment, type PaymentRequest } from '@/lib/api'
 
@@ -65,6 +66,16 @@ const balance = (asset: string): Balance => ({
   updated_at: '',
 })
 
+// A fresh cache per render: a request left pending by one test (the skeleton
+// test never resolves) must not be deduped into the next one.
+function renderHome() {
+  return render(
+    <SWRConfig value={{ provider: () => new Map() }}>
+      <HomePage />
+    </SWRConfig>
+  )
+}
+
 const request = (status: PaymentRequest['status']) => ({ status }) as PaymentRequest
 
 beforeEach(() => {
@@ -83,48 +94,48 @@ beforeEach(() => {
 describe('HomePage', () => {
   it('shows the skeleton while the dashboard loads', () => {
     mockApi.getBalances.mockReturnValue(new Promise(() => {}))
-    render(<HomePage />)
+    renderHome()
     expect(screen.getByText('loading dashboard')).toBeInTheDocument()
   })
 
   it('loads balances, payments and requests with the session token', async () => {
-    render(<HomePage />)
+    renderHome()
 
     expect(await screen.findByRole('heading', { name: 'Home' })).toBeInTheDocument()
-    expect(mockApi.getBalances).toHaveBeenCalledWith('tok-1', expect.any(AbortSignal))
-    expect(mockApi.listTransactions).toHaveBeenCalledWith('tok-1', 50, expect.any(AbortSignal))
-    expect(mockApi.listPaymentRequests).toHaveBeenCalledWith('tok-1', 20, expect.any(AbortSignal))
+    expect(mockApi.getBalances).toHaveBeenCalledWith('tok-1')
+    expect(mockApi.listTransactions).toHaveBeenCalledWith('tok-1', 50)
+    expect(mockApi.listPaymentRequests).toHaveBeenCalledWith('tok-1', 20)
     expect(screen.getByText('balance USDC')).toBeInTheDocument()
     expect(screen.getByText('balance cNGN')).toBeInTheDocument()
     expect(screen.getByText('2 open requests')).toBeInTheDocument()
   })
 
   it('lazy-loads the revenue chart with the payments', async () => {
-    render(<HomePage />)
+    renderHome()
     expect(await screen.findByText('revenue chart for 2 payments')).toBeInTheDocument()
   })
 
   it('shows the recent payments alongside balances', async () => {
-    render(<HomePage />)
+    renderHome()
     expect(await screen.findByText('recent payments from 2 payments')).toBeInTheDocument()
   })
 
   it('ticks off the getting-started steps from real activity', async () => {
     mockApi.listTransactions.mockResolvedValue([{ status: 'confirmed' } as Payment])
-    render(<HomePage />)
+    renderHome()
     expect(await screen.findByText('checklist wallet,charge,payment')).toBeInTheDocument()
   })
 
   it('still loads the dashboard when the wallet or cash-outs cannot be fetched', async () => {
     mockApi.getWallet.mockRejectedValue(new Error('not found'))
     mockApi.listWithdrawals.mockRejectedValue(new Error('offline'))
-    render(<HomePage />)
+    renderHome()
     expect(await screen.findByText('checklist charge')).toBeInTheDocument()
   })
 
   it('shows a zero balance when the merchant has no balances yet', async () => {
     mockApi.getBalances.mockResolvedValue([])
-    render(<HomePage />)
+    renderHome()
 
     await screen.findByRole('heading', { name: 'Home' })
     expect(screen.getByText('0.00')).toBeInTheDocument()
@@ -133,7 +144,7 @@ describe('HomePage', () => {
   it('shows an error with a retry that reloads the dashboard', async () => {
     mockApi.getBalances.mockRejectedValueOnce(new Error('Could not load balances'))
     const user = userEvent.setup()
-    render(<HomePage />)
+    renderHome()
 
     await user.click(await screen.findByRole('button', { name: 'Try again' }))
 
