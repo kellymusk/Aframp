@@ -185,15 +185,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     // Callers that ask while a request is already in flight share it, so a page
     // load never costs more than one /me.
-    if (!meRequest.current) {
+    let request = meRequest.current
+    if (!request) {
       setMeError(null)
-      meRequest.current = api
+      request = api
         .getMe(session.token)
         .then((data): MeResult => {
           setMe(data)
           return { success: true, data }
         })
-        .catch((cause: unknown) => {
+        .catch((cause: unknown): MeResult => {
           setMeError(cause)
           // Network errors (status 0) are recoverable — report them without sign-out.
           // Auth errors (401) are not caught here; they propagate to trigger the
@@ -204,8 +205,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         .finally(() => {
           meRequest.current = null
         })
+      meRequest.current = request
     }
-    return meRequest.current
+    return request
   }, [session])
 
   // Everything that needs the profile (sidebar, Cash out, Settings, the admin
@@ -217,7 +219,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       // Surfaced through `meError`.
     })
     // `refreshMe` changes with `session`; the token is the only part that matters here.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
   useEffect(() => {
