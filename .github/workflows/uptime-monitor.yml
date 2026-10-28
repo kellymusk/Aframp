@@ -21,10 +21,11 @@ jobs:
       contents: read
       issues: write
     env:
+      # The public Vercel production alias; app.aframp.com doesn't resolve yet.
       # Override with the PRODUCTION_URL repository variable (Settings ->
-      # Secrets and variables -> Actions -> Variables) to monitor a different
-      # origin, e.g. the Vercel production URL. No trailing slash.
-      PRODUCTION_URL: ${{ inputs.url || vars.PRODUCTION_URL || 'https://app.aframp.com' }}
+      # Secrets and variables -> Actions -> Variables) once the custom domain
+      # is live. No trailing slash.
+      PRODUCTION_URL: ${{ inputs.url || vars.PRODUCTION_URL || 'https://aframp.vercel.app' }}
     steps:
       - name: Restore prior failure count
         uses: actions/cache/restore@v4
@@ -36,7 +37,7 @@ jobs:
       - name: Check homepage
         id: homepage
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${PRODUCTION_URL%/}/" || echo "000")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${PRODUCTION_URL%/}/" || true)
           if [ "$STATUS" != "200" ]; then
             echo "status=down" >> "$GITHUB_OUTPUT"
             echo "::warning::Homepage ($PRODUCTION_URL) returned HTTP $STATUS"
@@ -48,7 +49,7 @@ jobs:
       - name: Check login page
         id: login
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${PRODUCTION_URL%/}/login" || echo "000")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${PRODUCTION_URL%/}/login" || true)
           if [ "$STATUS" != "200" ]; then
             echo "status=down" >> "$GITHUB_OUTPUT"
             echo "::warning::Login page ($PRODUCTION_URL) returned HTTP $STATUS"
@@ -60,7 +61,7 @@ jobs:
       - name: Check wallet dashboard
         id: wallet
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${PRODUCTION_URL%/}/wallet" || echo "000")
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${PRODUCTION_URL%/}/wallet" || true)
           if [ "$STATUS" != "200" ]; then
             echo "status=down" >> "$GITHUB_OUTPUT"
             echo "::warning::Wallet page ($PRODUCTION_URL) returned HTTP $STATUS"
