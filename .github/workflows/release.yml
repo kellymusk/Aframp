@@ -20,7 +20,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Run Release Please
-        uses: google-github-actions/release-please-action@v4
+        uses: googleapis/release-please-action@v4
         with:
           # Prefer a fine-grained PAT (RELEASE_PLEASE_TOKEN) with Contents and
           # Pull requests read/write access; fall back to GITHUB_TOKEN when

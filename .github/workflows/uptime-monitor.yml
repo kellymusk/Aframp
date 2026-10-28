@@ -4,6 +4,10 @@ on:
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
+    inputs:
+      url:
+        description: 'Origin to check instead of PRODUCTION_URL (no trailing slash)'
+        required: false
 
 permissions:
   contents: read
@@ -20,7 +24,7 @@ jobs:
       # Override with the PRODUCTION_URL repository variable (Settings ->
       # Secrets and variables -> Actions -> Variables) to monitor a different
       # origin, e.g. the Vercel production URL. No trailing slash.
-      PRODUCTION_URL: ${{ vars.PRODUCTION_URL || 'https://app.aframp.com' }}
+      PRODUCTION_URL: ${{ inputs.url || vars.PRODUCTION_URL || 'https://app.aframp.com' }}
     steps:
       - name: Restore prior failure count
         uses: actions/cache/restore@v4
@@ -35,7 +39,7 @@ jobs:
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${PRODUCTION_URL%/}/" || echo "000")
           if [ "$STATUS" != "200" ]; then
             echo "status=down" >> "$GITHUB_OUTPUT"
-            echo "⚠️ Homepage returned HTTP $STATUS"
+            echo "::warning::Homepage ($PRODUCTION_URL) returned HTTP $STATUS"
           else
             echo "status=up" >> "$GITHUB_OUTPUT"
             echo "✅ Homepage up"
@@ -47,7 +51,7 @@ jobs:
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${PRODUCTION_URL%/}/login" || echo "000")
           if [ "$STATUS" != "200" ]; then
             echo "status=down" >> "$GITHUB_OUTPUT"
-            echo "⚠️ Login page returned HTTP $STATUS"
+            echo "::warning::Login page ($PRODUCTION_URL) returned HTTP $STATUS"
           else
             echo "status=up" >> "$GITHUB_OUTPUT"
             echo "✅ Login page up"
@@ -59,7 +63,7 @@ jobs:
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${PRODUCTION_URL%/}/wallet" || echo "000")
           if [ "$STATUS" != "200" ]; then
             echo "status=down" >> "$GITHUB_OUTPUT"
-            echo "⚠️ Wallet page returned HTTP $STATUS"
+            echo "::warning::Wallet page ($PRODUCTION_URL) returned HTTP $STATUS"
           else
             echo "status=up" >> "$GITHUB_OUTPUT"
             echo "✅ Wallet page up"
@@ -95,14 +99,17 @@ jobs:
 
       # Cache entries are immutable, so save under a unique key per run; the
       # restore step above picks up the most recent one via its prefix.
+      # A manual check of another origin (the `url` input) doesn't touch the
+      # production failure count or its outage issue.
       - name: Save failure count
+        if: ${{ !inputs.url }}
         uses: actions/cache/save@v4
         with:
           path: .uptime-monitor-state.json
           key: uptime-monitor-state-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Create outage issue after 3 failures
-        if: ${{ steps.failures.outputs.count >= 3 }}
+        if: ${{ !inputs.url && steps.failures.outputs.count >= 3 }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -133,7 +140,7 @@ jobs:
             }
 
       - name: Close outage issue when restored
-        if: ${{ steps.failures.outputs.count == '0' }}
+        if: ${{ !inputs.url && steps.failures.outputs.count == '0' }}
         uses: actions/github-script@v8
         with:
           script: |
