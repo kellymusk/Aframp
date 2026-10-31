@@ -1,37 +1,6 @@
 import { withSentryConfig } from '@sentry/nextjs/config'
 import withBundleAnalyzer from '@next/bundle-analyzer'
-
-/**
- * Validate NEXT_API_URL at startup.
- *
- * The rewrite below forwards every `/backend/*` request to this host, so an
- * attacker-controlled value would turn the proxy into an SSRF vector and leak
- * auth tokens. We therefore require an absolute http(s) URL and refuse to
- * start otherwise.
- *
- * @param {string | undefined} raw
- * @returns {string} normalized backend URL without a trailing slash
- */
-export function resolveBackendUrl(raw) {
-  // An empty value (e.g. an unset CI secret, which arrives as "") means unset.
-  const value = raw?.trim() || 'http://127.0.0.1:3000'
-  let parsed
-  try {
-    parsed = new URL(value)
-  } catch {
-    throw new Error(
-      `Invalid NEXT_API_URL: "${value}" is not an absolute URL. ` +
-        'Expected format: http(s)://host[:port] (e.g. https://api.example.com).'
-    )
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new Error(
-      `Invalid NEXT_API_URL: "${value}" must use http or https, got "${parsed.protocol}". ` +
-        'Expected format: http(s)://host[:port] (e.g. https://api.example.com).'
-    )
-  }
-  return value.replace(/\/$/, '')
-}
+import { resolveBackendUrl } from './lib/config/backend-url.mjs'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

@@ -1,48 +1,40 @@
-// Mirror of the validation logic in next.config.mjs so it can be unit tested
-// without importing the Next.js config module (which has side effects).
-function validateApiUrl(rawValue: string | undefined): URL {
-  if (!rawValue) {
-    throw new Error('NEXT_API_URL is not set')
-  }
+import { resolveBackendUrl } from '@/lib/config/backend-url.mjs'
 
-  let parsed: URL
-  try {
-    parsed = new URL(rawValue)
-  } catch {
-    throw new Error(`NEXT_API_URL is not a valid absolute URL: "${rawValue}"`)
-  }
-
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new Error(`NEXT_API_URL must use http or https, got "${parsed.protocol}"`)
-  }
-
-  return parsed
-}
-
-describe('NEXT_API_URL validation', () => {
+describe('resolveBackendUrl (NEXT_API_URL)', () => {
   it('accepts an absolute https URL', () => {
-    const parsed = validateApiUrl('https://api.example.com')
-    expect(parsed.origin).toBe('https://api.example.com')
+    expect(resolveBackendUrl('https://api.example.com')).toBe('https://api.example.com')
   })
 
   it('accepts an absolute http URL', () => {
-    const parsed = validateApiUrl('http://localhost:8000')
-    expect(parsed.origin).toBe('http://localhost:8000')
+    expect(resolveBackendUrl('http://localhost:8000')).toBe('http://localhost:8000')
   })
 
-  it('rejects a missing value', () => {
-    expect(() => validateApiUrl(undefined)).toThrow(/not set/)
+  it.each([undefined, '', '   '])('falls back to the local backend when unset (%p)', (raw) => {
+    expect(resolveBackendUrl(raw)).toBe('http://127.0.0.1:3000')
   })
 
-  it('rejects a relative URL', () => {
-    expect(() => validateApiUrl('/backend')).toThrow(/not a valid absolute URL/)
+  it('strips trailing slashes', () => {
+    expect(resolveBackendUrl('https://api.example.com//')).toBe('https://api.example.com')
   })
+
+  it('assumes https for a bare host pasted into a dashboard', () => {
+    expect(resolveBackendUrl('aframp-backend.up.railway.app')).toBe(
+      'https://aframp-backend.up.railway.app'
+    )
+  })
+
+  it.each(['"https://api.example.com"', "'https://api.example.com'", ' "api.example.com" '])(
+    'unwraps a quoted value %p',
+    (raw) => {
+      expect(resolveBackendUrl(raw)).toBe('https://api.example.com')
+    }
+  )
 
   it('rejects a non-http(s) protocol', () => {
-    expect(() => validateApiUrl('ftp://api.example.com')).toThrow(/must use http or https/)
+    expect(() => resolveBackendUrl('ftp://api.example.com')).toThrow(/must use http or https/)
   })
 
   it('rejects a malformed URL', () => {
-    expect(() => validateApiUrl('not a url')).toThrow(/not a valid absolute URL/)
+    expect(() => resolveBackendUrl('not a url')).toThrow(/not a valid URL/)
   })
 })
