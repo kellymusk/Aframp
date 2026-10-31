@@ -7,8 +7,6 @@ info:
 servers:
   - url: https://api.aframp.com
     description: Production API
-  - url: http://127.0.0.1:3000
-    description: Local development API
 paths:
   /signup:
     post:

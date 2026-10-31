@@ -11,7 +11,7 @@ services:
       # The backend binds port 3000 and its CORS_ALLOWED_ORIGINS defaults to
       # http://localhost:3001, so running the frontend on 3000 causes silent
       # CORS failures (every API request fails). Keep the host port at 3001
-      # and set NEXT_PUBLIC_API_URL to point at the backend on 3000.
+      # and set NEXT_API_URL in .env.local to point at your backend.
       - '3001:3001'
     env_file:
       - .env.local

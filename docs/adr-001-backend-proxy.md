@@ -16,5 +16,5 @@ Keep the backend origin in the unprefixed, server-side `NEXT_API_URL` variable. 
 
 - The backend origin is not included in client-side environment configuration, and browser API calls remain same-origin.
 - The Content Security Policy can keep `connect-src` limited to `'self'` and the explicitly approved external services.
-- Deployments must set `NEXT_API_URL` to the backend origin. The rewrite's `http://127.0.0.1:3000` default is for local development.
+- Every environment, local development included, must set `NEXT_API_URL` to the backend origin; there is no default. Unset, `/backend/*` isn't proxied, and a Vercel production build fails.
 - The proxy does not replace backend authentication, authorization, input validation, or other API security controls.

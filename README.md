@@ -63,7 +63,7 @@ for offline use.
 
 Get AFRAMP running locally in under 5 minutes with our automated setup script or manual installation.
 
-> ⚠️ **Port constraint — read this first.** The backend binds port **3000** and its `CORS_ALLOWED_ORIGINS` defaults to `http://localhost:3001`. The frontend must therefore run on **3001**, not Next.js's default 3000. If you start the app on 3000, every API request will fail with a silent CORS/network error. Set `NEXT_PUBLIC_API_URL` to point at the backend and run the frontend on 3001 (see `.env.example`).
+> ⚠️ **Port constraint — read this first.** The backend binds port **3000** and its `CORS_ALLOWED_ORIGINS` defaults to `http://localhost:3001`. The frontend must therefore run on **3001**, not Next.js's default 3000. If you start the app on 3000, every API request will fail with a silent CORS/network error. Set `NEXT_API_URL` in `.env.local` to your backend's URL (there is no default) and run the frontend on 3001 (see `.env.example`).
 
 ### Automated Setup (Easiest) ⚡
 
@@ -139,7 +139,7 @@ the two ever drift apart.
 
 | Variable                             | Type                                   | Required | Default                                                          | Example                                                                   |
 | ------------------------------------ | -------------------------------------- | -------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_API_URL`                | string (URL)                           | Yes      | —                                                                | `http://127.0.0.1:3000`                                                   |
+| `NEXT_API_URL`                       | string (URL)                           | Yes      | —                                                                | `https://api.example.com`                                                 |
 | `NEXT_PUBLIC_STELLAR_NETWORK`        | string (enum: testnet                  | public)  | No                                                               | `testnet`                                                                 | `testnet` |
 | `NEXT_PUBLIC_SENTRY_DSN`             | string (Sentry DSN URL)                | No       | `(unset — client-side error reporting disabled)`                 | `https://examplePublicKey@o0.ingest.sentry.io/0`                          |
 | `SENTRY_DSN`                         | string (Sentry DSN URL)                | No       | `(falls back to NEXT_PUBLIC_SENTRY_DSN, then disabled)`          | `https://examplePrivateKey@o0.ingest.sentry.io/1`                         |
@@ -274,7 +274,7 @@ npm run dev -- -p 3001
 docker-compose -f docker-compose.dev.yml up
 ```
 
-Make sure `.env.local` sets `NEXT_PUBLIC_API_URL` to the backend URL (e.g. `http://localhost:3000`) and that the backend's `CORS_ALLOWED_ORIGINS` includes your frontend origin (`http://localhost:3001` by default). See `.env.example` for details.
+Make sure `.env.local` sets `NEXT_API_URL` to your backend's URL (there is no default) and that the backend's `CORS_ALLOWED_ORIGINS` includes your frontend origin (`http://localhost:3001` by default). See `.env.example` for details.
 
 ---
 

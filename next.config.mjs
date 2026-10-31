@@ -34,6 +34,16 @@ const nextConfig = {
   // See docs/adr-001-backend-proxy.md for the rationale and consequences.
   rewrites() {
     const backendUrl = resolveBackendUrl(process.env.NEXT_API_URL)
+    if (!backendUrl) {
+      const message =
+        'NEXT_API_URL is not set, so /backend/* has no backend to forward to. ' +
+        'Set it to the backend origin (in .env.local for local development).'
+      // A production deployment without a backend would serve a site where
+      // every API call fails; stop the deploy instead.
+      if (process.env.VERCEL_ENV === 'production') throw new Error(message)
+      console.warn(`⚠ ${message}`)
+      return []
+    }
     return [
       {
         source: '/backend/:path*',

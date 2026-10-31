@@ -30,7 +30,6 @@ The test container automatically sets:
 NODE_ENV=test
 NEXT_PUBLIC_DEMO_MODE=true
 NEXT_PUBLIC_STELLAR_NETWORK=TESTNET
-NEXT_API_URL=http://127.0.0.1:3000
 CI=true
 ```
 

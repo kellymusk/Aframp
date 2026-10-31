@@ -6,11 +6,11 @@ describe('resolveBackendUrl (NEXT_API_URL)', () => {
   })
 
   it('accepts an absolute http URL', () => {
-    expect(resolveBackendUrl('http://localhost:8000')).toBe('http://localhost:8000')
+    expect(resolveBackendUrl('http://api.internal:8000')).toBe('http://api.internal:8000')
   })
 
-  it.each([undefined, '', '   '])('falls back to the local backend when unset (%p)', (raw) => {
-    expect(resolveBackendUrl(raw)).toBe('http://127.0.0.1:3000')
+  it.each([undefined, '', '   ', '""'])('has no default when unset (%p)', (raw) => {
+    expect(resolveBackendUrl(raw)).toBeNull()
   })
 
   it('strips trailing slashes', () => {
@@ -18,9 +18,7 @@ describe('resolveBackendUrl (NEXT_API_URL)', () => {
   })
 
   it('assumes https for a bare host pasted into a dashboard', () => {
-    expect(resolveBackendUrl('aframp-backend.up.railway.app')).toBe(
-      'https://aframp-backend.up.railway.app'
-    )
+    expect(resolveBackendUrl('api.example.com')).toBe('https://api.example.com')
   })
 
   it.each(['"https://api.example.com"', "'https://api.example.com'", ' "api.example.com" '])(
