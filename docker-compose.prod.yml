@@ -6,6 +6,10 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runner
+      args:
+        # Fixed into the build; see the Dockerfile. Set it in .env (read by
+        # compose for substitution) or the shell environment.
+        NEXT_API_URL: ${NEXT_API_URL:-}
     container_name: aframp-prod
     ports:
       - '3000:3000'
@@ -15,13 +19,7 @@ services:
       - NODE_ENV=production
     restart: always
     healthcheck:
-      test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          "require('http').get('http://localhost:3000', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})",
-        ]
+      test: ['CMD', 'node', 'healthcheck.js']
       interval: 30s
       timeout: 10s
       retries: 3

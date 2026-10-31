@@ -21,6 +21,11 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# The /backend proxy target is fixed when the app is built (next.config.mjs
+# rewrites), so it has to be passed at build time, not just at runtime:
+#   docker build --build-arg NEXT_API_URL=https://your-backend .
+ARG NEXT_API_URL
+
 # Build the application
 RUN npm run build
 
@@ -39,6 +44,7 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/scripts/healthcheck.js ./healthcheck.js
 
 # Set correct permissions
 RUN chown -R nextjs:nodejs /app
@@ -54,8 +60,8 @@ ENV HOSTNAME="0.0.0.0"
 ENV PORT=3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD ["node", "healthcheck.js"]
 
 # Start the application
 CMD ["node", "server.js"]
