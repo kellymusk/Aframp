@@ -1,0 +1,73 @@
+name: Main Branch Guard
+
+# Enforces that contributors do NOT push to, or open pull requests against,
+# the protected `main` branch. All contributor work must target the
+# `dev-frontend` branch instead. Only authorized maintainers (and bots)
+# listed in ALLOWED_ACTORS below may update `main`.
+#
+# This workflow must live on the `main` branch to take effect for main-branch
+# events (GitHub runs the workflow file version present on the target branch).
+#
+# To add or remove maintainers, edit the ALLOWED_ACTORS list in the
+# "Enforce main-branch protection" step.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - edited
+      - ready_for_review
+      - synchronize
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main-branch-guard-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  guard-main:
+    name: 'Guard — main is protected'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Determine actor
+        id: who
+        env:
+          PR_USER: ${{ github.event.pull_request.user.login }}
+          PUSH_ACTOR: ${{ github.actor }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            ACTOR="$PR_USER"
+          else
+            ACTOR="$PUSH_ACTOR"
+          fi
+          echo "actor=$ACTOR" >> "$GITHUB_OUTPUT"
+          echo "Detected actor: $ACTOR"
+
+      - name: Enforce main-branch protection
+        env:
+          ACTOR: ${{ steps.who.outputs.actor }}
+        run: |
+          # Authorized maintainers and automation bots that may update `main`.
+          # Everyone else must open pull requests against `dev-frontend`.
+          ALLOWED_ACTORS="kellymusk henrypeters dependabot[bot] github-actions[bot] renovate[bot] mergify[bot] release-please[bot]"
+
+          for allowed in $ALLOWED_ACTORS; do
+            if [ "$ACTOR" = "$allowed" ]; then
+              echo "✅ '$ACTOR' is authorized to update 'main'."
+              exit 0
+            fi
+          done
+
+          echo "::error::❌ The 'main' branch is protected. Contributors must open pull requests against the 'dev-frontend' branch, not 'main'. Detected actor: '$ACTOR'."
+          exit 1
