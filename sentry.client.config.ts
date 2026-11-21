@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs'
+import { redactSentryEvent } from './lib/sentry-redact'
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -28,16 +29,8 @@ Sentry.init({
     'User denied transaction signature',
   ],
 
-  beforeSend(event) {
-    // Strip sensitive wallet data from breadcrumb messages.
-    // Event.breadcrumbs is a Breadcrumb[] — the { values: [...] } shape is
-    // the envelope wire format, which never reaches beforeSend.
-    if (event.breadcrumbs) {
-      event.breadcrumbs = event.breadcrumbs.map((b) => ({
-        ...b,
-        message: b.message?.replace(/G[A-Z2-7]{55}/g, '[STELLAR_ADDR]'),
-      }))
-    }
-    return event
-  },
+  // Redacts Stellar public (G…) and secret (S…) keys, emails, amounts and
+  // sensitive keys across the event, including breadcrumbs. Rules are shared
+  // with the server and edge configs.
+  beforeSend: redactSentryEvent,
 })
