@@ -29,6 +29,8 @@ function validateBackendUrl(url) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Don't fingerprint the framework/version via X-Powered-By.
+  poweredByHeader: false,
   // PWA configuration (next-pwa v2 reads options from the `pwa` key)
   pwa: {
     dest: 'public',
