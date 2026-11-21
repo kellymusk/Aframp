@@ -8,13 +8,14 @@ jobs:
   deploy-preview:
     name: Deploy Preview to Unique URL
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # `secrets` can't be used in a job-level `if` (GitHub rejects the whole
     # workflow), so the token is exposed as env and each step checks it.
     if: github.event.action != 'closed'
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Skip if Vercel secrets not configured
         if: env.VERCEL_TOKEN == ''
@@ -22,7 +23,7 @@ jobs:
 
       - name: Deploy to Vercel
         if: env.VERCEL_TOKEN != ''
-        uses: amondnet/vercel-action@v25
+        uses: amondnet/vercel-action@16e87c0a08142b0d0d33b76aeaf20823c381b9b9 # v25.2.0
         id: vercel-deploy
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
@@ -32,7 +33,7 @@ jobs:
 
       - name: Comment preview link on PR
         if: env.VERCEL_TOKEN != '' && steps.vercel-deploy.outputs.preview-url != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             github.rest.issues.createComment({
@@ -45,6 +46,7 @@ jobs:
   cleanup-preview:
     name: Auto-delete Preview
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: github.event.action == 'closed'
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -57,7 +59,7 @@ jobs:
 
       - name: Comment cleanup
         if: env.VERCEL_TOKEN != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             github.rest.issues.createComment({
