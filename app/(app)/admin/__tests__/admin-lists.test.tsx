@@ -286,6 +286,24 @@ describe('admin transactions explorer links', () => {
   })
 })
 
+describe('admin withdrawals account numbers', () => {
+  it('masks account numbers until explicitly revealed and allows hiding them again', async () => {
+    const withdrawals = cases.find(({ name }) => name === 'withdrawals')!.rows
+    ;(api.adminWithdrawals as jest.Mock).mockResolvedValue(withdrawals)
+    render(<AdminWithdrawalsPage />)
+
+    expect(await screen.findByText(/••••6789/)).toBeInTheDocument()
+    expect(screen.queryByText(/0123456789/)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reveal' }))
+    expect(screen.getByText(/0123456789/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide' }))
+    expect(screen.queryByText(/0123456789/)).not.toBeInTheDocument()
+    expect(screen.getByText(/••••6789/)).toBeInTheDocument()
+  })
+})
+
 describe('admin overview page', () => {
   const overview = {
     total_users: 1284,

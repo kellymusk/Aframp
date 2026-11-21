@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AdminTable } from '@/components/admin/admin-table'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { api, type AdminWithdrawalRow, type WithdrawalStatus } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
@@ -18,6 +19,7 @@ export default function AdminWithdrawalsPage() {
   const { token } = useAuthenticatedSession()
   const [rows, setRows] = useState<AdminWithdrawalRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [revealedAccountId, setRevealedAccountId] = useState<string | null>(null)
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -81,9 +83,26 @@ export default function AdminWithdrawalsPage() {
               header: 'Bank',
               render: (row) =>
                 row.bank_code && row.account_number ? (
-                  <span className="text-dim text-xs">
-                    {row.bank_code} · {row.account_number}
-                  </span>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-dim">
+                      {row.bank_code} ·{' '}
+                      {revealedAccountId === row.id
+                        ? row.account_number
+                        : `••••${row.account_number.slice(-4)}`}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="h-auto px-0 py-0"
+                      aria-pressed={revealedAccountId === row.id}
+                      onClick={() =>
+                        setRevealedAccountId((current) => (current === row.id ? null : row.id))
+                      }
+                    >
+                      {revealedAccountId === row.id ? 'Hide' : 'Reveal'}
+                    </Button>
+                  </div>
                 ) : (
                   <span className="text-dim">—</span>
                 ),
