@@ -11,6 +11,12 @@ permissions:
   pull-requests: write
   actions: read
 
+# Serialize badge updates: two overlapping runs would race on the same
+# README.md commit. Queue rather than cancel, so the latest coverage still lands.
+concurrency:
+  group: badge-update
+  cancel-in-progress: false
+
 jobs:
   update-badge:
     name: Update Coverage Badge
@@ -36,15 +42,15 @@ jobs:
             const coverage = require('./coverage/coverage-summary.json');
             const total = coverage.total;
             const pct = Math.round(total.lines.pct);
-            
+
             let color = 'brightgreen';
             if (pct < 70) color = 'red';
             else if (pct < 80) color = 'yellow';
-            
+
             const badge = \`[![codecov](https://img.shields.io/badge/coverage-\${pct}%25-\${color})](https://codecov.io/gh/\${{ github.repository }})\`;
             console.log(badge);
             " > badge.txt
-            
+
             BADGE=$(cat badge.txt)
             echo "COVERAGE_BADGE=$BADGE" >> $GITHUB_ENV
           fi
@@ -58,7 +64,31 @@ jobs:
       - name: Commit badge update
         if: env.COVERAGE_BADGE != ''
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add README.md
-          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update coverage badge" && git push)
+
+          if git diff --staged --quiet; then
+            echo "Coverage badge unchanged; nothing to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: update coverage badge"
+
+          # main may have advanced since checkout (e.g. another PR merged).
+          # Rebase onto the latest main and retry, so the push is never
+          # rejected as non-fast-forward. Any failure fails the job instead
+          # of being swallowed.
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "Coverage badge pushed (attempt ${attempt})."
+              exit 0
+            fi
+            echo "::warning::Push rejected (attempt ${attempt}); retrying after rebase."
+            sleep $((attempt * 5))
+          done
+
+          echo "::error::Failed to push coverage badge update to main after 3 attempts."
+          exit 1
