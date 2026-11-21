@@ -162,7 +162,18 @@ export const whyUs = [
 
 export const footer = {
   tagline: 'Spend USDC. Keep Your Savings.',
-  links: ['Blog', 'Terms', 'Privacy'],
+  // `href` is optional: entries without one render as "coming soon" instead of
+  // a dead link. Set it once the destination page / profile exists.
+  links: [
+    { label: 'Blog', href: undefined as string | undefined },
+    { label: 'Terms', href: undefined as string | undefined },
+    { label: 'Privacy', href: undefined as string | undefined },
+  ],
+  socials: [
+    { label: 'Telegram', href: undefined as string | undefined },
+    { label: 'Twitter', href: undefined as string | undefined },
+    { label: 'Email', href: 'mailto:getAframp@gmail.com' as string | undefined },
+  ],
   support: 'getAframp@gmail.com',
   business: 'partners@Aframp.com',
   copyright: '© 2026 Aframp. All rights reserved.',
