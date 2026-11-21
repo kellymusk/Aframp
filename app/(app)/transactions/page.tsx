@@ -21,9 +21,11 @@ import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration
 import { api, ApiError, type Payment, type PaymentStatus, type Refund } from '@/lib/api'
 import { formatStroops, parseAmountToStroops } from '@/lib/money'
 import {
+  filterByDateRange,
   filterPaymentsByDateRange,
   filterPaymentsByStatus,
   searchPayments,
+  searchRefunds,
 } from '@/lib/transaction-filters'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { formatDateTime } from '@/lib/format-date'
@@ -50,7 +52,7 @@ function DebouncedSearchInput({ onSearch }: { onSearch: (query: string) => void 
     <Input
       id="transaction-search"
       type="search"
-      placeholder="Hash, wallet address, or asset"
+      placeholder="Hash, wallet, payment ID, recipient, or asset"
       value={query}
       onChange={(event) => setQuery(event.target.value)}
     />
@@ -180,6 +182,11 @@ export default function TransactionsPage() {
     return filterPaymentsByDateRange(statusFiltered, fromDate, toDate)
   }, [payments, searchQuery, statusFilter, fromDate, toDate])
 
+  const filteredRefunds = useMemo(() => {
+    const searched = searchRefunds(refunds, searchQuery)
+    return filterByDateRange(searched, fromDate, toDate)
+  }, [refunds, searchQuery, fromDate, toDate])
+
   const exportCsv = () => {
     const csv = toCsv(
       ['Date', 'Amount', 'Asset', 'Status', 'Transaction hash', 'From wallet'],
@@ -240,7 +247,7 @@ export default function TransactionsPage() {
             <DebouncedSearchInput onSearch={setSearchQuery} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="transaction-status">Status</Label>
+            <Label htmlFor="transaction-status">Payment status</Label>
             <select
               id="transaction-status"
               className="border-hairline bg-panel h-9 w-full rounded-md border px-2 text-sm"
@@ -399,12 +406,19 @@ export default function TransactionsPage() {
       </Dialog>
 
       <section className="mt-8 space-y-3">
-        <h2 className="text-lg font-semibold">Refunds</h2>
+        <div>
+          <h2 className="text-lg font-semibold">Refunds</h2>
+          <p className="text-dim text-sm">
+            Search and date filters apply here. Payment status applies only to payments.
+          </p>
+        </div>
         {refunds.length === 0 ? (
           <p className="text-dim text-sm">No refunds yet.</p>
+        ) : filteredRefunds.length === 0 ? (
+          <p className="text-dim text-sm">No refunds match the current filters.</p>
         ) : (
           <ul className="border-hairline divide-y rounded-2xl border">
-            {refunds.map((refund) => (
+            {filteredRefunds.map((refund) => (
               <li
                 key={refund.id}
                 className="flex items-center justify-between gap-3 px-3 py-2 text-sm"

@@ -159,7 +159,7 @@ describe('TransactionsPage filters, refunds list and errors', () => {
     expect(await screen.findByText('2 XLM')).toBeInTheDocument()
     expect(screen.getByText('1 XLM')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'failed' } })
+    fireEvent.change(screen.getByLabelText('Payment status'), { target: { value: 'failed' } })
 
     expect(screen.getByText('2 XLM')).toBeInTheDocument()
     expect(screen.queryByText('1 XLM')).not.toBeInTheDocument()
@@ -245,6 +245,62 @@ describe('TransactionsPage filters, refunds list and errors', () => {
     expect(await screen.findByText('3 XLM')).toBeInTheDocument()
     expect(screen.getByLabelText('Refund status: completed')).toBeInTheDocument()
     expect(screen.queryByText('No refunds yet.')).not.toBeInTheDocument()
+  })
+
+  it('filters refunds by the selected date range and search query', async () => {
+    mockListRefunds.mockResolvedValue([
+      {
+        id: 'refund-current-match',
+        payment_id: 'payment-current-match',
+        merchant_id: 'merchant-1',
+        amount_stroops: 30_000_000n,
+        asset: 'XLM',
+        status: 'completed',
+        recipient: 'GKEEP',
+        created_at: '2025-06-15T12:00:00.000Z',
+        updated_at: '2025-06-15T12:00:00.000Z',
+      },
+      {
+        id: 'refund-current-other',
+        payment_id: 'payment-current-other',
+        merchant_id: 'merchant-1',
+        amount_stroops: 50_000_000n,
+        asset: 'XLM',
+        status: 'pending',
+        recipient: 'GOTHER',
+        created_at: '2025-06-15T13:00:00.000Z',
+        updated_at: '2025-06-15T13:00:00.000Z',
+      },
+      {
+        id: 'refund-outside-date',
+        payment_id: 'payment-outside-date',
+        merchant_id: 'merchant-1',
+        amount_stroops: 40_000_000n,
+        asset: 'XLM',
+        status: 'failed',
+        recipient: 'GKEEP',
+        created_at: '2025-06-16T12:00:00.000Z',
+        updated_at: '2025-06-16T12:00:00.000Z',
+      },
+    ])
+    const user = userEvent.setup()
+    render(<TransactionsPage />)
+
+    await screen.findByText('3 XLM')
+    fireEvent.change(screen.getByLabelText('From'), { target: { value: '2025-06-15' } })
+    fireEvent.change(screen.getByLabelText('To'), { target: { value: '2025-06-15' } })
+
+    expect(screen.getByText('3 XLM')).toBeInTheDocument()
+    expect(screen.getByText('5 XLM')).toBeInTheDocument()
+    expect(screen.queryByText('4 XLM')).not.toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('Search'), 'GKEEP')
+
+    await waitFor(() => {
+      expect(screen.queryByText('5 XLM')).not.toBeInTheDocument()
+    })
+    expect(screen.getByText('3 XLM')).toBeInTheDocument()
+    expect(screen.queryByText('4 XLM')).not.toBeInTheDocument()
   })
 
   it('shows the offline message when the backend is unreachable', async () => {

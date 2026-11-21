@@ -45,6 +45,7 @@ export default function ApiKeysPage() {
   const [newKeyExpiry, setNewKeyExpiry] = useState('90')
   const [newKeyResult, setNewKeyResult] = useState<{ apiKey: ApiKey; fullKey: string } | null>(null)
   const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState<string | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false)
   const [revokeTarget, setRevokeTarget] = useState<ApiKey | null>(null)
@@ -104,9 +105,15 @@ export default function ApiKeysPage() {
 
   async function copyFullKey() {
     if (!newKeyResult) return
-    await navigator.clipboard.writeText(newKeyResult.fullKey)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(newKeyResult.fullKey)
+      setCopyError(null)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+      setCopyError('Could not copy the key. Select it and copy it manually.')
+    }
   }
 
   function dismissNewKey() {
@@ -114,6 +121,7 @@ export default function ApiKeysPage() {
     setKeyRevealDialogOpen(false)
     setHasAcknowledgedCopy(false)
     setCopied(false)
+    setCopyError(null)
   }
 
   function toggleScope(scope: ApiKeyScope, checked: boolean) {
@@ -279,7 +287,7 @@ export default function ApiKeysPage() {
                 <div className="flex items-center gap-2">
                   <code
                     id="new-key"
-                    className="bg-raised flex-1 rounded-lg px-3 py-2 text-xs break-all font-mono text-white"
+                    className="bg-raised flex-1 rounded-lg px-3 py-2 text-xs break-all font-mono text-white select-all"
                   >
                     {newKeyResult.fullKey}
                   </code>
@@ -292,6 +300,11 @@ export default function ApiKeysPage() {
                     {copied ? <X className="size-4" /> : <Copy className="size-4" />}
                   </Button>
                 </div>
+                {copyError && (
+                  <p role="alert" className="text-destructive text-xs">
+                    {copyError}
+                  </p>
+                )}
               </div>
 
               <Alert className="border-amber-500/30 bg-amber-500/10">

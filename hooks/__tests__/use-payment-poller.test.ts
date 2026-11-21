@@ -3,6 +3,11 @@ import { usePaymentPoller } from '../use-payment-poller'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
 
+let mockSession: { token: string; user_id: string } | null = {
+  token: 'mock-token',
+  user_id: '123',
+}
+
 jest.mock('@/lib/api', () => ({
   api: {
     listTransactions: jest.fn(),
@@ -11,7 +16,7 @@ jest.mock('@/lib/api', () => ({
 
 jest.mock('@/components/session-provider', () => ({
   useSession: () => ({
-    session: { token: 'mock-token', user_id: '123' },
+    session: mockSession,
     ready: true,
   }),
 }))
@@ -26,6 +31,7 @@ describe('usePaymentPoller', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     jest.useFakeTimers()
+    mockSession = { token: 'mock-token', user_id: '123' }
   })
 
   afterEach(() => {
@@ -96,5 +102,43 @@ describe('usePaymentPoller', () => {
         description: expect.stringContaining('XLM'),
       })
     )
+  })
+
+  it('seeds historical payments again after the session token changes', async () => {
+    const firstAccountPayments = [
+      {
+        id: 'tx-1',
+        status: 'confirmed',
+        amount_stroops: 10000000n,
+        asset: 'cNGN',
+      },
+    ]
+    const secondAccountPayments = [
+      {
+        id: 'tx-2',
+        status: 'confirmed',
+        amount_stroops: 25000000n,
+        asset: 'XLM',
+      },
+    ]
+    ;(api.listTransactions as jest.Mock)
+      .mockResolvedValueOnce(firstAccountPayments as never)
+      .mockResolvedValueOnce(secondAccountPayments as never)
+
+    const { rerender } = renderHook(() => usePaymentPoller(30000))
+
+    await waitFor(() => {
+      expect(api.listTransactions).toHaveBeenCalledTimes(1)
+    })
+
+    mockSession = { token: 'another-token', user_id: '456' }
+    rerender()
+
+    await waitFor(() => {
+      expect(api.listTransactions).toHaveBeenCalledTimes(2)
+    })
+
+    expect(api.listTransactions).toHaveBeenLastCalledWith('another-token', 20)
+    expect(toast.success).not.toHaveBeenCalled()
   })
 })
