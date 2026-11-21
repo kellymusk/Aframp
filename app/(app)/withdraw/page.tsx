@@ -1,12 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { ConfirmWithdrawalDialog } from '@/components/withdraw/confirm-withdrawal-dialog'
 import {
   Select,
   SelectContent,
@@ -42,6 +43,8 @@ export default function WithdrawPage() {
   const [accountNumber, setAccountNumber] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [confirmationOpen, setConfirmationOpen] = useState(false)
+  const submissionInFlight = useRef(false)
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -96,35 +99,28 @@ export default function WithdrawPage() {
     selectAsset(withdrawableAssets[0])
   }, [withdrawableAssets, asset, selectAsset])
 
-  function validate(): string | null {
-    if (stroops === null || stroops <= 0n) return 'Enter an amount to cash out.'
-    if (!isWholeKobo(stroops)) return 'Amount must have at most 2 decimal places.'
-    if (stroops < config.minimumStroops)
-      return `The smallest cash-out is ${formatStroops(config.minimumStroops)} ${asset}.`
-    if (stroops > available) return 'That is more than your available balance.'
-    if (!bankCode) return 'Choose your bank.'
-    if (accountNumber.length !== config.accountNumberLength) {
-      return `Account numbers are ${config.accountNumberLength} digits.`
-    }
-    if (!/^\d+$/.test(accountNumber)) {
-      return 'Account number must contain digits only.'
-    }
-    return null
-  }
-
-  async function submit(event: React.FormEvent) {
+  function submit(event: React.FormEvent) {
     event.preventDefault()
+    if (submissionInFlight.current) return
+
     const problem = validateWithdrawal(stroops, config, available, bankCode, accountNumber)
     if (problem) {
       setError(problem)
       return
     }
 
+    setError(null)
+    setConfirmationOpen(true)
+  }
+
+  async function confirmWithdrawal() {
+    if (submissionInFlight.current) return
+    submissionInFlight.current = true
+
     setSubmitting(true)
     setError(null)
     try {
-      // `stroops!` is the amount in stroops, not units — validate() has already
-      // ruled out null by this point. See lib/money.ts.
+      // `stroops!` is in stroops, not whole asset units; validation has ruled out null.
       await api.createWithdrawal(token, stroops!, bankCode, accountNumber, asset)
       setAmount('')
       setBankCode('')
@@ -134,7 +130,9 @@ export default function WithdrawPage() {
       // A 502 carries Paystack's own message — show it rather than a generic one.
       setError(cause instanceof Error ? cause.message : 'Cash-out failed')
     } finally {
+      submissionInFlight.current = false
       setSubmitting(false)
+      setConfirmationOpen(false)
     }
   }
 
@@ -251,6 +249,17 @@ export default function WithdrawPage() {
             {submitting ? 'Sending…' : 'Cash out'}
           </Button>
         </form>
+
+        <ConfirmWithdrawalDialog
+          open={confirmationOpen}
+          onOpenChange={(open) => {
+            if (!submitting) setConfirmationOpen(open)
+          }}
+          amount={amount}
+          asset={asset}
+          submitting={submitting}
+          onConfirm={() => void confirmWithdrawal()}
+        />
 
         {withdrawals.length > 0 && (
           <section className="space-y-3">

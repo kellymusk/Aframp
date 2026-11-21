@@ -5,12 +5,16 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { useDarkScope } from '@/components/dark-scope'
 
 const Dialog = DialogPrimitive.Root
 
 const DialogTrigger = DialogPrimitive.Trigger
 
-const DialogPortal = DialogPrimitive.Portal
+function DialogPortal({ ...props }: React.ComponentProps<typeof DialogPrimitive.Portal>) {
+  const darkScope = useDarkScope()
+  return <DialogPrimitive.Portal {...props} container={darkScope ?? undefined} />
+}
 
 const DialogClose = DialogPrimitive.Close
 
