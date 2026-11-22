@@ -1,5 +1,6 @@
 import nextPlugin from '@next/eslint-plugin-next'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
+import reactHooksPlugin from 'eslint-plugin-react-hooks'
 import prettierConfig from 'eslint-config-prettier'
 import tseslint from 'typescript-eslint'
 
@@ -26,6 +27,15 @@ const config = [
   nextPlugin.flatConfig.coreWebVitals,
   jsxA11y.flatConfigs.recommended,
   ...tseslint.configs.recommended,
+  {
+    plugins: {
+      'react-hooks': reactHooksPlugin,
+    },
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+    },
+  },
   {
     rules: {
       'no-console': ['error', { allow: ['warn', 'error'] }],
