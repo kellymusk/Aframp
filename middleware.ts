@@ -20,7 +20,9 @@ export function middleware(request: NextRequest) {
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https:",
+    // All images are served from our own origin (or inlined as data:/blob:);
+    // no bare `https:` so injected markup can't load beacons from arbitrary hosts.
+    "img-src 'self' data: blob:",
     "font-src 'self' data:",
     "connect-src 'self' https://api.coingecko.com https://horizon.stellar.org https://horizon-testnet.stellar.org https://*.sentry.io https://*.ingest.us.sentry.io https://vitals.vercel-insights.com",
     "frame-ancestors 'none'",
