@@ -16,10 +16,22 @@ export function middleware(request: NextRequest) {
   const nonceBytes = crypto.getRandomValues(new Uint8Array(16))
   const nonce = Buffer.from(nonceBytes).toString('base64url')
 
+  // Nonce-locked styles (#1176). Next.js stamps the nonce from the request CSP
+  // header onto the <style> elements it injects, and next-themes already
+  // receives it via layout.tsx. React `style={{}}` props render as inline style
+  // *attributes*, which a nonce can't cover, so they are allowed separately via
+  // `style-src-attr` while injected <style> elements stay nonce-only.
+  // Gated behind CSP_STRICT_STYLES until the build is verified to still hydrate;
+  // the default keeps the previous 'unsafe-inline' behaviour.
+  const strictStyles = process.env.CSP_STRICT_STYLES === 'true'
+  const styleDirectives = strictStyles
+    ? [`style-src 'self' 'nonce-${nonce}'`, "style-src-attr 'unsafe-inline'"]
+    : ["style-src 'self' 'unsafe-inline'"]
+
   const csp = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'`,
-    "style-src 'self' 'unsafe-inline'",
+    ...styleDirectives,
     // All images are served from our own origin (or inlined as data:/blob:);
     // no bare `https:` so injected markup can't load beacons from arbitrary hosts.
     "img-src 'self' data: blob:",

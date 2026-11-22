@@ -69,4 +69,30 @@ describe('CSP nonce middleware (#632)', () => {
     expect(res.headers.get('x-frame-options')).toBe('DENY')
     expect(res.headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin')
   })
+
+  describe('style-src (#1176)', () => {
+    const original = process.env.CSP_STRICT_STYLES
+    afterEach(() => {
+      if (original === undefined) delete process.env.CSP_STRICT_STYLES
+      else process.env.CSP_STRICT_STYLES = original
+    })
+
+    it("keeps 'unsafe-inline' for styles by default", async () => {
+      delete process.env.CSP_STRICT_STYLES
+      const res = await middleware(makeRequest('/'))
+      const csp = res.headers.get('content-security-policy') ?? ''
+      const styleSrc = csp.split(';').find((d) => d.trim().startsWith('style-src '))
+      expect(styleSrc).toContain("'unsafe-inline'")
+    })
+
+    it('uses a nonce instead of unsafe-inline when CSP_STRICT_STYLES=true', async () => {
+      process.env.CSP_STRICT_STYLES = 'true'
+      const res = await middleware(makeRequest('/'))
+      const nonce = res.headers.get('x-nonce') ?? ''
+      const csp = res.headers.get('content-security-policy') ?? ''
+      const styleSrc = csp.split(';').find((d) => d.trim().startsWith('style-src '))
+      expect(styleSrc).toContain(`'nonce-${nonce}'`)
+      expect(styleSrc).not.toContain('unsafe-inline')
+    })
+  })
 })
