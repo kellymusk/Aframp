@@ -17,22 +17,32 @@ export function QuickConvert({ openRequests }: { openRequests: PaymentRequest[] 
       {openRequests.length === 0 ? (
         <p className="text-dim mt-5 text-sm">No open charges right now.</p>
       ) : (
-        <ul className="mt-5 space-y-3">
-          {openRequests.slice(0, 5).map((request) => (
-            <li key={request.id}>
-              <Link
-                href={`/request/${request.id}`}
-                className="hover:bg-raised/60 flex items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors"
-              >
-                <span className="flex items-center gap-2 text-sm font-bold text-white">
-                  <Clock className="text-dim size-3.5" aria-hidden />
-                  {formatStroops(request.amount_stroops)} {request.asset}
-                </span>
-                <ArrowRight className="text-dim size-4" aria-hidden />
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="mt-5 space-y-3">
+            {openRequests.slice(0, 5).map((request) => (
+              <li key={request.id}>
+                <Link
+                  href={`/request/${request.id}`}
+                  className="hover:bg-raised/60 flex items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors"
+                >
+                  <span className="flex items-center gap-2 text-sm font-bold text-white">
+                    <Clock className="text-dim size-3.5" aria-hidden />
+                    {formatStroops(request.amount_stroops)} {request.asset}
+                  </span>
+                  <ArrowRight className="text-dim size-4" aria-hidden />
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {openRequests.length > 5 && (
+            <Link
+              href="/transactions?status=pending"
+              className="text-dim hover:text-bright mt-3 block text-center text-sm transition-colors"
+            >
+              View all {openRequests.length} open charges →
+            </Link>
+          )}
+        </>
       )}
 
       <Link
