@@ -142,9 +142,11 @@ the app actually hits them.
 - Three consecutive failing runs open a `🚨 AFRAMP production uptime alert` issue; the first healthy run closes it.
 - The failure count is kept in the Actions cache under `uptime-monitor-state-<run_id>-<run_attempt>`.
 
-**Monitored URL:** `https://app.aframp.com` by default. Set the `PRODUCTION_URL` repository variable (Settings → Secrets and variables → Actions → Variables, no trailing slash) to monitor another origin, such as the Vercel production URL, without a code change.
+**Monitored URL:** `https://aframp.vercel.app` (the public Vercel production alias) by default, as set in `uptime-monitor.yml`.
 
-**Prerequisite:** The monitored domain must resolve to the production deployment. For `app.aframp.com` that means adding it under the Vercel project's Domains and creating the DNS record Vercel asks for (see the `aframp.com` DNS provider). If the domain does not resolve, every run fails.
+> **Note:** The `PRODUCTION_URL` repository variable overrides this default. Set it under Settings → Secrets and variables → Actions → Variables (no trailing slash) to monitor another origin, such as the custom domain `https://app.aframp.com` once it is live, without a code change. A manual `workflow_dispatch` run can also pass a one-off `url` input, which takes precedence over both.
+
+**Prerequisite:** The monitored domain must resolve to the production deployment. Before pointing `PRODUCTION_URL` at `app.aframp.com`, add it under the Vercel project's Domains and create the DNS record Vercel asks for (see the `aframp.com` DNS provider). If the domain does not resolve, every run fails.
 
 ---
 
@@ -211,7 +213,7 @@ View workflow status in GitHub:
 Add to README:
 
 ```markdown
-[![CI](https://github.com/aframp/aframp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aframp/aframp/actions/workflows/ci.yml)
+[![CI](https://github.com/kellymusk/Aframp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kellymusk/Aframp/actions/workflows/ci.yml)
 ```
 
 ---
