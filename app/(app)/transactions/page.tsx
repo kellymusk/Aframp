@@ -11,9 +11,9 @@ import { api, ApiError, type Balance, type Payment, type PaymentStatus, type Ref
 import { exportPaymentsToCSV } from '@/lib/export'
 import { formatStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
+import { getStellarTransactionUrl } from '@/lib/stellar-network'
 
-/** Testnet today; swap for `public` when the backend points at mainnet Horizon. */
-const EXPLORER_BASE = 'https://stellar.expert/explorer/testnet/tx'
+import { getStellarTransactionUrl } from '@/lib/stellar-network'
 
 const STATUS_LABEL: Record<PaymentStatus, string> = {
   detected: 'Detected',
@@ -183,7 +183,7 @@ export default function TransactionsPage() {
                 <p className="text-dim text-xs">
                   {formatWhen(payment.created_at)} ·{' '}
                   <a
-                    href={`${EXPLORER_BASE}/${payment.tx_hash}`}
+                    href={getStellarTransactionUrl(payment.tx_hash)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:text-bright underline underline-offset-2"

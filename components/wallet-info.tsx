@@ -5,9 +5,9 @@ import { motion } from 'framer-motion'
 import { BadgeCheck, Check, Copy, ExternalLink, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { getStellarAccountUrl } from '@/lib/stellar-network'
 
-/** Testnet today; swap for `public` when the backend points at mainnet Horizon. */
-const EXPLORER_BASE = 'https://stellar.expert/explorer/testnet/account'
+import { getStellarAccountUrl } from '@/lib/stellar-network'
 
 interface WalletInfoProps {
   walletName: string
@@ -91,7 +91,7 @@ export function WalletInfo({
 
       {/* The original rendered this button with no href, so it did nothing. */}
       <Button asChild variant="outline" size="sm" className="w-full">
-        <a href={`${EXPLORER_BASE}/${walletAddress}`} target="_blank" rel="noopener noreferrer">
+        <a href={getStellarAccountUrl(walletAddress)} target="_blank" rel="noopener noreferrer">
           <ExternalLink className="size-4" aria-hidden />
           View on explorer
         </a>

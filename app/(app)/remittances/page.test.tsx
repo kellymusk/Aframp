@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import RemittancesPage from '@/app/(app)/remittances/page'
 import { api, type Remittance } from '@/lib/api'
+import { getStellarTransactionUrl } from '@/lib/stellar-network'
 
 jest.mock('@/components/session-provider', () => ({
   useAuthenticatedSession: () => ({ token: 'session-token' }),
@@ -8,6 +9,10 @@ jest.mock('@/components/session-provider', () => ({
 
 jest.mock('@/lib/api', () => ({
   api: { listRemittances: jest.fn() },
+}))
+
+jest.mock('@/lib/stellar-network', () => ({
+  getStellarTransactionUrl: jest.fn((hash) => `https://stellar.expert/explorer/testnet/tx/${hash}`),
 }))
 
 const mockListRemittances = api.listRemittances as jest.Mock
@@ -40,7 +45,7 @@ describe('RemittancesPage', () => {
     expect(screen.getByText(remittance.destination_address)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: transactionHash })).toHaveAttribute(
       'href',
-      `https://stellar.expert/explorer/testnet/tx/${transactionHash}`
+      getStellarTransactionUrl(transactionHash)
     )
     await waitFor(() =>
       expect(mockListRemittances).toHaveBeenCalledWith('session-token', 50, expect.any(AbortSignal))
