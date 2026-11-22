@@ -41,6 +41,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const swRef = useRef<ServiceWorkerRegistration | null>(null)
+  const permissionStatusRef = useRef<PermissionStatus | null>(null)
 
   const isSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window
 
@@ -83,6 +84,8 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       navigator.permissions
         .query({ name: 'notifications' as PermissionName })
         .then((status) => {
+          if (cancelled) return
+          permissionStatusRef.current = status
           status.addEventListener('change', handler)
         })
         .catch(() => {
@@ -92,6 +95,11 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
     return () => {
       cancelled = true
+      // Clean up permission change listener
+      if (permissionStatusRef.current) {
+        permissionStatusRef.current.removeEventListener('change', handler)
+        permissionStatusRef.current = null
+      }
     }
   }, [isSupported])
 
