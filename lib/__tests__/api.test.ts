@@ -361,6 +361,7 @@ describe('api', () => {
     expect(init.headers).toEqual({
       'Content-Type': 'application/json',
       Authorization: 'Bearer tok',
+      'Idempotency-Key': expect.any(String),
     })
     expect(init.body).toBe(
       '{"amount_stroops":100,"recipient":"GDEST123","reason":"Customer request"}'
@@ -485,6 +486,48 @@ describe('api', () => {
     expect(init.body).toBe(
       '{"destination_address":"GDEST123","amount_stroops":500,"asset":"XLM","memo":"Invoice #12"}'
     )
+  })
+
+  describe('idempotency keys on money-moving POSTs', () => {
+    const keyOf = (call: number) => fetchMock.mock.calls[call][1].headers['Idempotency-Key']
+
+    it('sends an Idempotency-Key on withdrawals, sends, refunds and charges', async () => {
+      fetchMock.mockImplementation(async () => jsonResponse({}))
+      await api.createWithdrawal('tok-a', 1n, '044', '0123456789')
+      await api.createRemittance('tok-a', 'GDEST', 2n)
+      await api.createRefund('tok-a', 'pay-1', 3n, 'GDEST')
+      await api.createPaymentRequest('tok-a', 4n)
+      for (let i = 0; i < 4; i++) expect(typeof keyOf(i)).toBe('string')
+      expect(new Set([0, 1, 2, 3].map(keyOf)).size).toBe(4)
+    })
+
+    it('reuses the key when the same intent is retried after an unknown outcome', async () => {
+      fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      await expect(api.createWithdrawal('tok-b', 5n, '044', '0123456789')).rejects.toBeInstanceOf(
+        ApiError
+      )
+      fetchMock.mockResolvedValueOnce(jsonResponse({ error: 'boom' }, 503))
+      await expect(api.createWithdrawal('tok-b', 5n, '044', '0123456789')).rejects.toBeInstanceOf(
+        ApiError
+      )
+      fetchMock.mockResolvedValueOnce(jsonResponse({}))
+      await api.createWithdrawal('tok-b', 5n, '044', '0123456789')
+
+      expect(keyOf(1)).toBe(keyOf(0))
+      expect(keyOf(2)).toBe(keyOf(0))
+    })
+
+    it('uses a fresh key after a success or a definite rejection', async () => {
+      fetchMock.mockResolvedValueOnce(jsonResponse({}))
+      await api.createRemittance('tok-c', 'GDEST', 7n)
+      fetchMock.mockResolvedValueOnce(jsonResponse({ error: 'Invalid address' }, 400))
+      await expect(api.createRemittance('tok-c', 'GDEST', 7n)).rejects.toBeInstanceOf(ApiError)
+      fetchMock.mockResolvedValueOnce(jsonResponse({}))
+      await api.createRemittance('tok-c', 'GDEST', 7n)
+
+      expect(keyOf(1)).not.toBe(keyOf(0))
+      expect(keyOf(2)).not.toBe(keyOf(1))
+    })
   })
 
   it('listRemittances GETs /remittances with limit', async () => {

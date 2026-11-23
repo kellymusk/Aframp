@@ -1,4 +1,4 @@
-import { request, type UUID } from './shared'
+import { request, withIdempotencyKey, type UUID } from './shared'
 
 export interface Wallet {
   id: UUID
@@ -133,16 +133,15 @@ export function createPaymentRequest(
   expiresInSecs?: number,
   allowPartial = false
 ): Promise<PaymentRequest> {
-  return request<PaymentRequest>('/payment-requests', {
-    method: 'POST',
-    token,
-    body: {
-      amount_stroops: amountStroops,
-      ...(asset ? { asset } : {}),
-      ...(expiresInSecs ? { expires_in_secs: expiresInSecs } : {}),
-      ...(allowPartial ? { allow_partial: true } : {}),
-    },
-  })
+  const body = {
+    amount_stroops: amountStroops,
+    ...(asset ? { asset } : {}),
+    ...(expiresInSecs ? { expires_in_secs: expiresInSecs } : {}),
+    ...(allowPartial ? { allow_partial: true } : {}),
+  }
+  return withIdempotencyKey('/payment-requests', token, body, (idempotencyKey) =>
+    request<PaymentRequest>('/payment-requests', { method: 'POST', token, body, idempotencyKey })
+  )
 }
 
 export function listPaymentRequests(
@@ -165,15 +164,15 @@ export function createRefund(
   recipientAddress: string,
   reason?: string
 ): Promise<Refund> {
-  return request<Refund>(`/payments/${paymentId}/refund`, {
-    method: 'POST',
-    token,
-    body: {
-      amount_stroops: amountStroops,
-      recipient: recipientAddress,
-      ...(reason ? { reason } : {}),
-    },
-  })
+  const path = `/payments/${paymentId}/refund`
+  const body = {
+    amount_stroops: amountStroops,
+    recipient: recipientAddress,
+    ...(reason ? { reason } : {}),
+  }
+  return withIdempotencyKey(path, token, body, (idempotencyKey) =>
+    request<Refund>(path, { method: 'POST', token, body, idempotencyKey })
+  )
 }
 
 export function listRefunds(token: string, limit = 50, signal?: AbortSignal): Promise<Refund[]> {
@@ -187,16 +186,15 @@ export function createWithdrawal(
   accountNumber: string,
   asset = 'cNGN'
 ): Promise<Withdrawal> {
-  return request<Withdrawal>('/withdraw', {
-    method: 'POST',
-    token,
-    body: {
-      amount_stroops: amountStroops,
-      asset,
-      bank_code: bankCode,
-      account_number: accountNumber,
-    },
-  })
+  const body = {
+    amount_stroops: amountStroops,
+    asset,
+    bank_code: bankCode,
+    account_number: accountNumber,
+  }
+  return withIdempotencyKey('/withdraw', token, body, (idempotencyKey) =>
+    request<Withdrawal>('/withdraw', { method: 'POST', token, body, idempotencyKey })
+  )
 }
 
 export function listWithdrawals(

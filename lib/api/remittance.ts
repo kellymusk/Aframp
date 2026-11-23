@@ -1,4 +1,4 @@
-import { request, type UUID } from './shared'
+import { request, withIdempotencyKey, type UUID } from './shared'
 
 export interface FeeEstimate {
   fee_stroops: bigint
@@ -42,16 +42,15 @@ export function createRemittance(
   asset = 'XLM',
   memo?: string
 ): Promise<Remittance> {
-  return request<Remittance>('/remittance', {
-    method: 'POST',
-    token,
-    body: {
-      destination_address: destinationAddress,
-      amount_stroops: amountStroops,
-      asset,
-      ...(memo ? { memo } : {}),
-    },
-  })
+  const body = {
+    destination_address: destinationAddress,
+    amount_stroops: amountStroops,
+    asset,
+    ...(memo ? { memo } : {}),
+  }
+  return withIdempotencyKey('/remittance', token, body, (idempotencyKey) =>
+    request<Remittance>('/remittance', { method: 'POST', token, body, idempotencyKey })
+  )
 }
 
 export function listRemittances(
