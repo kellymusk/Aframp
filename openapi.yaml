@@ -320,7 +320,7 @@ components:
           nullable: true
     Me:
       type: object
-      required: [user_id, email, name, created_at, merchant_id, merchant_name]
+      required: [user_id, email, name, is_admin, created_at, merchant_id, merchant_name]
       properties:
         user_id:
           type: string
@@ -329,6 +329,8 @@ components:
           type: string
         name:
           type: string
+        is_admin:
+          type: boolean
         created_at:
           type: string
           format: date-time
@@ -339,6 +341,13 @@ components:
         merchant_name:
           type: string
           nullable: true
+        kyc_status:
+          type: string
+          enum: [pending, approved, rejected, expired]
+          nullable: true
+          description: >
+            KYC verification state. Optional until backend ships the field
+            (aframp-backend#1281). Absent and null both mean "not yet approved".
     Wallet:
       type: object
       required: [id, merchant_id, address, network, created_at]

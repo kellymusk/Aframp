@@ -116,6 +116,11 @@ export interface Me {
   created_at: string
   merchant_id: UUID | null
   merchant_name: string | null
+  /**
+   * Present once the backend ships kellymusk/aframp-backend#1281.
+   * Absent (undefined) or null until then — treat both as "not yet approved".
+   */
+  kyc_status?: 'pending' | 'approved' | 'rejected' | 'expired' | null
 }
 
 export interface Wallet {

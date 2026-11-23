@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select'
 import { api, ApiError, type Balance, type Withdrawal, type WithdrawalStatus } from '@/lib/api'
 import { formatStroops, parseAmountToStroops } from '@/lib/money'
-import { useAuthenticatedSession } from '@/components/session-provider'
+import { useAuthenticatedSession, useSession } from '@/components/session-provider'
 import {
   getBankOptions,
   getWithdrawableAssets,
@@ -34,6 +34,7 @@ const STATUS_LABEL: Record<WithdrawalStatus, string> = {
 
 export default function WithdrawPage() {
   const { token } = useAuthenticatedSession()
+  const { me } = useSession()
   const [balances, setBalances] = useState<Balance[] | null>(null)
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
   const [asset, setAsset] = useState<WithdrawalAsset>('cNGN')
@@ -96,22 +97,6 @@ export default function WithdrawPage() {
     selectAsset(withdrawableAssets[0])
   }, [withdrawableAssets, asset, selectAsset])
 
-  function validate(): string | null {
-    if (stroops === null || stroops <= 0n) return 'Enter an amount to cash out.'
-    if (!isWholeKobo(stroops)) return 'Amount must have at most 2 decimal places.'
-    if (stroops < config.minimumStroops)
-      return `The smallest cash-out is ${formatStroops(config.minimumStroops)} ${asset}.`
-    if (stroops > available) return 'That is more than your available balance.'
-    if (!bankCode) return 'Choose your bank.'
-    if (accountNumber.length !== config.accountNumberLength) {
-      return `Account numbers are ${config.accountNumberLength} digits.`
-    }
-    if (!/^\d+$/.test(accountNumber)) {
-      return 'Account number must contain digits only.'
-    }
-    return null
-  }
-
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     const problem = validateWithdrawal(stroops, config, available, bankCode, accountNumber)
@@ -123,8 +108,8 @@ export default function WithdrawPage() {
     setSubmitting(true)
     setError(null)
     try {
-      // `stroops!` is the amount in stroops, not units — validate() has already
-      // ruled out null by this point. See lib/money.ts.
+      // `stroops!` is the amount in stroops, not units — validateWithdrawal()
+      // has already ruled out null by this point. See lib/money.ts.
       await api.createWithdrawal(token, stroops!, bankCode, accountNumber, asset)
       setAmount('')
       setBankCode('')
@@ -146,6 +131,21 @@ export default function WithdrawPage() {
     )
   }
 
+  // kyc_status is absent until the backend ships aframp-backend#1281.
+  // Treat absent (undefined) and null the same as 'pending': show a clear
+  // message rather than silently disabling the form.
+  const kycStatus = me?.kyc_status ?? null
+  const kycBlocked = kycStatus !== 'approved'
+
+  function kycMessage(): string {
+    if (kycStatus === 'rejected')
+      return 'Your identity verification was not approved. Please contact support to resubmit.'
+    if (kycStatus === 'expired')
+      return 'Your identity verification has expired. Please resubmit to enable cash-out.'
+    // null (field absent) or 'pending'
+    return "Cash-out is available once your identity verification is approved. We'll notify you when it's ready."
+  }
+
   return (
     <div>
       <header>
@@ -158,7 +158,13 @@ export default function WithdrawPage() {
       </header>
 
       <div className="mt-6 max-w-xl space-y-5">
-        {withdrawableAssets.length === 0 && (
+        {kycBlocked && (
+          <Alert>
+            <AlertDescription>{kycMessage()}</AlertDescription>
+          </Alert>
+        )}
+
+        {!kycBlocked && withdrawableAssets.length === 0 && (
           <Alert>
             <AlertDescription>
               You have no balance to cash out yet. Payments currently arrive as XLM, which
@@ -167,90 +173,92 @@ export default function WithdrawPage() {
           </Alert>
         )}
 
-        <form
-          onSubmit={submit}
-          className="bg-panel border-hairline flex flex-col gap-4 rounded-2xl border p-5"
-        >
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                {error === 'backend-down'
-                  ? "We can't connect to the payment server right now. Please try again in a moment."
-                  : error}
-              </AlertDescription>
-            </Alert>
-          )}
+        {!kycBlocked && (
+          <form
+            onSubmit={submit}
+            className="bg-panel border-hairline flex flex-col gap-4 rounded-2xl border p-5"
+          >
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {error === 'backend-down'
+                    ? "We can't connect to the payment server right now. Please try again in a moment."
+                    : error}
+                </AlertDescription>
+              </Alert>
+            )}
 
-          {withdrawableAssets.length > 1 && (
+            {withdrawableAssets.length > 1 && (
+              <div className="space-y-2">
+                <Label htmlFor="asset">Asset</Label>
+                <Select
+                  value={asset}
+                  onValueChange={(value) => selectAsset(value as WithdrawalAsset)}
+                >
+                  <SelectTrigger id="asset">
+                    <SelectValue placeholder="Choose an asset" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {withdrawableAssets.map((withdrawable) => (
+                      <SelectItem key={withdrawable} value={withdrawable}>
+                        {withdrawable}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <Label htmlFor="asset">Asset</Label>
-              <Select
-                value={asset}
-                onValueChange={(value) => selectAsset(value as WithdrawalAsset)}
-              >
-                <SelectTrigger id="asset">
-                  <SelectValue placeholder="Choose an asset" />
+              <Label htmlFor="amount">Amount ({asset})</Label>
+              <Input
+                id="amount"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={amount}
+                disabled={available === 0n}
+                onChange={(event) => setAmount(event.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="bank">Bank</Label>
+              <Select value={bankCode} onValueChange={setBankCode} disabled={available === 0n}>
+                <SelectTrigger id="bank">
+                  <SelectValue placeholder="Choose your bank" />
                 </SelectTrigger>
                 <SelectContent>
-                  {withdrawableAssets.map((withdrawable) => (
-                    <SelectItem key={withdrawable} value={withdrawable}>
-                      {withdrawable}
+                  {getBankOptions(asset).map((bank) => (
+                    <SelectItem key={bank.code} value={bank.code}>
+                      {bank.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
 
-          <div className="space-y-2">
-            <Label htmlFor="amount">Amount ({asset})</Label>
-            <Input
-              id="amount"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={amount}
-              disabled={available === 0n}
-              onChange={(event) => setAmount(event.target.value)}
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="account">Account number</Label>
+              <Input
+                id="account"
+                inputMode="numeric"
+                maxLength={config.accountNumberLength}
+                placeholder="0123456789"
+                value={accountNumber}
+                disabled={available === 0n}
+                onChange={(event) =>
+                  setAccountNumber(
+                    event.target.value.replace(/\D/g, '').slice(0, config.accountNumberLength)
+                  )
+                }
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="bank">Bank</Label>
-            <Select value={bankCode} onValueChange={setBankCode} disabled={available === 0n}>
-              <SelectTrigger id="bank">
-                <SelectValue placeholder="Choose your bank" />
-              </SelectTrigger>
-              <SelectContent>
-                {getBankOptions(asset).map((bank) => (
-                  <SelectItem key={bank.code} value={bank.code}>
-                    {bank.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="account">Account number</Label>
-            <Input
-              id="account"
-              inputMode="numeric"
-              maxLength={config.accountNumberLength}
-              placeholder="0123456789"
-              value={accountNumber}
-              disabled={available === 0n}
-              onChange={(event) =>
-                setAccountNumber(
-                  event.target.value.replace(/\D/g, '').slice(0, config.accountNumberLength)
-                )
-              }
-            />
-          </div>
-
-          <Button type="submit" size="lg" disabled={submitting || available === 0n}>
-            {submitting ? 'Sending…' : 'Cash out'}
-          </Button>
-        </form>
+            <Button type="submit" size="lg" disabled={submitting || available === 0n}>
+              {submitting ? 'Sending…' : 'Cash out'}
+            </Button>
+          </form>
+        )}
 
         {withdrawals.length > 0 && (
           <section className="space-y-3">

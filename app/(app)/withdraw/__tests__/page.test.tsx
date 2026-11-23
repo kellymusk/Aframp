@@ -24,8 +24,11 @@ jest.mock('@/lib/api', () => {
   }
 })
 
+const mockMe: { kyc_status?: string | null } = { kyc_status: 'approved' }
+
 jest.mock('@/components/session-provider', () => ({
   useAuthenticatedSession: () => ({ token: 'test-token' }),
+  useSession: () => ({ me: mockMe }),
 }))
 
 // Replace Radix Select with a plain <select> so value changes can be driven
@@ -115,6 +118,7 @@ function withdrawal(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockMe.kyc_status = 'approved'
   mockGetBalances.mockResolvedValue([])
   mockListWithdrawals.mockResolvedValue([])
   mockCreateWithdrawal.mockResolvedValue({})
@@ -372,5 +376,51 @@ describe('WithdrawPage', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Bank provider unavailable')
+  })
+
+  describe('KYC gating', () => {
+    it('hides the form and shows a pending message when kyc_status is null (field absent)', async () => {
+      mockMe.kyc_status = null
+      mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
+      render(<WithdrawPage />)
+      await screen.findByRole('heading', { name: 'Cash out' })
+      expect(screen.queryByRole('button', { name: 'Cash out' })).not.toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent(/identity verification is approved/i)
+    })
+
+    it('hides the form and shows a pending message when kyc_status is pending', async () => {
+      mockMe.kyc_status = 'pending'
+      mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
+      render(<WithdrawPage />)
+      await screen.findByRole('heading', { name: 'Cash out' })
+      expect(screen.queryByRole('button', { name: 'Cash out' })).not.toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent(/identity verification is approved/i)
+    })
+
+    it('hides the form and shows a rejected message when kyc_status is rejected', async () => {
+      mockMe.kyc_status = 'rejected'
+      mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
+      render(<WithdrawPage />)
+      await screen.findByRole('heading', { name: 'Cash out' })
+      expect(screen.queryByRole('button', { name: 'Cash out' })).not.toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent(/not approved.*contact support/i)
+    })
+
+    it('hides the form and shows an expired message when kyc_status is expired', async () => {
+      mockMe.kyc_status = 'expired'
+      mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
+      render(<WithdrawPage />)
+      await screen.findByRole('heading', { name: 'Cash out' })
+      expect(screen.queryByRole('button', { name: 'Cash out' })).not.toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent(/expired.*resubmit/i)
+    })
+
+    it('shows the form when kyc_status is approved', async () => {
+      mockMe.kyc_status = 'approved'
+      mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
+      render(<WithdrawPage />)
+      await screen.findByRole('button', { name: 'Cash out' })
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
   })
 })
