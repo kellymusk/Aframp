@@ -84,7 +84,7 @@ export function stringifyWithBigInts(value: unknown): string {
 }
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
   body?: unknown
   token?: string
   signal?: AbortSignal

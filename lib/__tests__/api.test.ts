@@ -530,6 +530,25 @@ describe('api', () => {
     })
   })
 
+  describe('saved contacts', () => {
+    it('lists, creates, updates and deletes contacts through /contacts', async () => {
+      fetchMock.mockImplementation(async () => jsonResponse({}))
+      await api.listSavedContacts('tok')
+      await api.createSavedContact('tok', { name: 'Ada', address: 'GDEST' })
+      await api.updateSavedContact('tok', 'c-1', { name: 'Ada L.' })
+      await api.deleteSavedContact('tok', 'c-1')
+
+      const calls = fetchMock.mock.calls.map(([url, init]) => [init.method ?? 'GET', url])
+      expect(calls).toEqual([
+        ['GET', '/backend/contacts'],
+        ['POST', '/backend/contacts'],
+        ['PUT', '/backend/contacts/c-1'],
+        ['DELETE', '/backend/contacts/c-1'],
+      ])
+      expect(fetchMock.mock.calls[1][1].body).toBe('{"name":"Ada","address":"GDEST"}')
+    })
+  })
+
   it('listRemittances GETs /remittances with limit', async () => {
     fetchMock.mockResolvedValue(jsonResponse([]))
     await api.listRemittances('tok', 30)
