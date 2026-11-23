@@ -44,6 +44,8 @@ export interface PaymentRequest {
   amount_paid_stroops?: bigint
   asset: string
   memo: string
+  /** Business name shown to the customer on the public payment page. */
+  merchant_name?: string | null
   status: PaymentRequestStatus
   allow_partial?: boolean
   expires_at: string
