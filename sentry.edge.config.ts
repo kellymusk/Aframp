@@ -1,5 +1,7 @@
 import * as Sentry from '@sentry/nextjs'
 
+import { redactEvent } from '@/lib/sentry-redact'
+
 Sentry.init({
   dsn: process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN,
 
@@ -10,4 +12,6 @@ Sentry.init({
   enabled: process.env.NODE_ENV === 'production',
 
   release: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? 'dev',
+
+  beforeSend: redactEvent,
 })
