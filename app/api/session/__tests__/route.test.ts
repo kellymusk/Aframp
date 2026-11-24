@@ -71,17 +71,27 @@ describe('DELETE /api/session', () => {
 })
 
 describe('GET /api/session', () => {
-  it('returns null when no cookie is set', async () => {
+  it('reports unauthenticated when no cookie is set', async () => {
     mockCookieGet.mockReturnValue(undefined)
     const res = await GET()
-    const body = await res.json()
-    expect(body).toBeNull()
+    expect(await res.json()).toEqual({ authenticated: false })
   })
 
-  it('returns the parsed session when cookie is present', async () => {
+  it('reports unauthenticated for a malformed cookie', async () => {
+    mockCookieGet.mockReturnValue({ value: 'not-json' })
+    const res = await GET()
+    expect(await res.json()).toEqual({ authenticated: false })
+  })
+
+  it('returns presence flags and ids but never the token', async () => {
     mockCookieGet.mockReturnValue({ value: JSON.stringify(sessionPayload) })
     const res = await GET()
-    const body = (await res.json()) as typeof sessionPayload
-    expect(body).toEqual(sessionPayload)
+    const text = await res.clone().text()
+    expect(await res.json()).toEqual({
+      authenticated: true,
+      userId: 'user-1',
+      merchantId: 'merchant-1',
+    })
+    expect(text).not.toContain('jwt-token')
   })
 })

@@ -26,7 +26,7 @@ jest.mock('@/lib/api', () => ({
 
 const mockApi = api as jest.Mocked<typeof api>
 
-type StoredSession = { token: string; userId: string; merchantId: string | null }
+type StoredSession = { authenticated: boolean; userId?: string; merchantId?: string | null }
 
 const fetchMock = jest.fn()
 
@@ -40,7 +40,9 @@ function mockSessionRoute(stored: StoredSession | null | 'error' = null) {
     const method = init?.method ?? 'GET'
     if (method === 'GET') {
       if (stored === 'error') return Promise.reject(new TypeError('offline'))
-      return Promise.resolve({ json: () => Promise.resolve(stored) })
+      return Promise.resolve({
+        json: () => Promise.resolve(stored ?? { authenticated: false }),
+      })
     }
     return Promise.resolve({ json: () => Promise.resolve({ ok: true }) })
   })
@@ -59,7 +61,10 @@ async function renderSession(stored: StoredSession | null | 'error' = null) {
   return hook
 }
 
-const storedSession: StoredSession = { token: 'tok-1', userId: 'u-1', merchantId: 'm-1' }
+const storedSession: StoredSession = { authenticated: true, userId: 'u-1', merchantId: 'm-1' }
+// The token never reaches JS; `session.token` is only an opaque marker.
+const MARKER = 'httpOnly-cookie'
+const restoredSession = { token: MARKER, userId: 'u-1', merchantId: 'm-1' }
 
 const meData: Me = {
   user_id: 'u-1',
@@ -102,7 +107,7 @@ describe('SessionProvider', () => {
 
     it('restores the session from the cookie on mount', async () => {
       const { result } = await renderSession(storedSession)
-      expect(result.current.session).toEqual(storedSession)
+      expect(result.current.session).toEqual(restoredSession)
     })
 
     it('starts with no session when the cookie read fails', async () => {
@@ -111,7 +116,7 @@ describe('SessionProvider', () => {
     })
 
     it('never reads or writes the token in localStorage', async () => {
-      window.localStorage.setItem('aframp.session', JSON.stringify(storedSession))
+      window.localStorage.setItem('aframp.session', JSON.stringify(restoredSession))
       const { result } = await renderSession(null)
       expect(result.current.session).toBeNull()
     })
@@ -130,10 +135,17 @@ describe('SessionProvider', () => {
         await result.current.signIn('legacy@example.com', 'secret')
       })
 
-      const expected = { token: 'tok-legacy', userId: 'u-legacy', merchantId: 'm-legacy' }
-      expect(result.current.session).toEqual(expected)
+      expect(result.current.session).toEqual({
+        token: MARKER,
+        userId: 'u-legacy',
+        merchantId: 'm-legacy',
+      })
       const [[, init]] = sessionCalls('POST')
-      expect(JSON.parse(init.body as string)).toEqual(expected)
+      expect(JSON.parse(init.body as string)).toEqual({
+        token: 'tok-legacy',
+        userId: 'u-legacy',
+        merchantId: 'm-legacy',
+      })
     })
 
     it('returns an OTP challenge without creating a session', async () => {
@@ -174,7 +186,7 @@ describe('SessionProvider', () => {
         await result.current.signIn('user@example.com', 'secret')
       })
 
-      expect(result.current.session).toEqual({ token: 'tok-2', userId: 'u-2', merchantId: null })
+      expect(result.current.session).toEqual({ token: MARKER, userId: 'u-2', merchantId: null })
     })
   })
 
@@ -207,7 +219,7 @@ describe('SessionProvider', () => {
 
     expect(mockApi.verifyOtp).toHaveBeenCalledWith('chal-1', '123456')
     expect(result.current.session).toEqual({
-      token: 'tok-otp',
+      token: MARKER,
       userId: 'u-otp',
       merchantId: 'm-otp',
     })
@@ -223,8 +235,9 @@ describe('SessionProvider', () => {
 
       expect(result.current.session).toBeNull()
       expect(result.current.me).toBeNull()
-      expect(mockApi.logout).toHaveBeenCalledWith('tok-1')
-      expect(sessionCalls('DELETE')).toHaveLength(1)
+      expect(mockApi.logout).toHaveBeenCalledWith(MARKER)
+      // The cookie is cleared only after logout settles (middleware needs it for that call).
+      await waitFor(() => expect(sessionCalls('DELETE')).toHaveLength(1))
     })
 
     it('still clears local state when api.logout rejects', async () => {
@@ -268,7 +281,7 @@ describe('SessionProvider', () => {
         outcome = await result.current.refreshMe()
       })
 
-      expect(mockApi.getMe).toHaveBeenCalledWith('tok-1')
+      expect(mockApi.getMe).toHaveBeenCalledWith(MARKER)
       expect(outcome).toEqual({ success: true, data: meData })
       expect(result.current.me).toEqual(meData)
     })
@@ -283,7 +296,7 @@ describe('SessionProvider', () => {
       })
 
       expect(outcome).toEqual({ success: false, reason: 'network' })
-      expect(result.current.session).toEqual(storedSession)
+      expect(result.current.session).toEqual(restoredSession)
     })
 
     it('rethrows other errors (a 401 is handled by the unauthorized handler)', async () => {
@@ -330,7 +343,7 @@ describe('SessionProvider', () => {
           <Probe />
         </SessionProvider>
       )
-      expect(await screen.findByTestId('token')).toHaveTextContent('tok-1')
+      expect(await screen.findByTestId('token')).toHaveTextContent(MARKER)
     })
   })
 })

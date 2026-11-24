@@ -12,10 +12,18 @@ import {
   type OtpChallengeResponse,
 } from '@/lib/api'
 
-// #633: token is now stored in an HTTP-only cookie via /api/session,
-// not in localStorage. No token is ever readable by client-side JS.
+// #633: the bearer token is stored in an HTTP-only cookie via /api/session,
+// not in localStorage. After the one-time POST at sign-in, client JS never
+// reads it again: GET /api/session returns only presence flags, and
+// middleware.ts attaches the Authorization header server-side for `/backend/*`.
+// (The token does pass through JS once, in the login/OTP response, on its way
+// to the POST that stores it.)
+
+/** Opaque stand-in for `token` in `api.*` calls. Not a credential; never sent. */
+const SESSION_MARKER = 'httpOnly-cookie'
 
 interface Session {
+  /** Always SESSION_MARKER: tells `api.*` the call is authenticated. The real token is not available to JS. */
   token: string
   userId: string
   merchantId: string | null
@@ -48,18 +56,22 @@ const SessionContext = createContext<SessionContextValue | null>(null)
 
 function toSession(response: AuthResponse): Session {
   return {
-    token: response.token,
+    token: SESSION_MARKER,
     userId: response.user_id,
     merchantId: response.merchant_id,
   }
 }
 
 /** Persist the session to the HTTP-only cookie via the API route. */
-async function persistCookie(next: Session): Promise<void> {
+async function persistCookie(auth: AuthResponse): Promise<void> {
   await fetch('/api/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(next),
+    body: JSON.stringify({
+      token: auth.token,
+      userId: auth.user_id,
+      merchantId: auth.merchant_id,
+    }),
   })
 }
 
@@ -73,13 +85,26 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
   const [me, setMe] = useState<Me | null>(null)
 
-  // #633: on mount, read the session from the HTTP-only cookie via
-  // /api/session (GET). This replaces the localStorage read.
+  // #633: on mount, ask /api/session (GET) whether an HTTP-only cookie session
+  // exists. It returns presence flags only, never the token.
   useEffect(() => {
     fetch('/api/session')
-      .then((res) => res.json() as Promise<Session | null>)
+      .then(
+        (res) =>
+          res.json() as Promise<{
+            authenticated?: boolean
+            userId?: string
+            merchantId?: string | null
+          }>
+      )
       .then((stored) => {
-        if (stored?.token) setSession(stored)
+        if (stored?.authenticated && stored.userId) {
+          setSession({
+            token: SESSION_MARKER,
+            userId: stored.userId,
+            merchantId: stored.merchantId ?? null,
+          })
+        }
       })
       .catch(() => {
         // Network error on startup — start with no session.
@@ -87,10 +112,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setReady(true))
   }, [])
 
-  const persist = useCallback(async (next: Session) => {
-    setSession(next)
+  const persist = useCallback(async (auth: AuthResponse) => {
+    setSession(toSession(auth))
     try {
-      await persistCookie(next)
+      await persistCookie(auth)
     } catch {
       // Best-effort: the session still works for this tab if the cookie write fails.
     }
@@ -101,7 +126,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       const result = await api.login(email, password)
       // Only a legacy no-phone account gets a session straight away; a
       // challenge means the caller still has to route to `/verify`.
-      if ('token' in result) await persist(toSession(result))
+      if ('token' in result) await persist(result)
       return result
     },
     [persist]
@@ -116,14 +141,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const completeOtp = useCallback(
     async (challengeId: string, code: string) => {
-      await persist(toSession(await api.verifyOtp(challengeId, code)))
+      await persist(await api.verifyOtp(challengeId, code))
     },
     [persist]
   )
 
   const signOut = useCallback(() => {
-    if (session) api.logout(session.token).catch(() => {})
-    clearCookie().catch(() => {})
+    // The cookie must outlive the logout call: middleware reads it to
+    // authenticate that request, so clear it only once logout has settled.
+    const loggedOut = session ? api.logout(session.token).catch(() => {}) : Promise.resolve()
+    loggedOut.then(() => clearCookie()).catch(() => {})
     setSession(null)
     setMe(null)
   }, [session])

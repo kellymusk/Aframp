@@ -137,10 +137,10 @@ describe('request', () => {
     expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
   })
 
-  it('attaches Authorization only when a token is present', async () => {
+  it('never sends the token as an Authorization header (middleware injects it from the cookie)', async () => {
     fetchMock.mockResolvedValue(new Response('', { status: 200 }))
     await request('/me', { token: 'tok' })
-    expect(fetchMock.mock.calls[0][1].headers).toEqual({ Authorization: 'Bearer tok' })
+    expect(fetchMock.mock.calls[0][1].headers).toEqual({})
   })
 
   it('calls onUnauthorized on 401 when a token was sent', async () => {
@@ -229,7 +229,7 @@ describe('api', () => {
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/backend/logout')
     expect(init.method).toBe('POST')
-    expect(init.headers).toEqual({ Authorization: 'Bearer tok' })
+    expect(init.headers).toEqual({})
   })
 
   it('getMe GETs /me with a token', async () => {
@@ -245,7 +245,7 @@ describe('api', () => {
     )
     await api.getMe('tok')
     expect(fetchMock.mock.calls[0][0]).toBe('/backend/me')
-    expect(fetchMock.mock.calls[0][1].headers).toEqual({ Authorization: 'Bearer tok' })
+    expect(fetchMock.mock.calls[0][1].headers).toEqual({})
   })
 
   it('getWallet GETs /wallet', async () => {
@@ -346,10 +346,7 @@ describe('api', () => {
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/backend/payments/pay-1/refund')
     expect(init.method).toBe('POST')
-    expect(init.headers).toEqual({
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer tok',
-    })
+    expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
     expect(init.body).toBe(
       '{"amount_stroops":100,"recipient":"GDEST123","reason":"Customer request"}'
     )

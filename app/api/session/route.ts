@@ -1,17 +1,28 @@
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
-const COOKIE_NAME = 'aframp.session'
+import { SESSION_COOKIE_NAME as COOKIE_NAME } from '@/lib/session-cookie'
 const COOKIE_MAX_AGE = 60 * 60 * 24 // 24 hours, matching JWT expiry
 
+/**
+ * Presence check only. The bearer token lives in the httpOnly cookie and is
+ * injected server-side by middleware.ts for `/backend/*` calls, so it must
+ * never be echoed back to client JS (an XSS payload could exfiltrate it).
+ */
 export async function GET() {
   const cookieStore = await cookies()
   const value = cookieStore.get(COOKIE_NAME)?.value
-  if (!value) return NextResponse.json(null)
+  if (!value) return NextResponse.json({ authenticated: false })
   try {
-    return NextResponse.json(JSON.parse(value))
+    const parsed = JSON.parse(value) as { token?: string; userId?: string; merchantId?: string | null }
+    if (!parsed.token || !parsed.userId) return NextResponse.json({ authenticated: false })
+    return NextResponse.json({
+      authenticated: true,
+      userId: parsed.userId,
+      merchantId: parsed.merchantId ?? null,
+    })
   } catch {
-    return NextResponse.json(null)
+    return NextResponse.json({ authenticated: false })
   }
 }
 

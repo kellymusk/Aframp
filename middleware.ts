@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { readSessionToken, SESSION_COOKIE_NAME } from '@/lib/session-cookie'
 
 /**
  * Per-request CSP nonce middleware (#632).
@@ -12,6 +13,8 @@ import { NextResponse, type NextRequest } from 'next/server'
  * This middleware runs on every non-static, non-API-internal route.
  */
 export function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith('/backend/')) return proxyBackend(request)
+
   // 16 random bytes → 22-character base64url string (no padding).
   const nonceBytes = crypto.getRandomValues(new Uint8Array(16))
   const nonce = Buffer.from(nonceBytes).toString('base64url')
@@ -53,6 +56,29 @@ export function middleware(request: NextRequest) {
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
 
   return response
+}
+
+/**
+ * `/backend/*` proxy: the bearer token is kept in an httpOnly cookie, so the
+ * browser never holds it. Read it here, server-side, and attach it as the
+ * Authorization header on the forwarded request. Any client-supplied
+ * Authorization header is discarded so it can't be used to bypass this.
+ * Without a session cookie, the request falls through to the plain rewrite in
+ * next.config.mjs (login, signup and other unauthenticated endpoints).
+ */
+function proxyBackend(request: NextRequest) {
+  const headers = new Headers(request.headers)
+  headers.delete('authorization')
+
+  const token = readSessionToken(request.cookies.get(SESSION_COOKIE_NAME)?.value)
+  if (!token) return NextResponse.next({ request: { headers } })
+
+  headers.set('authorization', `Bearer ${token}`)
+  const backendUrl = (process.env.NEXT_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
+  const path = request.nextUrl.pathname.slice('/backend'.length)
+  return NextResponse.rewrite(new URL(`${backendUrl}${path}${request.nextUrl.search}`), {
+    request: { headers },
+  })
 }
 
 export const config = {

@@ -18,3 +18,12 @@ Keep the backend origin in the unprefixed, server-side `NEXT_API_URL` variable. 
 - The Content Security Policy can keep `connect-src` limited to `'self'` and the explicitly approved external services.
 - Deployments must set `NEXT_API_URL` to the backend origin. The rewrite's `http://127.0.0.1:3000` default is for local development.
 - The proxy does not replace backend authentication, authorization, input validation, or other API security controls.
+
+## Addendum: the bearer token never reaches client JS
+
+The session token lives only in the httpOnly `aframp.session` cookie. `middleware.ts` reads it for
+requests to `/backend/*`, discards any client-supplied `Authorization` header, and forwards the
+request to `NEXT_API_URL` with `Authorization: Bearer <token>` attached server-side. `GET /api/session`
+returns only `{ authenticated, userId, merchantId }`. The `token` argument on `api.*` calls is an
+opaque marker (it enables 401 handling) and is never sent. The one place the token touches JS is the
+login/OTP response on its way to `POST /api/session`.

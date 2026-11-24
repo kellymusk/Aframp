@@ -62,7 +62,7 @@ describe('SessionProvider', () => {
 
     // /api/session GET returns a fresh cookie-based session
     fetchMock.mockResolvedValueOnce({
-      json: () => Promise.resolve({ token: 'cookie-token', userId: 'u2', merchantId: null }),
+      json: () => Promise.resolve({ authenticated: true, userId: 'u2', merchantId: null }),
     } as Response)
 
     render(
@@ -73,7 +73,7 @@ describe('SessionProvider', () => {
 
     // The provider should use the cookie session, not the localStorage one
     await waitFor(() => {
-      expect(screen.getByTestId('session').textContent).toBe('cookie-token')
+      expect(screen.getByTestId('session').textContent).toBe('httpOnly-cookie')
     })
   })
 })

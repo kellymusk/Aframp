@@ -86,6 +86,11 @@ export function stringifyWithBigInts(value: unknown): string {
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'DELETE'
   body?: unknown
+  /**
+   * Marks the call as authenticated (enables the 401 sign-out handling). It is
+   * NOT a credential and is never sent: the real bearer token sits in an httpOnly
+   * cookie and is attached server-side by middleware.ts for `/backend/*`.
+   */
   token?: string
   signal?: AbortSignal
 }
@@ -101,7 +106,6 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       signal,
       headers: {
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: body === undefined ? undefined : stringifyWithBigInts(body),
     })
