@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { getItem, setItem } from '@/lib/storage'
 
 export interface Contact {
   id?: string
@@ -10,14 +11,34 @@ export interface Contact {
 
 export const CONTACTS_STORAGE_KEY = 'aframp_contacts'
 
-/** Reads saved contacts from localStorage. Returns `[]` for missing or corrupt data. */
+function defaultContactName(address: string): string {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`
+}
+
+function isValidStoredContact(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const address = (value as Record<string, unknown>).address
+  return typeof address === 'string' && address.trim().length > 0
+}
+
+/** Reads saved contacts from localStorage, dropping malformed entries. */
 export function readContacts(): Contact[] {
-  if (typeof window === 'undefined') return []
   try {
-    const stored = localStorage.getItem(CONTACTS_STORAGE_KEY)
+    const stored = getItem(CONTACTS_STORAGE_KEY)
     if (!stored) return []
-    const parsed = JSON.parse(stored) as Contact[]
-    return Array.isArray(parsed) ? parsed : []
+    const parsed: unknown = JSON.parse(stored)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(isValidStoredContact).map((entry) => {
+      const address = entry.address as string
+      const name = entry.name
+      return {
+        ...(typeof entry.id === 'string' ? { id: entry.id } : {}),
+        name: typeof name === 'string' && name.trim() ? name : defaultContactName(address),
+        address,
+        ...(typeof entry.avatar === 'string' ? { avatar: entry.avatar } : {}),
+        ...(typeof entry.createdAt === 'string' ? { createdAt: entry.createdAt } : {}),
+      }
+    })
   } catch (error) {
     console.error('Failed to load contacts:', error)
     return []
@@ -26,7 +47,7 @@ export function readContacts(): Contact[] {
 
 export function writeContacts(contacts: Contact[]): void {
   try {
-    localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(contacts))
+    setItem(CONTACTS_STORAGE_KEY, JSON.stringify(contacts))
   } catch (error) {
     console.error('Failed to save contacts:', error)
   }
