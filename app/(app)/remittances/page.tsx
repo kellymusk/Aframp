@@ -27,13 +27,14 @@ function statusVariant(status: Remittance['status']) {
 export default function RemittancesPage() {
   const { token } = useAuthenticatedSession()
   const [rows, setRows] = useState<Remittance[] | null>(null)
+  const [limit, setLimit] = useState(50)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(
-    async (signal?: AbortSignal) => {
+    async (signal?: AbortSignal, l: number = limit) => {
       setError(null)
       try {
-        setRows(await api.listRemittances(token, 50, signal))
+        setRows(await api.listRemittances(token, l, signal))
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return
         setError(cause instanceof Error ? cause.message : 'Could not load remittances')
@@ -120,6 +121,17 @@ export default function RemittancesPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {rows && rows.length >= limit && (
+        <div className="mt-4 flex justify-center">
+          <button
+            type="button"
+            className="text-sm underline"
+            onClick={() => setLimit((l) => l + 50)}
+          >
+            Load more
+          </button>
         </div>
       )}
     </div>
