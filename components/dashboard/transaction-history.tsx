@@ -18,124 +18,17 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-
-interface Transaction {
-  id: string
-  date: string
-  type: 'onramp' | 'offramp' | 'billpay'
-  amount: number
-  asset: string
-  counterparty: string
-  status: 'pending' | 'completed' | 'failed'
-}
+import {
+  formatStroops,
+  mockTransactions,
+  type Transaction,
+} from '@/lib/fixtures/transactions'
 
 type SortField = 'date' | 'type' | 'asset' | 'amount' | 'status'
 type SortDirection = 'asc' | 'desc'
 type QuickFilter = 'all' | 'onramp' | 'offramp' | 'billpay' | 'failed'
 
 const PAGE_SIZE = 5
-
-const mockTransactions: Transaction[] = [
-  {
-    id: 'ONR-240191',
-    date: '2026-02-26T08:22:00.000Z',
-    type: 'onramp',
-    amount: 15000,
-    asset: 'cNGN',
-    counterparty: 'From Zenith Bank',
-    status: 'completed',
-  },
-  {
-    id: 'OFF-240180',
-    date: '2026-02-26T07:40:00.000Z',
-    type: 'offramp',
-    amount: 8700,
-    asset: 'USDC',
-    counterparty: 'To MTN Mobile Money',
-    status: 'pending',
-  },
-  {
-    id: 'BIL-240178',
-    date: '2026-02-25T16:11:00.000Z',
-    type: 'billpay',
-    amount: 5500,
-    asset: 'cNGN',
-    counterparty: 'To IKEDC Electricity',
-    status: 'completed',
-  },
-  {
-    id: 'ONR-240173',
-    date: '2026-02-25T11:35:00.000Z',
-    type: 'onramp',
-    amount: 25000,
-    asset: 'cNGN',
-    counterparty: 'From Access Bank',
-    status: 'pending',
-  },
-  {
-    id: 'OFF-240166',
-    date: '2026-02-24T19:02:00.000Z',
-    type: 'offramp',
-    amount: 12000,
-    asset: 'USDT',
-    counterparty: 'To Kuda Bank',
-    status: 'completed',
-  },
-  {
-    id: 'BIL-240162',
-    date: '2026-02-24T09:43:00.000Z',
-    type: 'billpay',
-    amount: 2100,
-    asset: 'cNGN',
-    counterparty: 'To Glo Airtime',
-    status: 'failed',
-  },
-  {
-    id: 'ONR-240158',
-    date: '2026-02-23T20:10:00.000Z',
-    type: 'onramp',
-    amount: 8000,
-    asset: 'cNGN',
-    counterparty: 'From GTBank',
-    status: 'completed',
-  },
-  {
-    id: 'BIL-240151',
-    date: '2026-02-23T08:37:00.000Z',
-    type: 'billpay',
-    amount: 4300,
-    asset: 'cNGN',
-    counterparty: 'To DSTV',
-    status: 'completed',
-  },
-  {
-    id: 'OFF-240144',
-    date: '2026-02-22T22:29:00.000Z',
-    type: 'offramp',
-    amount: 16000,
-    asset: 'USDC',
-    counterparty: 'To Opay Wallet',
-    status: 'completed',
-  },
-  {
-    id: 'ONR-240132',
-    date: '2026-02-22T10:04:00.000Z',
-    type: 'onramp',
-    amount: 10000,
-    asset: 'cNGN',
-    counterparty: 'From Moniepoint',
-    status: 'failed',
-  },
-  {
-    id: 'OFF-240120',
-    date: '2026-02-21T14:18:00.000Z',
-    type: 'offramp',
-    amount: 7300,
-    asset: 'USDT',
-    counterparty: 'To First Bank',
-    status: 'completed',
-  },
-]
 
 const typeConfig: Record<
   Transaction['type'],
@@ -302,8 +195,8 @@ export function TransactionHistory() {
     }
 
     return [...filteredTransactions].sort((a, b) => {
-      let aValue: string | number = 0
-      let bValue: string | number = 0
+      let aValue: string | number | bigint = 0
+      let bValue: string | number | bigint = 0
 
       switch (sortField) {
         case 'date':
@@ -319,8 +212,8 @@ export function TransactionHistory() {
           bValue = b.asset
           break
         case 'amount':
-          aValue = a.amount
-          bValue = b.amount
+          aValue = a.amountStroops
+          bValue = b.amountStroops
           break
         case 'status':
           aValue = valueByStatus[a.status]
@@ -331,7 +224,13 @@ export function TransactionHistory() {
       const result =
         typeof aValue === 'string' && typeof bValue === 'string'
           ? aValue.localeCompare(bValue)
-          : Number(aValue) - Number(bValue)
+          : typeof aValue === 'bigint' && typeof bValue === 'bigint'
+            ? aValue < bValue
+              ? -1
+              : aValue > bValue
+                ? 1
+                : 0
+            : Number(aValue) - Number(bValue)
 
       return sortDirection === 'asc' ? result : -result
     })
@@ -344,13 +243,6 @@ export function TransactionHistory() {
     const start = (currentPage - 1) * PAGE_SIZE
     return sortedTransactions.slice(start, start + PAGE_SIZE)
   }, [currentPage, sortedTransactions])
-
-  const formatAmount = (value: number) => {
-    return value.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
-  }
 
   const formatDate = (value: string) => {
     return new Intl.DateTimeFormat('en-US', {
@@ -510,7 +402,7 @@ export function TransactionHistory() {
                   </td>
                   <td className="py-4 font-medium text-foreground">{tx.asset}</td>
                   <td className="py-4 text-base font-bold text-foreground">
-                    NGN {formatAmount(tx.amount)}
+                    NGN {formatStroops(tx.amountStroops)}
                   </td>
                   <td className="py-4">
                     <Badge
@@ -594,7 +486,7 @@ export function TransactionHistory() {
                 <div className="mt-3 flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">{formatDate(tx.date)}</p>
                   <p className="text-base font-bold text-foreground">
-                    NGN {formatAmount(tx.amount)}
+                    NGN {formatStroops(tx.amountStroops)}
                   </p>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">Swipe left for actions</p>
