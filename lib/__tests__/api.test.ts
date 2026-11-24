@@ -120,6 +120,14 @@ describe('request', () => {
     await expect(request('/wallet')).resolves.toBeUndefined()
   })
 
+  it.each([' \n\t', '<html>Not JSON</html>'])(
+    'returns undefined for a 200 response with a non-JSON body (%j)',
+    async (body) => {
+      fetchMock.mockResolvedValue(new Response(body, { status: 200 }))
+      await expect(request<void>('/logout')).resolves.toBeUndefined()
+    }
+  )
+
   it('serializes bigint request bodies without rounding', async () => {
     fetchMock.mockResolvedValue(new Response('', { status: 200 }))
     await request('/withdraw', { method: 'POST', body: { amount_stroops: 9007199254740993n } })

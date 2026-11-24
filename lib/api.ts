@@ -472,7 +472,14 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     throw new ApiError(message, response.status, code, field)
   }
 
-  return text ? parseWithBigInts<T>(text) : (undefined as T)
+  // Void endpoints resolve to undefined for empty success bodies; tolerate
+  // malformed success bodies the same way rather than leaking JSON SyntaxError.
+  if (!text.trim()) return undefined as T
+  try {
+    return parseWithBigInts<T>(text)
+  } catch {
+    return undefined as T
+  }
 }
 
 export const api = {
