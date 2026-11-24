@@ -1,12 +1,10 @@
-import { Mail, Send, Twitter } from 'lucide-react'
+import { Mail } from 'lucide-react'
 
 import { AframpMark } from '@/components/brand/aframp-mark'
 import { footer } from '@/lib/landing-light-data'
 
 const socials = [
-  { label: 'Telegram', icon: Send },
-  { label: 'Twitter', icon: Twitter },
-  { label: 'Email', icon: Mail },
+  { label: 'Email', icon: Mail, href: `mailto:${footer.support}` },
 ]
 
 export function SiteFooter() {
@@ -24,15 +22,15 @@ export function SiteFooter() {
             <p className="text-charcoal/80 dark:text-white/70 mt-3 text-xs">{footer.tagline}</p>
 
             <ul className="mt-4 flex gap-4">
-              {socials.map(({ label, icon: Icon }) => (
+              {socials.map(({ label, icon: Icon, href }) => (
                 <li key={label}>
-                  <button
-                    type="button"
+                  <a
+                    href={href}
                     aria-label={label}
                     className="text-charcoal/70 dark:text-white/60 hover:text-brand block"
                   >
                     <Icon className="size-4" />
-                  </button>
+                  </a>
                 </li>
               ))}
             </ul>
@@ -43,12 +41,14 @@ export function SiteFooter() {
             <ul className="mt-3 space-y-2">
               {footer.links.map((l) => (
                 <li key={l}>
-                  <button
-                    type="button"
-                    className="text-charcoal/80 dark:text-white/70 hover:text-brand text-xs underline"
+                  {/* Destinations aren't ready yet, so these are plain text
+                      marked as coming soon instead of dead buttons. */}
+                  <span
+                    aria-disabled="true"
+                    className="text-charcoal/80 dark:text-white/70 text-xs"
                   >
-                    {l}
-                  </button>
+                    {l} <span className="text-charcoal/50 dark:text-white/40">(coming soon)</span>
+                  </span>
                 </li>
               ))}
             </ul>
