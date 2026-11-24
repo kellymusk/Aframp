@@ -1,6 +1,6 @@
 import withPWAInit from 'next-pwa'
 import defaultRuntimeCaching from 'next-pwa/cache.js'
-import { withSentryConfig } from '@sentry/nextjs'
+import { withSentryConfig } from '@sentry/nextjs/config'
 import withBundleAnalyzer from '@next/bundle-analyzer'
 
 /**
