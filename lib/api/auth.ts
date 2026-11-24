@@ -105,6 +105,26 @@ export function login(email: string, password: string): Promise<LoginResult> {
   return request<LoginResult>('/login', { method: 'POST', body: { email, password } })
 }
 
+/**
+ * Starts a password reset. The backend answers the same way whether or not the
+ * email has an account, so this never reveals which emails are registered.
+ */
+export function requestPasswordReset(email: string): Promise<OtpChallengeResponse> {
+  return request<OtpChallengeResponse>('/password-reset', { method: 'POST', body: { email } })
+}
+
+/** Completes a reset with the OTP; the backend signs out existing sessions. */
+export function confirmPasswordReset(
+  challengeId: string,
+  code: string,
+  newPassword: string
+): Promise<void> {
+  return request<void>('/password-reset/confirm', {
+    method: 'POST',
+    body: { challenge_id: challengeId, code, new_password: newPassword },
+  })
+}
+
 /** The only call that ever turns a challenge into a session. */
 export function verifyOtp(challengeId: string, code: string): Promise<AuthResponse> {
   return request<AuthResponse>('/verify-otp', {
@@ -167,6 +187,8 @@ export const authApi = {
   signup,
   login,
   verifyOtp,
+  requestPasswordReset,
+  confirmPasswordReset,
   logout,
   getMe,
   updateProfile,

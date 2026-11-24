@@ -226,6 +226,27 @@ describe('api', () => {
     expect(fetchMock.mock.calls[0][1].method).toBe('POST')
   })
 
+  it('requestPasswordReset posts only the email', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ challenge_id: 'chal-9', expires_in_secs: 600 }))
+    const result = await api.requestPasswordReset('a@b.c')
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/backend/password-reset')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe('{"email":"a@b.c"}')
+    expect(result.challenge_id).toBe('chal-9')
+  })
+
+  it('confirmPasswordReset posts the challenge, code and new password', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+    await api.confirmPasswordReset('chal-9', '482913', 'new-password-1')
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/backend/password-reset/confirm')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe(
+      '{"challenge_id":"chal-9","code":"482913","new_password":"new-password-1"}'
+    )
+  })
+
   it('verifyOtp posts the challenge id and code, not an email', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ token: 't', user_id: 'u', merchant_id: 'm' }))
     await api.verifyOtp('chal-1', '482913')
