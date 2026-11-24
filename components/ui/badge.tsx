@@ -14,6 +14,10 @@ const badgeVariants = cva(
         destructive:
           'border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80',
         outline: 'text-foreground',
+        // In-progress status: distinct amber/yellow for "processing" states
+        // This helps merchants distinguish in-flight payouts from pending
+        processing:
+          'border-transparent bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200 hover:bg-amber-200/80',
       },
     },
     defaultVariants: {
@@ -24,7 +28,7 @@ const badgeVariants = cva(
 
 export interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {
-  variant?: 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined
+  variant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'processing' | null | undefined
 }
 
 function Badge({ className, variant, ...props }: BadgeProps) {
