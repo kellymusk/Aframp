@@ -98,12 +98,23 @@ describe('stringifyWithBigInts', () => {
     )
   })
 
+  it('tags bigints outside registered wire keys', () => {
+    expect(stringifyWithBigInts({ arbitrary: 9007199254740993n })).toBe(
+      '{"arbitrary":{"__bigint":"9007199254740993"}}'
+    )
+  })
+
   it('handles negative bigints', () => {
     expect(stringifyWithBigInts({ available: -7n })).toBe('{"available":-7}')
   })
 
   it('round-trips values above 2^53 without rounding', () => {
     const value = { amount_stroops: 9007199254740993n, available: -123n, pending: 0n }
+    expect(parseWithBigInts<typeof value>(stringifyWithBigInts(value))).toEqual(value)
+  })
+
+  it('round-trips arbitrarily keyed bigints exactly', () => {
+    const value = { balanceAdjustment: 9007199254740993n, count: -42n }
     expect(parseWithBigInts<typeof value>(stringifyWithBigInts(value))).toEqual(value)
   })
 
@@ -123,6 +134,14 @@ describe('stringifyWithBigInts', () => {
     const value = {
       amount_stroops: 9007199254740993n,
       memo: 'The API quoted: "amount_stroops": 123',
+    }
+    expect(parseWithBigInts<typeof value>(stringifyWithBigInts(value))).toEqual(value)
+  })
+
+  it('preserves strings containing the bigint object shape', () => {
+    const value = {
+      amount_stroops: 9007199254740993n,
+      memo: 'Literal text: {"__bigint":"123"}',
     }
     expect(parseWithBigInts<typeof value>(stringifyWithBigInts(value))).toEqual(value)
   })

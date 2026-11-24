@@ -503,14 +503,17 @@ export function parseWithBigInts<T>(text: string): T {
 
 /**
  * JSON.stringify throws on bigint. This structural serializer escapes strings
- * normally and emits bigint values as exact unquoted JSON integers, with no
- * marker or text-rewrite step.
+ * normally. Registered wire keys remain exact unquoted JSON integers for
+ * backend compatibility; other bigints use an exact tagged-object encoding.
  */
 export function stringifyWithBigInts(value: unknown): string {
   const ancestors = new WeakSet<object>()
 
-  function serialize(raw: unknown): string {
-    if (typeof raw === 'bigint') return raw.toString()
+  function serialize(raw: unknown, key?: string): string {
+    if (typeof raw === 'bigint') {
+      if (key && BIGINT_KEYS.has(key)) return raw.toString()
+      return `{"${BIGINT_OBJECT_KEY}":"${raw.toString()}"}`
+    }
     if (typeof raw === 'string' || typeof raw === 'boolean' || raw === null) {
       return JSON.stringify(raw)
     }
@@ -540,7 +543,7 @@ export function stringifyWithBigInts(value: unknown): string {
     } else {
       const entries: string[] = []
       for (const key of Object.keys(raw)) {
-        const serialized = serialize((raw as Record<string, unknown>)[key])
+        const serialized = serialize((raw as Record<string, unknown>)[key], key)
         if (serialized !== 'undefined') {
           entries.push(`${JSON.stringify(key)}:${serialized}`)
         }
