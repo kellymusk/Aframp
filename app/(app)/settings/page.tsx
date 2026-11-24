@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { PushNotificationToggle } from '@/components/push-notification-toggle'
+import { ActiveSessions } from '@/components/active-sessions'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -308,6 +309,8 @@ export default function ProfilePage() {
         </div>
         <PushNotificationToggle />
       </section>
+
+      <ActiveSessions />
 
       <Separator />
 

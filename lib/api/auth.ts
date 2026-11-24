@@ -68,6 +68,18 @@ export interface DeleteAccountResponse {
   message: string
 }
 
+/** One signed-in device, as listed by `GET /sessions`. */
+export interface DeviceSession {
+  id: UUID
+  /** Browser or app the session was opened from, when the backend could tell. */
+  device: string | null
+  ip: string | null
+  created_at: string
+  last_seen_at: string
+  /** True for the session making the request, which can't be revoked from here. */
+  current?: boolean
+}
+
 export interface PushSubscriptionRequest {
   endpoint: string
   p256dh: string
@@ -140,6 +152,15 @@ export function verifyOtp(challengeId: string, code: string): Promise<AuthRespon
   })
 }
 
+export function listSessions(token: string, signal?: AbortSignal): Promise<DeviceSession[]> {
+  return request<DeviceSession[]>('/sessions', { token, signal })
+}
+
+/** Signs that device out immediately; its token stops working. */
+export function revokeSession(token: string, id: UUID): Promise<void> {
+  return request<void>(`/sessions/${id}`, { method: 'DELETE', token })
+}
+
 export function logout(token?: string): Promise<void> {
   return request<void>('/logout', { method: 'POST', token })
 }
@@ -196,6 +217,8 @@ export const authApi = {
   verifyOtp,
   requestPasswordReset,
   confirmPasswordReset,
+  listSessions,
+  revokeSession,
   logout,
   getMe,
   updateProfile,

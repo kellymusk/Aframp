@@ -247,6 +247,19 @@ describe('api', () => {
     )
   })
 
+  it('listSessions GETs /sessions and revokeSession DELETEs one by id', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse([]))
+    await api.listSessions('tok')
+    expect(fetchMock.mock.calls[0][0]).toBe('/backend/sessions')
+    expect(fetchMock.mock.calls[0][1].headers).toEqual({ Authorization: 'Bearer tok' })
+
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    await api.revokeSession('tok', 's-1')
+    const [url, init] = fetchMock.mock.calls[1]
+    expect(url).toBe('/backend/sessions/s-1')
+    expect(init.method).toBe('DELETE')
+  })
+
   it('verifyOtp posts the challenge id and code, not an email', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ token: 't', user_id: 'u', merchant_id: 'm' }))
     await api.verifyOtp('chal-1', '482913')
