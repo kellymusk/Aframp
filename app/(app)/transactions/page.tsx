@@ -52,17 +52,18 @@ function downloadPaymentsCsv(payments: Payment[]): void {
 export default function TransactionsPage() {
   const { token } = useAuthenticatedSession()
   const [payments, setPayments] = useState<Payment[] | null>(null)
+  const [limit, setLimit] = useState(50)
   const [balances, setBalances] = useState<Balance[]>([])
   const [refunds, setRefunds] = useState<Refund[]>([])
   const [refundingId, setRefundingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(
-    async (signal?: AbortSignal) => {
+    async (signal?: AbortSignal, l: number = limit) => {
       setError(null)
       try {
         const [nextPayments, nextBalances, nextRefunds] = await Promise.all([
-          api.listTransactions(token, 50, signal),
+          api.listTransactions(token, l, signal),
           api.getBalances(token, signal),
           api.listRefunds(token, 20, signal),
         ])
@@ -78,7 +79,7 @@ export default function TransactionsPage() {
         setError(cause instanceof Error ? cause.message : 'Could not load your payments')
       }
     },
-    [token]
+    [token, limit]
   )
 
   const handleRefund = useCallback(
@@ -211,6 +212,13 @@ export default function TransactionsPage() {
             </li>
           ))}
         </ul>
+      )}
+      {payments && payments.length >= limit && (
+        <div className="mt-4 flex justify-center">
+          <Button variant="outline" size="sm" onClick={() => setLimit((l) => l + 50)}>
+            Load more
+          </Button>
+        </div>
       )}
 
       <section className="mt-8 space-y-3">
