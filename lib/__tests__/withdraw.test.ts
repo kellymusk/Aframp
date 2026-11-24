@@ -110,6 +110,21 @@ describe('validateWithdrawal', () => {
     )
   })
 
+  it('rejects a bank code that is not in the asset country bank list', () => {
+    expect(validateWithdrawal(validAmount, config, available, '999', validAccount)).toBe(
+      'Choose a valid Nigeria bank.'
+    )
+    expect(
+      validateWithdrawal(
+        validAmount,
+        getWithdrawalAssetConfig('cKES'),
+        available,
+        '044',
+        '1234567890123'
+      )
+    ).toBe('Choose a valid Kenya bank.')
+  })
+
   it('requires an account number with the configured length', () => {
     expect(validateWithdrawal(validAmount, config, available, '044', '123')).toBe(
       'Nigerian accounts are 10 digits.'

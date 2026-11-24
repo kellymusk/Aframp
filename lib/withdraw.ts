@@ -77,6 +77,9 @@ export function validateWithdrawal(
   }
   if (amount > available) return 'That is more than your available balance.'
   if (!bankCode) return 'Choose your bank.'
+  if (!getBankOptions(config.asset).some((bank) => bank.code === bankCode)) {
+    return `Choose a valid ${config.country} bank.`
+  }
   const rule = getAccountNumberRule(config.country, bankCode)
   if (accountNumber.length < rule.minLength || accountNumber.length > rule.maxLength) {
     return rule.description
