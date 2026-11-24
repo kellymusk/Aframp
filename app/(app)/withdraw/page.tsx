@@ -21,7 +21,7 @@ import {
   validateWithdrawal,
   type WithdrawalAsset,
 } from '@/lib/withdraw'
-import { BANKS, type Bank } from '@/lib/banks'
+import { NIGERIA_BANKS, type Bank } from '@/lib/banks'
 import { formatDateTime } from '@/lib/format-date'
 import {
   detectWithdrawalChanges,
@@ -70,11 +70,10 @@ export default function WithdrawPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [notices, setNotices] = useState<WithdrawalNotice[]>([])
-  const [nigeriaBanks, setNigeriaBanks] = useState<Bank[]>(BANKS)
+  const [nigeriaBanks, setNigeriaBanks] = useState<Bank[]>(NIGERIA_BANKS)
   const bankName = (code: string) =>
-    nigeriaBanks.find((bank) => bank.code === code)?.name ??
-    BANKS.find((bank) => bank.code === code)?.name ??
-    code
+    (asset === 'cNGN' ? nigeriaBanks : getBankOptions(asset)).find((bank) => bank.code === code)
+      ?.name ?? code
   const [banksLoading, setBanksLoading] = useState(false)
 
   useEffect(() => {
@@ -96,7 +95,7 @@ export default function WithdrawPage() {
         }
       } catch {
         if (isMounted) {
-          setNigeriaBanks(BANKS)
+          setNigeriaBanks(NIGERIA_BANKS)
         }
       } finally {
         if (isMounted) {
