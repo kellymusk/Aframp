@@ -69,10 +69,25 @@ describe('parseWithBigInts', () => {
   })
 
   it('leaves non-bigint keys and string values untouched', () => {
-    const parsed = parseWithBigInts<{ asset: string; status: string; note: string }>(
-      '{"asset":"cNGN","status":"pending","note":"amount_stroops: 123"}'
+    const parsed = parseWithBigInts<{ asset: string; status: string; note: string; marker: string }>(
+      '{"asset":"cNGN","status":"pending","note":"amount_stroops: 123","marker":" bigint 9007199254740993 bigint "}'
     )
-    expect(parsed).toEqual({ asset: 'cNGN', status: 'pending', note: 'amount_stroops: 123' })
+    expect(parsed).toEqual({
+      asset: 'cNGN',
+      status: 'pending',
+      note: 'amount_stroops: 123',
+      marker: ' bigint 9007199254740993 bigint ',
+    })
+  })
+
+  it('revives tagged bigint objects without confusing strings', () => {
+    const parsed = parseWithBigInts<{ amount: bigint; text: string }>(
+      '{"amount":{"__bigint":"9007199254740993"},"text":"{\\"__bigint\\":\\"123\\"}"}'
+    )
+    expect(parsed).toEqual({
+      amount: 9007199254740993n,
+      text: '{"__bigint":"123"}',
+    })
   })
 })
 
@@ -94,6 +109,22 @@ describe('stringifyWithBigInts', () => {
 
   it('leaves plain JSON alone', () => {
     expect(stringifyWithBigInts({ asset: 'cNGN', n: 42 })).toBe('{"asset":"cNGN","n":42}')
+  })
+
+  it('does not collide with marker text inside strings', () => {
+    const value = {
+      amount_stroops: 9007199254740993n,
+      memo: 'quoted bigint marker: bigint 9007199254740993 bigint ',
+    }
+    expect(parseWithBigInts<typeof value>(stringifyWithBigInts(value))).toEqual(value)
+  })
+
+  it('does not rewrite a string containing a bigint key pattern', () => {
+    const value = {
+      amount_stroops: 9007199254740993n,
+      memo: 'The API quoted: "amount_stroops": 123',
+    }
+    expect(parseWithBigInts<typeof value>(stringifyWithBigInts(value))).toEqual(value)
   })
 })
 
@@ -166,6 +197,18 @@ describe('request', () => {
     fetchMock.mockResolvedValue(new Response('{"error":"Insufficient balance"}', { status: 400 }))
     await expect(request('/withdraw', { method: 'POST' })).rejects.toMatchObject({
       message: 'Insufficient balance',
+      status: 400,
+    })
+  })
+
+  it('leaves bigint-looking text in JSON error bodies unchanged', async () => {
+    const memo = 'The API quoted: "amount_stroops": 123'
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ error: memo, code: 'quoted' }), { status: 400 })
+    )
+    await expect(request('/withdraw', { method: 'POST' })).rejects.toMatchObject({
+      message: memo,
+      code: 'quoted',
       status: 400,
     })
   })
