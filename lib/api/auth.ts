@@ -109,6 +109,22 @@ export interface PushSubscriptionResponse {
   created_at: string
 }
 
+/**
+ * TODO(aframp-backend#1341): Replace this placeholder with the contract from
+ * the backend `openapi.yaml` once the audit log endpoint ships. Field names,
+ * event taxonomy, and path/filters are intentionally provisional.
+ */
+export interface AuditLogEvent {
+  id: string
+  created_at: string
+  /** e.g. sign-in, API key change, email change, cash-out */
+  event_type?: string | null
+  description?: string | null
+  ip_address?: string | null
+  user_agent?: string | null
+  metadata?: Record<string, unknown> | null
+}
+
 export interface PushSubscriptionStatus {
   enabled: boolean
 }
@@ -237,6 +253,14 @@ export function getPushSubscriptionStatus(
   return request<PushSubscriptionStatus>('/push/status', { token, signal })
 }
 
+/**
+ * TODO(aframp-backend#1341): Update path, params, and response shape to match
+ * the backend `openapi.yaml` contract when available.
+ */
+export function listAuditLogEvents(token: string, signal?: AbortSignal): Promise<AuditLogEvent[]> {
+  return request<AuditLogEvent[]>('/audit-log', { token, signal })
+}
+
 export const authApi = {
   signup,
   login,
@@ -254,4 +278,5 @@ export const authApi = {
   registerPushSubscription,
   unregisterPushSubscription,
   getPushSubscriptionStatus,
+  listAuditLogEvents,
 }
