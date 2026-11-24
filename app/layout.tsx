@@ -29,7 +29,13 @@ const spaceMono = Space_Mono({
   preload: false,
 })
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  'http://localhost:3000'
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: 'Aframp - Buy Crypto, Pay Bills & Send Money in Africa',
   description:
     "Africa's premier cNGN stablecoin payment platform. Buy crypto from ₦2,000, pay bills instantly, and send money across 12 African countries.",
