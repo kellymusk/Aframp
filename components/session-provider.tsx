@@ -25,6 +25,8 @@ interface Session {
   token: string
   userId: string
   merchantId: string | null
+  /** Epoch ms when the token expires (#867). Absent on cookies set before this field existed. */
+  expiresAt?: number
 }
 
 interface SessionContextValue {
@@ -63,6 +65,8 @@ function toSession(response: AuthResponse): Session {
     token: response.token,
     userId: response.user_id,
     merchantId: response.merchant_id,
+    // Matches COOKIE_MAX_AGE / JWT expiry in app/api/session/route.ts.
+    expiresAt: Date.now() + 24 * 60 * 60 * 1000,
   }
 }
 

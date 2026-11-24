@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useRef, useState } from 'react'
+import { safeSessionStorage } from '@/lib/safe-storage'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { WifiOff } from 'lucide-react'
@@ -61,7 +62,7 @@ function VerifyOtpForm() {
   // Read challenge_id from sessionStorage on mount. If missing, the user
   // arrived here directly (bookmark, back button) — send them to login.
   useEffect(() => {
-    const stored = sessionStorage.getItem(CHALLENGE_SESSION_KEY)
+    const stored = safeSessionStorage.getItem(CHALLENGE_SESSION_KEY)
     if (!stored) {
       router.replace('/login')
     } else {
@@ -88,12 +89,12 @@ function VerifyOtpForm() {
     try {
       await completeOtp(challengeId, code.trim())
       // #638: clear the challenge_id from sessionStorage on success
-      sessionStorage.removeItem(CHALLENGE_SESSION_KEY)
+      safeSessionStorage.removeItem(CHALLENGE_SESSION_KEY)
       router.replace(flow === 'login' ? '/home' : '/charge')
     } catch (cause) {
       // #638: clear the challenge_id from sessionStorage on terminal failure
       if (cause instanceof ApiError && cause.code && TERMINAL_CODES.has(cause.code)) {
-        sessionStorage.removeItem(CHALLENGE_SESSION_KEY)
+        safeSessionStorage.removeItem(CHALLENGE_SESSION_KEY)
         setTerminal(true)
         setError(
           cause.code === 'OTP_LOCKED'

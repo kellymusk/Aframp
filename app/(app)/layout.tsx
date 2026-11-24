@@ -8,6 +8,7 @@ import { useSession } from '@/components/session-provider'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { DarkScopeContext } from '@/components/dark-scope'
 import { usePaymentPoller } from '@/hooks/use-payment-poller'
+import { SessionExpiryWarning } from '@/components/session-expiry-warning'
 
 // Only allow same-origin relative paths; reject absolute URLs, protocol-relative
 // (//evil.com), and backslash tricks (\\evil.com) to prevent open redirects.
@@ -80,6 +81,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           You&apos;re offline. Some features may be unavailable until your connection returns.
         </div>
       )}
+      <SessionExpiryWarning expiresAt={session.expiresAt} />
       {!isAdmin && <WalletSidebar />}
       <main
         id="main-content"

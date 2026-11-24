@@ -30,6 +30,8 @@ export async function POST(request: NextRequest) {
     token: body.token,
     userId: body.userId,
     merchantId: body.merchantId ?? null,
+    // #867: lets the client warn before the 24h token expires.
+    expiresAt: Date.now() + COOKIE_MAX_AGE * 1000,
   })
 
   const cookieStore = await cookies()
