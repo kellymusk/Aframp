@@ -36,9 +36,14 @@ describe('isApiKeyExpired', () => {
     expect(isApiKeyExpired({ expires_at: NOW.toISOString() }, NOW)).toBe(true)
   })
 
-  it('is false for a future expiry or an unparseable date', () => {
+  it('is false for a future expiry', () => {
     expect(isApiKeyExpired({ expires_at: '2026-10-02T00:00:00Z' }, NOW)).toBe(false)
-    expect(isApiKeyExpired({ expires_at: 'not a date' }, NOW)).toBe(false)
+  })
+
+  it('is true for malformed or unparseable expiry values', () => {
+    for (const expires_at of ['not a date', '', '   ', '2026-99-99', 'NaN', '{}']) {
+      expect(isApiKeyExpired({ expires_at }, NOW)).toBe(true)
+    }
   })
 })
 
