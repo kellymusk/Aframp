@@ -194,6 +194,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaymentRequest'
+  /payment-requests/{id}/cancel:
+    post:
+      summary: Cancel a pending payment request (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request, now with status cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentRequest'
   /payments/{payment_id}/refund:
     post:
       summary: Create a refund for a confirmed payment
@@ -460,7 +478,7 @@ components:
           type: string
         status:
           type: string
-          enum: [pending, paid, expired]
+          enum: [pending, paid, expired, cancelled]
         allow_partial:
           type: boolean
         expires_at:

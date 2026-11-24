@@ -266,6 +266,11 @@ export function useSession() {
   return context
 }
 
+/** Like `useSession`, but `null` outside a provider. For public pages a signed-in merchant may also open. */
+export function useOptionalSession() {
+  return useContext(SessionContext)
+}
+
 export function useAuthenticatedSession(): Session {
   const { session } = useSession()
   if (!session) redirect('/login')

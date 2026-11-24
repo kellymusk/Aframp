@@ -317,6 +317,16 @@ describe('api', () => {
     )
   })
 
+  it('cancelPaymentRequest posts to the cancel endpoint with the token', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ status: 'cancelled' }))
+    await api.cancelPaymentRequest('tok', 'req-1')
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/backend/payment-requests/req-1/cancel')
+    expect(init.method).toBe('POST')
+    expect(init.headers).toEqual({ Authorization: 'Bearer tok' })
+    expect(init.body).toBeUndefined()
+  })
+
   it('listPaymentRequests builds the limit query', async () => {
     fetchMock.mockResolvedValue(jsonResponse([]))
     await api.listPaymentRequests('tok')
