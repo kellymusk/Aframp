@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useSession } from '@/components/session-provider'
 import { isOffline } from '@/lib/api'
+import { getPasswordStrength, isCommonPassword, MIN_PASSWORD_STRENGTH } from '@/lib/password'
 
 const MIN_PASSWORD_LENGTH = 8
 
@@ -46,8 +47,20 @@ export default function SignupPage() {
       return
     }
 
+    if (getPasswordStrength(password) < MIN_PASSWORD_STRENGTH) {
+      setError('Choose a stronger password with a mix of character types.')
+      setSubmitting(false)
+      return
+    }
+
     setSubmitting(true)
     try {
+      if (await isCommonPassword(password)) {
+        setError('Choose a password that has not appeared in known data breaches.')
+        setSubmitting(false)
+        return
+      }
+
       const challenge = await signUp(email.trim(), password, name.trim(), phone.trim())
       router.push(`/verify?challenge_id=${challenge.challenge_id}&flow=signup`)
     } catch (cause) {
@@ -125,7 +138,7 @@ export default function SignupPage() {
             onChange={(event) => setPassword(event.target.value)}
           />
           <p className="text-muted-foreground text-xs">
-            At least {MIN_PASSWORD_LENGTH} characters.
+            At least {MIN_PASSWORD_LENGTH} characters with a mix of character types.
           </p>
         </div>
 
