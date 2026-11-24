@@ -10,6 +10,8 @@ import { formatDateTime } from '@/lib/format-date'
 import { PAYMENT_STATUS } from '@/lib/status'
 import { getTransactionExplorerUrl } from '@/lib/config/network'
 
+const PAGE_SIZE = 25
+
 function shorten(value: string) {
   return value.length <= 12 ? value : `${value.slice(0, 6)}…${value.slice(-4)}`
 }
@@ -18,18 +20,20 @@ export default function AdminTransactionsPage() {
   const { token } = useAuthenticatedSession()
   const [rows, setRows] = useState<AdminTransactionRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [limit, setLimit] = useState(PAGE_SIZE)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
       setError(null)
       try {
-        setRows(await api.adminTransactions(token, 100, signal))
+        setRows(await api.adminTransactions(token, limit, signal))
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return
         setError(cause instanceof Error ? cause.message : 'Could not load transactions')
       }
     },
-    [token]
+    [token, limit]
   )
 
   useEffect(() => {
@@ -37,6 +41,19 @@ export default function AdminTransactionsPage() {
     void load(controller.signal)
     return () => controller.abort()
   }, [load])
+
+  const loadMore = useCallback(async () => {
+    const nextLimit = limit + PAGE_SIZE
+    setLoadingMore(true)
+    try {
+      setRows(await api.adminTransactions(token, nextLimit))
+      setLimit(nextLimit)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not load more transactions')
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [token, limit])
 
   return (
     <div>
@@ -56,6 +73,9 @@ export default function AdminTransactionsPage() {
           }
           searchPlaceholder="Search merchant, hash, asset or status"
           emptyMessage="No transactions yet."
+          limit={limit}
+          onLoadMore={loadMore}
+          loadingMore={loadingMore}
           columns={[
             {
               header: 'Merchant',

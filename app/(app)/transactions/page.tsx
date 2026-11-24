@@ -38,6 +38,8 @@ const STATUS_LABEL = PAYMENT_STATUS_LABEL
 
 const FILTERABLE_STATUSES: PaymentStatus[] = ['detected', 'verified', 'confirmed', 'failed']
 
+const PAGE_SIZE = 20
+
 function DebouncedSearchInput({ onSearch }: { onSearch: (query: string) => void }) {
   const [query, setQuery] = useState('')
 
@@ -74,13 +76,18 @@ export default function TransactionsPage() {
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'all'>('all')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+  const [limit, setLimit] = useState(PAGE_SIZE)
+  const [loadingMore, setLoadingMore] = useState(false)
+
+  // The API only takes a limit, so a full page back means there may be older entries.
+  const hasMore = payments && payments.length >= limit
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
       setError(null)
       try {
         const [nextPayments, nextRefunds] = await Promise.all([
-          api.listTransactions(token, 50, signal),
+          api.listTransactions(token, limit, signal),
           api.listRefunds(token, 20, signal),
         ])
         setPayments(nextPayments)
@@ -94,7 +101,7 @@ export default function TransactionsPage() {
         setError(cause instanceof Error ? cause.message : 'Could not load your payments')
       }
     },
-    [token]
+    [token, limit]
   )
 
   const openRefundDialog = useCallback((payment: Payment) => {
@@ -194,6 +201,19 @@ export default function TransactionsPage() {
     )
     downloadCsv(`aframp-payments-${new Date().toISOString().slice(0, 10)}.csv`, csv)
   }
+
+  const loadMore = useCallback(async () => {
+    const nextLimit = limit + PAGE_SIZE
+    setLoadingMore(true)
+    try {
+      setPayments(await api.listTransactions(token, nextLimit))
+      setLimit(nextLimit)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not load older payments')
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [token, limit])
 
   if (error)
     return (
@@ -330,6 +350,18 @@ export default function TransactionsPage() {
             </li>
           ))}
         </ul>
+      )}
+
+      {hasMore && (
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full mt-4"
+          onClick={loadMore}
+          disabled={loadingMore}
+        >
+          {loadingMore ? 'Loading…' : 'Load more'}
+        </Button>
       )}
 
       <Dialog

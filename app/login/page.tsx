@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { WifiOff } from 'lucide-react'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { useSession } from '@/components/session-provider'
 import { ApiError, isOffline } from '@/lib/api'
 import { CHALLENGE_SESSION_KEY } from '@/lib/otp-challenge'
@@ -29,7 +30,7 @@ function safeNextPath(raw: string | null): string {
   return raw
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const { session, ready, signIn } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -54,6 +55,7 @@ export default function LoginPage() {
     setOffline(false)
     setRateLimited(false)
     setRetryAfter(null)
+    setSubmitting(false)
 
     if (!email.trim() || !password.trim()) {
       setError('Please enter both your email and password.')
@@ -160,5 +162,19 @@ export default function LoginPage() {
         </Link>
       </p>
     </main>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-dvh items-center justify-center">
+          <LoadingSpinner />
+        </main>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   )
 }

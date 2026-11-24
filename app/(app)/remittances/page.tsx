@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
 import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration'
@@ -42,13 +45,17 @@ export default function RemittancesPage() {
   const [statusFilter, setStatusFilter] = useState<Remittance['status'] | 'all'>('all')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
-  const [page, setPage] = useState(0)
+  const [limit, setLimit] = useState(PAGE_SIZE)
+  const [loadingMore, setLoadingMore] = useState(false)
+
+  // The API only takes a limit, so a full page back means there may be older entries.
+  const hasMore = remittances && remittances.length >= limit
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
       setError(null)
       try {
-        const nextRemittances = await api.listRemittances(token, 50, signal)
+        const nextRemittances = await api.listRemittances(token, limit, signal)
         setRemittances(nextRemittances)
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return
@@ -59,7 +66,7 @@ export default function RemittancesPage() {
         setError(cause instanceof Error ? cause.message : 'Could not load your remittances')
       }
     },
-    [token]
+    [token, limit]
   )
 
   useEffect(() => {
@@ -81,11 +88,18 @@ export default function RemittancesPage() {
     })
   }, [remittances, statusFilter, fromDate, toDate])
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const currentPage = Math.min(page, pageCount - 1)
-  const pageItems = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
-
-  const resetPage = () => setPage(0)
+  const loadMore = useCallback(async () => {
+    const nextLimit = limit + PAGE_SIZE
+    setLoadingMore(true)
+    try {
+      setRemittances(await api.listRemittances(token, nextLimit))
+      setLimit(nextLimit)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not load older remittances')
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [token, limit])
 
   if (error)
     return (
@@ -120,7 +134,6 @@ export default function RemittancesPage() {
             value={statusFilter}
             onChange={(event) => {
               setStatusFilter(event.target.value as Remittance['status'] | 'all')
-              resetPage()
             }}
             className="border-hairline rounded-lg bg-transparent px-3 py-2 text-sm text-white"
           >
@@ -138,7 +151,6 @@ export default function RemittancesPage() {
             value={fromDate}
             onChange={(event) => {
               setFromDate(event.target.value)
-              resetPage()
             }}
             className="border-hairline rounded-lg bg-transparent px-3 py-2 text-sm text-white"
           />
@@ -150,7 +162,6 @@ export default function RemittancesPage() {
             value={toDate}
             onChange={(event) => {
               setToDate(event.target.value)
-              resetPage()
             }}
             className="border-hairline rounded-lg bg-transparent px-3 py-2 text-sm text-white"
           />
@@ -169,7 +180,7 @@ export default function RemittancesPage() {
       ) : (
         <>
           <ul className="border-hairline mt-6 divide-y">
-            {pageItems.map((remittance) => (
+            {filtered.map((remittance) => (
               <li key={remittance.id} className="space-y-2 py-4">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0 space-y-1">
@@ -215,30 +226,17 @@ export default function RemittancesPage() {
             ))}
           </ul>
 
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <p className="text-dim text-xs">
-              Page {currentPage + 1} of {pageCount} · {filtered.length} result
-              {filtered.length === 1 ? '' : 's'}
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((prev) => Math.max(0, prev - 1))}
-                disabled={currentPage === 0}
-                className="border-hairline rounded-lg px-3 py-2 text-sm text-white disabled:opacity-40"
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                onClick={() => setPage((prev) => Math.min(pageCount - 1, prev + 1))}
-                disabled={currentPage >= pageCount - 1}
-                className="border-hairline rounded-lg px-3 py-2 text-sm text-white disabled:opacity-40"
-              >
-                Next
-              </button>
-            </div>
-          </div>
+          {hasMore && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full mt-4"
+              onClick={loadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? 'Loading…' : 'Load more'}
+            </Button>
+          )}
         </>
       )}
     </div>

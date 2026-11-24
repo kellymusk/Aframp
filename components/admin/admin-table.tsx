@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
@@ -28,6 +28,14 @@ interface AdminTableProps<T> {
   searchPlaceholder?: string
   /** Base filename (without extension) for the CSV export. */
   exportFilename?: string
+  /** Current fetch limit (used to determine if there might be more data). */
+  limit?: number
+  /** Called when user clicks "Load more". Should increase the limit and refetch. */
+  onLoadMore?: () => void
+  /** Whether a load-more request is in progress. */
+  loadingMore?: boolean
+  /** Total count of rows available on the server (if known). */
+  total?: number
 }
 
 const PAGE_SIZE = 25
@@ -48,6 +56,10 @@ export function AdminTable<T>({
   searchText,
   searchPlaceholder = 'Search',
   exportFilename = 'admin-export',
+  limit,
+  onLoadMore,
+  loadingMore,
+  total,
 }: AdminTableProps<T>) {
   const [query, setQuery] = useState('')
   const [visible, setVisible] = useState(PAGE_SIZE)
@@ -58,14 +70,19 @@ export function AdminTable<T>({
     return rows.filter((row) => searchText(row).toLowerCase().includes(needle))
   }, [rows, query, searchText])
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     const header = columns.map((col) => col.header)
     const body = matches.map((row) =>
       columns.map((col) => (col.csvValue ? (col.csvValue(row) ?? null) : ''))
     )
     const filename = exportFilename.endsWith('.csv') ? exportFilename : `${exportFilename}.csv`
     downloadCsv(filename, toCsv(header, body))
-  }
+  }, [columns, exportFilename, matches])
+
+  const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setQuery(event.target.value)
+    setVisible(PAGE_SIZE)
+  }, [])
 
   if (error) return <ErrorState message={error} onRetry={onRetry} />
 
@@ -88,6 +105,13 @@ export function AdminTable<T>({
 
   const shown = matches.slice(0, visible)
 
+  // Determine if we should show the "Load more" button
+  // If total is provided, show it when shown < total
+  // Otherwise, if limit is provided and matches.length >= limit, there might be more
+  const canLoadMore = total !== undefined
+    ? shown.length < total
+    : limit !== undefined && matches.length >= limit
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -97,10 +121,7 @@ export function AdminTable<T>({
             aria-label={searchPlaceholder}
             placeholder={searchPlaceholder}
             value={query}
-            onChange={(event) => {
-              setQuery(event.target.value)
-              setVisible(PAGE_SIZE)
-            }}
+            onChange={handleSearchChange}
             className="max-w-sm"
           />
         ) : (
@@ -110,8 +131,12 @@ export function AdminTable<T>({
           {searchText && (
             <p className="text-dim text-xs" aria-live="polite">
               {matches.length === rows.length
-                ? `${rows.length.toLocaleString('en-NG')} rows`
-                : `${matches.length.toLocaleString('en-NG')} of ${rows.length.toLocaleString('en-NG')} rows`}
+                ? total !== undefined
+                  ? `${total.toLocaleString('en-NG')} total`
+                  : `${rows.length.toLocaleString('en-NG')} rows`
+                : total !== undefined
+                  ? `${matches.length.toLocaleString('en-NG')} of ${total.toLocaleString('en-NG')} total`
+                  : `${matches.length.toLocaleString('en-NG')} of ${rows.length.toLocaleString('en-NG')} rows`}
             </p>
           )}
           <Button
@@ -146,19 +171,26 @@ export function AdminTable<T>({
               </tr>
             ))}
           </tbody>
+          {shown.length === 0 && (
+            <tbody>
+              <tr>
+                <td colSpan={columns.length} className="text-dim px-4 py-8 text-center text-sm">
+                  No rows match &ldquo;{query}&rdquo;.
+                </td>
+              </tr>
+            </tbody>
+          )}
         </table>
-        {shown.length === 0 && (
-          <p className="text-dim px-4 py-8 text-center text-sm">No rows match “{query}”.</p>
-        )}
       </div>
-      {matches.length > shown.length && (
+      {canLoadMore && onLoadMore && (
         <Button
           type="button"
           variant="outline"
           className="w-full"
-          onClick={() => setVisible((count) => count + PAGE_SIZE)}
+          onClick={onLoadMore}
+          disabled={loadingMore}
         >
-          Show more ({(matches.length - shown.length).toLocaleString('en-NG')} left)
+          {loadingMore ? 'Loading…' : total !== undefined ? `Load more (${(total - shown.length).toLocaleString('en-NG')} left)` : 'Load more'}
         </Button>
       )}
     </div>

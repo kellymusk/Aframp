@@ -7,22 +7,26 @@ import { api, type AdminUserRow } from '@/lib/api'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { formatDateTime } from '@/lib/format-date'
 
+const PAGE_SIZE = 25
+
 export default function AdminUsersPage() {
   const { token } = useAuthenticatedSession()
   const [rows, setRows] = useState<AdminUserRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [limit, setLimit] = useState(PAGE_SIZE)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
       setError(null)
       try {
-        setRows(await api.adminUsers(token, 100, signal))
+        setRows(await api.adminUsers(token, limit, signal))
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return
         setError(cause instanceof Error ? cause.message : 'Could not load users')
       }
     },
-    [token]
+    [token, limit]
   )
 
   useEffect(() => {
@@ -30,6 +34,19 @@ export default function AdminUsersPage() {
     void load(controller.signal)
     return () => controller.abort()
   }, [load])
+
+  const loadMore = useCallback(async () => {
+    const nextLimit = limit + PAGE_SIZE
+    setLoadingMore(true)
+    try {
+      setRows(await api.adminUsers(token, nextLimit))
+      setLimit(nextLimit)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not load more users')
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [token, limit])
 
   return (
     <div>
@@ -47,6 +64,9 @@ export default function AdminUsersPage() {
           searchText={(row) => `${row.name} ${row.email} ${row.merchant_name ?? ''}`}
           searchPlaceholder="Search name, email or merchant"
           emptyMessage="No users yet."
+          limit={limit}
+          onLoadMore={loadMore}
+          loadingMore={loadingMore}
           columns={[
             { header: 'Name', render: (row) => <span className="font-medium">{row.name}</span> },
             { header: 'Email', render: (row) => row.email },

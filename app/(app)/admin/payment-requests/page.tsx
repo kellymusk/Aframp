@@ -8,6 +8,8 @@ import { formatStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { formatDateTime } from '@/lib/format-date'
 
+const PAGE_SIZE = 25
+
 function statusVariant(status: PaymentRequestStatus) {
   if (status === 'paid') return 'default' as const
   if (status === 'expired') return 'destructive' as const
@@ -18,18 +20,20 @@ export default function AdminPaymentRequestsPage() {
   const { token } = useAuthenticatedSession()
   const [rows, setRows] = useState<AdminPaymentRequestRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [limit, setLimit] = useState(PAGE_SIZE)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
       setError(null)
       try {
-        setRows(await api.adminPaymentRequests(token, 100, signal))
+        setRows(await api.adminPaymentRequests(token, limit, signal))
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return
         setError(cause instanceof Error ? cause.message : 'Could not load payment requests')
       }
     },
-    [token]
+    [token, limit]
   )
 
   useEffect(() => {
@@ -37,6 +41,19 @@ export default function AdminPaymentRequestsPage() {
     void load(controller.signal)
     return () => controller.abort()
   }, [load])
+
+  const loadMore = useCallback(async () => {
+    const nextLimit = limit + PAGE_SIZE
+    setLoadingMore(true)
+    try {
+      setRows(await api.adminPaymentRequests(token, nextLimit))
+      setLimit(nextLimit)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not load more payment requests')
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [token, limit])
 
   return (
     <div>
@@ -56,6 +73,9 @@ export default function AdminPaymentRequestsPage() {
           }
           searchPlaceholder="Search merchant, reference, asset or status"
           emptyMessage="No payment requests yet."
+          limit={limit}
+          onLoadMore={loadMore}
+          loadingMore={loadingMore}
           columns={[
             {
               header: 'Merchant',
