@@ -1,8 +1,9 @@
 /**
  * Builds a CSV document for spreadsheet export. Cells are quoted when
  * needed, and any cell a spreadsheet would evaluate as a formula (starting
- * with =, +, -, @, tab or CR) is prefixed with a quote so exported data
- * can't run as a formula when opened (CSV injection).
+ * with =, +, -, @, or leading whitespace/line breaks before them) is prefixed
+ * with a quote so exported data can't run as a formula when opened (CSV
+ * injection). This is the single CSV escaping/injection defense implementation.
  */
 export function toCsv(header: string[], rows: (string | number | bigint | null)[][]): string {
   return [header, ...rows].map((row) => row.map(escapeCell).join(',')).join('\r\n')
@@ -10,7 +11,7 @@ export function toCsv(header: string[], rows: (string | number | bigint | null)[
 
 function escapeCell(value: string | number | bigint | null): string {
   let text = value === null ? '' : String(value)
-  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(text)) text = `'${text}`
+  if (typeof value === 'string' && /^[\t\r\n ]*[=+\-@]/.test(text)) text = `'${text}`
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 

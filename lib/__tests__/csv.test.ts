@@ -17,6 +17,12 @@ describe('toCsv', () => {
     )
   })
 
+  it('neutralises formula cells hidden behind leading whitespace', () => {
+    expect(toCsv(['memo'], [[' =SUM(A1)'], ['\t@HYPERLINK("x")'], ['\n=1+1']])).toBe(
+      `memo\r\n"' =SUM(A1)"\r\n"'\t@HYPERLINK(""x"")"\r\n"'\n=1+1"`
+    )
+  })
+
   it('leaves numbers (including negatives) and empty cells alone', () => {
     expect(
       toCsv(
