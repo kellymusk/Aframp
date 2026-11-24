@@ -3,26 +3,14 @@
 import { useCallback } from 'react'
 import { AdminTable } from '@/components/admin/admin-table'
 import { Badge } from '@/components/ui/badge'
-import { api, type PaymentStatus } from '@/lib/api'
+import { api } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
+import { paymentStatusLabel, paymentStatusVariant } from '@/lib/payment-status'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { useAdminPagination } from '@/hooks/use-admin-pagination'
 
 /** Testnet today; swap for `public` when the backend points at mainnet Horizon. */
 const EXPLORER_BASE = 'https://stellar.expert/explorer/testnet/tx'
-
-const STATUS_LABEL: Record<PaymentStatus, string> = {
-  detected: 'Detected',
-  verified: 'Verifying',
-  confirmed: 'Confirmed',
-  failed: 'Failed',
-}
-
-function statusVariant(status: PaymentStatus) {
-  if (status === 'confirmed') return 'default' as const
-  if (status === 'failed') return 'destructive' as const
-  return 'secondary' as const
-}
 
 function shorten(value: string) {
   return value.length <= 12 ? value : `${value.slice(0, 6)}…${value.slice(-4)}`
@@ -94,7 +82,7 @@ export default function AdminTransactionsPage() {
             {
               header: 'Status',
               render: (row) => (
-                <Badge variant={statusVariant(row.status)}>{STATUS_LABEL[row.status]}</Badge>
+                <Badge variant={paymentStatusVariant(row.status)}>{paymentStatusLabel(row.status)}</Badge>
               ),
             },
             { header: 'Confirmations', render: (row) => row.confirmations },
