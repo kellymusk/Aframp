@@ -10,12 +10,9 @@ import { DECIMALS, parseAmountToStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { cn } from '@/lib/utils'
 
-/**
- * XLM rather than cNGN: the backend only emits a scannable SEP-0007 URI for
- * XLM today, because no cNGN issuer address is configured. A cNGN request
- * would come back with `sep7_uri: null` and nothing to show the customer.
- */
-const ASSET = 'XLM'
+/** Assets the merchant can charge in. The backend builds the SEP-7 URI. */
+const ASSETS = ['XLM', 'cNGN'] as const
+type ChargeAsset = (typeof ASSETS)[number]
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'backspace'] as const
 
@@ -23,6 +20,7 @@ export default function ChargePage() {
   const { token } = useAuthenticatedSession()
   const router = useRouter()
   const [input, setInput] = useState('')
+  const [asset, setAsset] = useState<ChargeAsset>('XLM')
   const [allowPartial, setAllowPartial] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -48,7 +46,7 @@ export default function ChargePage() {
     setSubmitting(true)
     setError(null)
     try {
-      const request = await api.createPaymentRequest(token, stroops, ASSET, undefined, allowPartial)
+      const request = await api.createPaymentRequest(token, stroops, asset, undefined, allowPartial)
       router.push(`/request/${request.id}`)
     } catch (cause) {
       if (cause instanceof ApiError && cause.message.includes('create a wallet')) {
@@ -68,8 +66,29 @@ export default function ChargePage() {
           <span className={cn('text-5xl font-bold tracking-tight', !input && 'text-dim')}>
             {input || '0'}
           </span>
-          <span className="text-dim text-lg font-medium">{ASSET}</span>
+          <span className="text-dim text-lg font-medium">{asset}</span>
         </p>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-dim text-xs font-bold tracking-widest uppercase">Asset</p>
+        <div role="group" aria-label="Asset" className="grid grid-cols-2 gap-2">
+          {ASSETS.map((option) => (
+            <Button
+              key={option}
+              type="button"
+              variant={asset === option ? 'default' : 'secondary'}
+              aria-pressed={asset === option}
+              onClick={() => {
+                setError(null)
+                setAsset(option)
+              }}
+              className="h-10 font-medium"
+            >
+              {option}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {error && (
