@@ -9,7 +9,7 @@ import { ErrorState } from '@/components/ui/error-state'
 import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration'
 import { api, ApiError, type Balance, type Payment, type PaymentStatus, type Refund } from '@/lib/api'
 import { exportPaymentsToCSV } from '@/lib/export'
-import { formatStroops } from '@/lib/money'
+import { formatStroops, formatStroopsPlain } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
 
 /** Testnet today; swap for `public` when the backend points at mainnet Horizon. */
@@ -84,7 +84,7 @@ export default function TransactionsPage() {
   const handleRefund = useCallback(
     async (payment: Payment) => {
       const confirmed = window.confirm(
-        `Refund ${formatStroops(payment.amount_stroops)} ${payment.asset} to ${payment.wallet_address}?`
+        `Refund ${formatStroopsPlain(payment.amount_stroops)} ${payment.asset} to ${payment.wallet_address}?`
       )
       if (!confirmed) return
 
