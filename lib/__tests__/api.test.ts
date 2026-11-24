@@ -296,3 +296,24 @@ describe('api', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('/backend/withdrawals?limit=50')
   })
 })
+
+describe('query/path encoding', () => {
+  beforeEach(() => fetchMock.mockResolvedValue(jsonResponse({})))
+
+  it('rejects asset codes that could inject query parameters', async () => {
+    for (const bad of ['XLM&amount_stroops=1', 'a=b', 'X#Y', 'X LM', '', 'A'.repeat(17)]) {
+      expect(() => api.getRemittanceFeeEstimate('t', 1n, bad)).toThrow(ApiError)
+    }
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('sends a valid asset in the query string', async () => {
+    await api.getRemittanceFeeEstimate('t', 5n, 'cNGN')
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/remittance\/estimate\?amount_stroops=5&asset=cNGN$/)
+  })
+
+  it('encodes ids interpolated into paths', async () => {
+    await api.getPaymentRequest('a/b?c')
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/payment-requests\/a%2Fb%3Fc$/)
+  })
+})

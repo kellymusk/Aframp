@@ -417,6 +417,29 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   return text ? parseWithBigInts<T>(text) : (undefined as T)
 }
 
+/** Asset codes are alphanumeric (Stellar caps them at 12; 16 leaves headroom). */
+const ASSET_PATTERN = /^[A-Za-z0-9]{1,16}$/
+
+export function assertValidAsset(asset: string): string {
+  if (!ASSET_PATTERN.test(asset)) {
+    throw new ApiError(`Invalid asset code: ${JSON.stringify(asset)}`, 400, 'invalid_asset', 'asset')
+  }
+  return asset
+}
+
+/** Encodes a value interpolated into a URL path segment. */
+const seg = (value: string | number | bigint) => encodeURIComponent(String(value))
+
+/** Builds `?a=1&b=2` with every key and value encoded. */
+export function buildQuery(params: Record<string, string | number | bigint>): string {
+  return (
+    '?' +
+    Object.entries(params)
+      .map(([k, v]) => `${encodeURIComponent(k)}=${seg(v)}`)
+      .join('&')
+  )
+}
+
 export const api = {
   /** Never returns a session directly — always a challenge. The account is
    * only created once `verifyOtp` succeeds. */
@@ -452,7 +475,7 @@ export const api = {
     request<Balance[]>('/balance', { token, signal }),
 
   listTransactions: (token: string, limit = 50, signal?: AbortSignal) =>
-    request<Payment[]>(`/transactions?limit=${limit}`, { token, signal }),
+    request<Payment[]>(`/transactions${buildQuery({ limit })}`, { token, signal }),
 
   createPaymentRequest: (
     token: string,
@@ -473,11 +496,11 @@ export const api = {
     }),
 
   listPaymentRequests: (token: string, limit = 50, signal?: AbortSignal) =>
-    request<PaymentRequest[]>(`/payment-requests?limit=${limit}`, { token, signal }),
+    request<PaymentRequest[]>(`/payment-requests${buildQuery({ limit })}`, { token, signal }),
 
   /** Deliberately public — a customer's wallet reads this without an account. */
   getPaymentRequest: (id: string, signal?: AbortSignal) =>
-    request<PaymentRequest>(`/payment-requests/${id}`, { signal }),
+    request<PaymentRequest>(`/payment-requests/${seg(id)}`, { signal }),
 
   createRefund: (
     token: string,
@@ -486,7 +509,7 @@ export const api = {
     recipientAddress: string,
     reason?: string
   ) =>
-    request<Refund>(`/payments/${paymentId}/refund`, {
+    request<Refund>(`/payments/${seg(paymentId)}/refund`, {
       method: 'POST',
       token,
       body: {
@@ -497,7 +520,7 @@ export const api = {
     }),
 
   listRefunds: (token: string, limit = 50, signal?: AbortSignal) =>
-    request<Refund[]>(`/refunds?limit=${limit}`, { token, signal }),
+    request<Refund[]>(`/refunds${buildQuery({ limit })}`, { token, signal }),
 
   createWithdrawal: (
     token: string,
@@ -518,7 +541,7 @@ export const api = {
     }),
 
   listWithdrawals: (token: string, limit = 50, signal?: AbortSignal) =>
-    request<Withdrawal[]>(`/withdrawals?limit=${limit}`, { token, signal }),
+    request<Withdrawal[]>(`/withdrawals${buildQuery({ limit })}`, { token, signal }),
 
   listApiKeys: (token: string, signal?: AbortSignal) =>
     request<ApiKey[]>('/api-keys', { token, signal }),
@@ -531,7 +554,7 @@ export const api = {
     }),
 
   revokeApiKey: (token: string, id: UUID) =>
-    request<void>(`/api-keys/${id}`, { method: 'DELETE', token }),
+    request<void>(`/api-keys/${seg(id)}`, { method: 'DELETE', token }),
 
   updateProfile: (token: string, body: UpdateProfileRequest) =>
     request<UpdateProfileResponse>('/me', { method: 'POST', token, body }),
@@ -565,7 +588,7 @@ export const api = {
     asset = 'XLM',
     signal?: AbortSignal
   ) =>
-    request<FeeEstimate>(`/remittance/estimate?amount_stroops=${amountStroops}&asset=${asset}`, {
+    request<FeeEstimate>(`/remittance/estimate${buildQuery({ amount_stroops: amountStroops, asset: assertValidAsset(asset) })}`, {
       token,
       signal,
     }),
@@ -589,7 +612,7 @@ export const api = {
     }),
 
   listRemittances: (token: string, limit = 50, signal?: AbortSignal) =>
-    request<Remittance[]>(`/remittances?limit=${limit}`, { token, signal }),
+    request<Remittance[]>(`/remittances${buildQuery({ limit })}`, { token, signal }),
 
   // ZAR onramp via Ozow
   createOzowPayment: (token: string, amountZAR: number, bankCode: string, returnUrl: string) =>
@@ -605,7 +628,7 @@ export const api = {
 
   verifyOzowPayment: (token: string, transactionId: string) =>
     request<{ status: 'pending' | 'completed' | 'failed'; tx_hash?: string }>(
-      `/onramp/ozow/verify/${transactionId}`,
+      `/onramp/ozow/verify/${seg(transactionId)}`,
       { token }
     ),
 
@@ -613,20 +636,20 @@ export const api = {
     request<AdminOverview>('/admin/overview', { token, signal }),
 
   adminUsers: (token: string, limit = 100, signal?: AbortSignal) =>
-    request<AdminUserRow[]>(`/admin/users?limit=${limit}`, { token, signal }),
+    request<AdminUserRow[]>(`/admin/users${buildQuery({ limit })}`, { token, signal }),
 
   adminMerchants: (token: string, limit = 100, signal?: AbortSignal) =>
-    request<AdminMerchantRow[]>(`/admin/merchants?limit=${limit}`, { token, signal }),
+    request<AdminMerchantRow[]>(`/admin/merchants${buildQuery({ limit })}`, { token, signal }),
 
   adminWallets: (token: string, limit = 100, signal?: AbortSignal) =>
-    request<AdminWalletRow[]>(`/admin/wallets?limit=${limit}`, { token, signal }),
+    request<AdminWalletRow[]>(`/admin/wallets${buildQuery({ limit })}`, { token, signal }),
 
   adminTransactions: (token: string, limit = 100, signal?: AbortSignal) =>
-    request<AdminTransactionRow[]>(`/admin/transactions?limit=${limit}`, { token, signal }),
+    request<AdminTransactionRow[]>(`/admin/transactions${buildQuery({ limit })}`, { token, signal }),
 
   adminWithdrawals: (token: string, limit = 100, signal?: AbortSignal) =>
-    request<AdminWithdrawalRow[]>(`/admin/withdrawals?limit=${limit}`, { token, signal }),
+    request<AdminWithdrawalRow[]>(`/admin/withdrawals${buildQuery({ limit })}`, { token, signal }),
 
   adminPaymentRequests: (token: string, limit = 100, signal?: AbortSignal) =>
-    request<AdminPaymentRequestRow[]>(`/admin/payment-requests?limit=${limit}`, { token, signal }),
+    request<AdminPaymentRequestRow[]>(`/admin/payment-requests${buildQuery({ limit })}`, { token, signal }),
 }
