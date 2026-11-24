@@ -6,9 +6,21 @@ Sentry.init({
   // Performance: sample 10 % of traces in production, none in dev
   tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 0,
 
-  // Session replay: 10 % of sessions, 100 % when an error occurs
-  replaysSessionSampleRate: 0.1,
+  // Session replay (financial app): record only sessions that hit an error,
+  // never random sessions. All text, inputs and media are masked, and
+  // anything that renders balances, amounts, addresses or KYC images is
+  // blocked outright. Add data-sentry-block / data-sentry-mask to new
+  // sensitive elements to keep them out of replays.
+  replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 1.0,
+  integrations: [
+    Sentry.replayIntegration({
+      maskAllText: true,
+      maskAllInputs: true,
+      blockAllMedia: true,
+      block: ['[data-sentry-block]', '[data-balance]', '[data-amount]', '[data-kyc]', 'img'],
+    }),
+  ],
 
   environment: process.env.NODE_ENV,
   enabled: process.env.NODE_ENV === 'production',
