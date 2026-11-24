@@ -242,6 +242,22 @@ export interface ApiKey {
   revoked_at: string | null
 }
 
+/**
+ * TODO(aframp-backend#1341): Replace this placeholder with the contract from
+ * the backend `openapi.yaml` once the audit log endpoint ships. Field names,
+ * event taxonomy, and path/filters are intentionally provisional.
+ */
+export interface AuditLogEvent {
+  id: string
+  created_at: string
+  /** e.g. sign-in, API key change, email change, cash-out */
+  event_type?: string | null
+  description?: string | null
+  ip_address?: string | null
+  user_agent?: string | null
+  metadata?: Record<string, unknown> | null
+}
+
 /** Platform-wide, not merchant-scoped — every `admin/*` call requires `Me.is_admin`. */
 export interface AssetTotal {
   asset: string
@@ -619,6 +635,13 @@ export const api = {
 
   getPushSubscriptionStatus: (token: string, signal?: AbortSignal) =>
     request<PushSubscriptionStatus>('/push/status', { token, signal }),
+
+  /**
+   * TODO(aframp-backend#1341): Update path, params, and response shape to match
+   * the backend `openapi.yaml` contract when available.
+   */
+  listAuditLogEvents: (token: string, signal?: AbortSignal) =>
+    request<AuditLogEvent[]>('/audit-log', { token, signal }),
 
   getRemittanceFeeEstimate: (
     token: string,
