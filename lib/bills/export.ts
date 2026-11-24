@@ -1,4 +1,5 @@
 import html2canvas from 'html2canvas'
+import { downloadCsv } from '@/lib/download'
 
 const RGB_OVERRIDES = `
 :root {
@@ -80,12 +81,5 @@ export async function exportReceiptPNG(elementId: string, filename: string) {
 }
 
 export function exportReceiptCSV(filename: string, rows: Array<[string, string]>) {
-  const csvContent = rows
-    .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(','))
-    .join('\n')
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  link.href = URL.createObjectURL(blob)
-  link.download = filename
-  link.click()
+  downloadCsv(filename, rows)
 }

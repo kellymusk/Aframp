@@ -1,4 +1,5 @@
 import { OnrampOrder } from '@/types/onramp'
+import { downloadBlob } from '@/lib/download'
 
 export function generateReceiptPDF(order: OnrampOrder): void {
   // Enhanced receipt data with all required fields
@@ -97,15 +98,7 @@ Thank you for using AFRAMP!
 
   // Create and download the receipt
   const blob = new Blob([receiptText], { type: 'text/plain;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `aframp-receipt-${receiptData.receiptNumber}.txt`
-  a.style.display = 'none'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  downloadBlob(blob, `aframp-receipt-${receiptData.receiptNumber}.txt`)
 
   // Log successful receipt generation for analytics
   console.warn('Receipt generated:', {
