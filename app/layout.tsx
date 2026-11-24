@@ -3,6 +3,8 @@ import type { Metadata, Viewport } from 'next'
 import { Manrope, Outfit, Space_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
+import { InstallPromptBanner } from '@/components/pwa/install-prompt-banner'
+import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register'
 import './globals.css'
 
 const manrope = Manrope({
@@ -43,6 +45,8 @@ export const metadata: Metadata = {
     'Aframp',
   ],
   generator: 'v0.app',
+  manifest: '/manifest.webmanifest',
+  icons: { icon: '/icons/icon.svg', apple: '/icons/icon.svg' },
 }
 
 export const viewport: Viewport = {
@@ -63,6 +67,8 @@ export default function RootLayout({
       >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           {children}
+          <InstallPromptBanner />
+          <ServiceWorkerRegister />
         </ThemeProvider>
         <Analytics />
       </body>

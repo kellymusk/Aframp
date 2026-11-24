@@ -104,6 +104,10 @@ Access the app at `http://localhost:3000` ✅
 
 ---
 
+## 📲 PWA
+
+Aframp is installable; see [docs/PWA.md](docs/PWA.md).
+
 ## 🔧 Environment Variables
 
 Copy `.env.example` to `.env.local` and configure the following:
