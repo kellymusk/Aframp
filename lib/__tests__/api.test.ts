@@ -209,12 +209,12 @@ describe('request', () => {
 describe('api', () => {
   it('signup posts credentials and a phone number, and never gets a session back', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ challenge_id: 'chal-1', expires_in_secs: 600 }))
-    const result = await api.signup('a@b.c', 'pw', 'Name', '08011122233')
+    const result = await api.signup('a@b.c', 'pw', 'Name', '08011122233', 'v1')
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/backend/signup')
     expect(init.method).toBe('POST')
     expect(init.body).toBe(
-      '{"email":"a@b.c","password":"pw","name":"Name","phone_number":"08011122233"}'
+      '{"email":"a@b.c","password":"pw","name":"Name","phone_number":"08011122233","accepted_terms_version":"v1"}'
     )
     expect(result).toEqual({ challenge_id: 'chal-1', expires_in_secs: 600 })
   })

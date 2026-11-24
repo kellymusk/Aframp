@@ -91,11 +91,18 @@ export function signup(
   email: string,
   password: string,
   name: string,
-  phoneNumber: string
+  phoneNumber: string,
+  acceptedTermsVersion: string
 ): Promise<OtpChallengeResponse> {
   return request<OtpChallengeResponse>('/signup', {
     method: 'POST',
-    body: { email, password, name, phone_number: phoneNumber },
+    body: {
+      email,
+      password,
+      name,
+      phone_number: phoneNumber,
+      accepted_terms_version: acceptedTermsVersion,
+    },
   })
 }
 

@@ -17,7 +17,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, password, name]
+              required: [email, password, name, accepted_terms_version]
               properties:
                 email:
                   type: string
@@ -26,6 +26,9 @@ paths:
                   type: string
                 name:
                   type: string
+                accepted_terms_version:
+                  type: string
+                  description: Version of the terms and privacy policy the merchant accepted. Signup without it is rejected with 400.
       responses:
         '200':
           description: Authenticated user and merchant session

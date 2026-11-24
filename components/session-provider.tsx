@@ -39,7 +39,8 @@ interface SessionContextValue {
     email: string,
     password: string,
     name: string,
-    phoneNumber: string
+    phoneNumber: string,
+    acceptedTermsVersion: string
   ) => Promise<OtpChallengeResponse>
   completeOtp: (challengeId: string, code: string) => Promise<void>
   signOut: () => Promise<void>
@@ -140,8 +141,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   )
 
   const signUp = useCallback(
-    (email: string, password: string, name: string, phoneNumber: string) => {
-      return api.signup(email, password, name, phoneNumber)
+    (
+      email: string,
+      password: string,
+      name: string,
+      phoneNumber: string,
+      acceptedTermsVersion: string
+    ) => {
+      return api.signup(email, password, name, phoneNumber, acceptedTermsVersion)
     },
     []
   )

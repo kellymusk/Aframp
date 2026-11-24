@@ -11,6 +11,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useSession } from '@/components/session-provider'
 import { isOffline } from '@/lib/api'
 import { CHALLENGE_SESSION_KEY } from '@/lib/otp-challenge'
+import { PRIVACY_PATH, TERMS_PATH, TERMS_VERSION } from '@/lib/legal'
+import { Checkbox } from '@/components/ui/checkbox'
 
 import { getPasswordStrength, isCommonPassword } from '@/lib/password-strength'
 import { PasswordInput } from '@/components/ui/password-input'
@@ -47,6 +49,7 @@ export default function SignupPage() {
   const strength = getPasswordStrength(password)
   const [error, setError] = useState<string | null>(null)
   const [emailError, setEmailError] = useState<string | null>(null)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [offline, setOffline] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -98,9 +101,21 @@ export default function SignupPage() {
       return
     }
 
+    if (!acceptedTerms) {
+      setError('Accept the terms of service and privacy policy to create your account.')
+      setSubmitting(false)
+      return
+    }
+
     setSubmitting(true)
     try {
-      const challenge = await signUp(email.trim(), password, name.trim(), normalizedPhone.e164)
+      const challenge = await signUp(
+        email.trim(),
+        password,
+        name.trim(),
+        normalizedPhone.e164,
+        TERMS_VERSION
+      )
       // #638: store challenge_id in sessionStorage instead of the URL
       sessionStorage.setItem(CHALLENGE_SESSION_KEY, challenge.challenge_id)
       router.push('/verify?flow=signup')
@@ -235,6 +250,26 @@ export default function SignupPage() {
           {confirmPassword && confirmPassword !== password && (
             <p className="text-destructive text-xs">Passwords don&apos;t match.</p>
           )}
+        </div>
+
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="accept-terms"
+            checked={acceptedTerms}
+            onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+            className="mt-0.5"
+          />
+          <Label htmlFor="accept-terms" className="text-muted-foreground text-sm font-normal">
+            I agree to the{' '}
+            <Link href={TERMS_PATH} className="text-primary font-medium hover:underline">
+              terms of service
+            </Link>{' '}
+            and the{' '}
+            <Link href={PRIVACY_PATH} className="text-primary font-medium hover:underline">
+              privacy policy
+            </Link>
+            .
+          </Label>
         </div>
 
         <Button type="submit" size="lg" disabled={submitting} className="mt-2">
