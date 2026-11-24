@@ -112,7 +112,7 @@ describe('validateWithdrawal', () => {
 
   it('requires an account number with the configured length', () => {
     expect(validateWithdrawal(validAmount, config, available, '044', '123')).toBe(
-      'Account numbers are 10 digits.'
+      'Nigerian accounts are 10 digits.'
     )
   })
 
@@ -124,5 +124,47 @@ describe('validateWithdrawal', () => {
 
   it('accepts a valid withdrawal', () => {
     expect(validateWithdrawal(validAmount, config, available, '044', validAccount)).toBeNull()
+  })
+})
+
+describe('country and mobile-money account number rules', () => {
+  const fixtures = {
+    kenyaBank: ['1234567890123', '12345678901234'],
+    ghanaBank: ['1234567890123', '12345678901234', '123456789012345'],
+    mobileMoney: ['0712345678', '254712345678'],
+  } as const
+
+  const cases = [
+    ['cKES', '011', fixtures.kenyaBank[1], null],
+    ['cKES', '011', fixtures.kenyaBank[0], 'KCB accounts are 14 digits.'],
+    ['cKES', '070', fixtures.kenyaBank[0], null],
+    ['cKES', '012', fixtures.kenyaBank[1], null],
+    ['cKES', '003', '123456789012', 'Kenyan accounts are 13–14 digits.'],
+    ['cKES', 'MPS', fixtures.mobileMoney[0], null],
+    ['cKES', 'MPS', fixtures.mobileMoney[1], null],
+    ['cKES', 'MPS', '123', 'M-PESA references are 10–12-digit phone numbers.'],
+    ['cGHS', '001', fixtures.ghanaBank[0], null],
+    ['cGHS', '001', fixtures.ghanaBank[2], null],
+    ['cGHS', '001', '1234567890', 'Ghanaian accounts are 13–15 digits.'],
+    ['cGHS', 'MTN', fixtures.mobileMoney[0], null],
+    ['cGHS', 'MTN', fixtures.mobileMoney[1], null],
+    ['cGHS', 'MTN', '123', 'MTN MoMo references are 10–12-digit phone numbers.'],
+  ] as const
+
+  it.each(cases)('%s / %s validates %s', (asset, bankCode, accountNumber, expected) => {
+    expect(
+      validateWithdrawal(500_000_000n, getWithdrawalAssetConfig(asset), 1_000_000_000n, bankCode, accountNumber)
+    ).toBe(expected)
+  })
+
+  it('exposes per-country rules from the bank list', () => {
+    expect(getWithdrawalAssetConfig('cKES').accountNumberRule).toMatchObject({
+      minLength: 13,
+      maxLength: 14,
+    })
+    expect(getWithdrawalAssetConfig('cGHS').accountNumberRule).toMatchObject({
+      minLength: 13,
+      maxLength: 15,
+    })
   })
 })
