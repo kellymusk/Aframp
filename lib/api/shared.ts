@@ -56,16 +56,20 @@ export function isOffline(cause: unknown): boolean {
 }
 
 const BIGINT_KEYS_PATTERN = Array.from(BIGINT_KEYS).join('|')
+const BIGINT_MARKER = ' bigint '
+
+// Hoisted to module scope: parseWithBigInts/stringifyWithBigInts run on every
+// request/response, so these must not be recompiled per call. Safe to share —
+// String.prototype.replace resets lastIndex on global regexes.
+const BIGINT_FIELD_RE = new RegExp(`"(${BIGINT_KEYS_PATTERN})"\\s*:\\s*(-?\\d+)`, 'g')
+const BIGINT_MARKER_RE = new RegExp(`"${BIGINT_MARKER}(-?\\d+)${BIGINT_MARKER}"`, 'g')
 
 /**
  * Re-quotes large integer values before JSON.parse can round them, then revives
  * BIGINT_KEYS fields as bigint. The field-name pattern is derived from BIGINT_KEYS.
  */
 export function parseWithBigInts<T>(text: string): T {
-  const quoted = text.replace(
-    new RegExp(`"(${BIGINT_KEYS_PATTERN})"\\s*:\\s*(-?\\d+)`, 'g'),
-    '"$1":"$2"'
-  )
+  const quoted = text.replace(BIGINT_FIELD_RE, '"$1":"$2"')
   return JSON.parse(quoted, (key, value) =>
     BIGINT_KEYS.has(key) && typeof value === 'string' ? BigInt(value) : value
   ) as T
@@ -76,11 +80,10 @@ export function parseWithBigInts<T>(text: string): T {
  * past 2^53. This emits bigints as unquoted JSON integers instead.
  */
 export function stringifyWithBigInts(value: unknown): string {
-  const marker = ' bigint '
   const json = JSON.stringify(value, (_key, raw) =>
-    typeof raw === 'bigint' ? `${marker}${raw.toString()}${marker}` : raw
+    typeof raw === 'bigint' ? `${BIGINT_MARKER}${raw.toString()}${BIGINT_MARKER}` : raw
   )
-  return json.replace(new RegExp(`"${marker}(-?\\d+)${marker}"`, 'g'), '$1')
+  return json.replace(BIGINT_MARKER_RE, '$1')
 }
 
 export interface RequestOptions {
