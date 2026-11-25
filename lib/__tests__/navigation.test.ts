@@ -14,4 +14,21 @@ describe('redirectTo', () => {
     expect(errors.some((message) => /navigation/i.test(message))).toBe(true)
     spy.mockRestore()
   })
+
+  it.each([
+    'javascript:alert(1)',
+    'JaVaScRiPt:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'http://pay.ozow.com/initiate',
+    'https://user:pass@evil.example/',
+    '//evil.example/path',
+    '/relative/path',
+    'not a url',
+    '',
+  ])('throws and does not navigate for %p', (unsafe) => {
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {})
+    expect(() => redirectTo(unsafe)).toThrow(/redirectTo/)
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
 })
