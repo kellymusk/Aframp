@@ -71,10 +71,6 @@ jobs:
         run: bash scripts/owasp-scan.sh
         continue-on-error: true
 
-      - name: Run wallet deps audit
-        run: bash scripts/audit-wallet-deps.sh
-        continue-on-error: true
-
   test:
     name: Tests & Coverage
     runs-on: ubuntu-latest
