@@ -56,8 +56,8 @@ export default function ApiKeysPage() {
         setKeys(data)
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return
-        if (cause instanceof ApiError && cause.status === 0) throw cause
-        setError(cause instanceof Error ? cause.message : 'Could not load API keys')
+        if (cause instanceof ApiError && cause.status === 0) setError('backend-down')
+        else setError(cause instanceof Error ? cause.message : 'Could not load API keys')
       } finally {
         setLoading(false)
       }
@@ -207,6 +207,11 @@ export default function ApiKeysPage() {
         <div className="flex justify-center py-16">
           <LoadingSpinner />
         </div>
+      ) : error === 'backend-down' ? (
+        <ErrorState
+          message="We can't connect to the payment server right now. Please try again in a moment."
+          onRetry={() => void load()}
+        />
       ) : !keys || keys.length === 0 ? (
         <div className="bg-panel border-hairline flex flex-col items-center gap-3 rounded-2xl border py-12 text-center">
           <EmptyStateIllustration variant="empty" className="size-16" />
