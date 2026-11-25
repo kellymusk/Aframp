@@ -107,6 +107,12 @@ export function Hero() {
             </div>
           ))}
         </dl>
+
+        {hero.stats.some((stat) => stat.illustrative) && (
+          <p className="text-dim mt-3 text-xs">
+            Illustrative figures, not verified platform metrics.
+          </p>
+        )}
       </div>
 
       <div className="lg:pl-8">
