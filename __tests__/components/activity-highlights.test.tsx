@@ -12,6 +12,11 @@ function makePayment(overrides: Partial<Payment> = {}): Payment {
   return {
     id: 'test-payment-1',
     merchant_id: 'merchant-1',
+    wallet_id: 'wallet-1',
+    wallet_address: 'GTEST',
+    tx_hash: 'hash-1',
+    network: 'testnet',
+    confirmations: 1,
     asset: 'XLM',
     amount_stroops: 1000000n,
     status: 'confirmed',
@@ -31,9 +36,7 @@ describe('ActivityHighlights timezone consistency', () => {
     })
 
     // Render as if it's still the same UTC day
-    const { container } = render(
-      <ActivityHighlights payments={[payment]} openRequestCount={0} />
-    )
+    const { container } = render(<ActivityHighlights payments={[payment]} openRequestCount={0} />)
 
     // Should show the payment in "Taken today"
     expect(screen.getByText(/Taken today/)).toBeInTheDocument()
@@ -51,9 +54,7 @@ describe('ActivityHighlights timezone consistency', () => {
       amount_stroops: 3000000n,
     })
 
-    const { container } = render(
-      <ActivityHighlights payments={[payment]} openRequestCount={0} />
-    )
+    const { container } = render(<ActivityHighlights payments={[payment]} openRequestCount={0} />)
 
     // Should show "Nothing yet" because payment is from yesterday UTC
     expect(screen.getByText('Nothing yet')).toBeInTheDocument()
@@ -79,7 +80,7 @@ describe('ActivityHighlights timezone consistency', () => {
     const now = new Date()
     const payments = [
       makePayment({ status: 'confirmed', amount_stroops: 1000000n, created_at: now.toISOString() }),
-      makePayment({ status: 'pending', amount_stroops: 5000000n, created_at: now.toISOString() }),
+      makePayment({ status: 'detected', amount_stroops: 5000000n, created_at: now.toISOString() }),
     ]
 
     render(<ActivityHighlights payments={payments} openRequestCount={0} />)

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { api, type PaymentRequestStatus } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
-import { useAdminCursorPagination } from '@/hooks/use-admin-cursor-pagination'
+import { useAdminPagination } from '@/hooks/use-admin-pagination'
 
 function statusVariant(status: PaymentRequestStatus) {
   if (status === 'paid') return 'default' as const
@@ -25,9 +25,10 @@ function formatWhen(iso: string): string {
 
 export default function AdminPaymentRequestsPage() {
   const { token } = useAuthenticatedSession()
-  const { rows, error, hasMore, isLoadingMore, loadMore, retry } = useAdminCursorPagination(
+  const { rows, error, page, pageSize, hasNextPage, setPage, retry } = useAdminPagination(
     useCallback(
-      (cursor, limit, signal) => api.adminPaymentRequests(token, cursor, limit, signal),
+      (requestedPage, requestedPageSize, signal) =>
+        api.adminPaymentRequests(token, requestedPage, requestedPageSize, signal),
       [token]
     )
   )
@@ -44,9 +45,10 @@ export default function AdminPaymentRequestsPage() {
           rows={rows}
           error={error}
           onRetry={retry}
-          hasMore={hasMore}
-          isLoadingMore={isLoadingMore}
-          onLoadMore={loadMore}
+          page={page}
+          pageSize={pageSize}
+          hasNextPage={hasNextPage}
+          onPageChange={setPage}
           getRowKey={(row) => row.id}
           emptyMessage="No payment requests yet."
           columns={[

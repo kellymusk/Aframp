@@ -14,18 +14,10 @@ import { paymentStatusLabel, paymentStatusVariant } from '@/lib/payment-status'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { getStellarTransactionUrl } from '@/lib/stellar-network'
 
-import { getStellarTransactionUrl } from '@/lib/stellar-network'
-
 function matchesSearch(payment: Payment, query: string): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return true
-  const haystack = [
-    payment.tx_hash,
-    payment.wallet_address,
-    payment.asset,
-    payment.memo,
-    payment.reference,
-  ]
+  const haystack = [payment.tx_hash, payment.wallet_address, payment.asset]
   return haystack.some((value) => typeof value === 'string' && value.toLowerCase().includes(needle))
 }
 
@@ -198,11 +190,6 @@ export default function TransactionsPage() {
                 <p className="text-base font-bold tabular-nums text-white">
                   {formatStroops(payment.amount_stroops)} {payment.asset}
                 </p>
-                {(payment.reference || payment.memo) && (
-                  <p className="text-dim truncate text-xs">
-                    {payment.reference || payment.memo}
-                  </p>
-                )}
                 <p className="text-dim text-xs">
                   {formatWhen(payment.created_at)} ·{' '}
                   <a
@@ -250,7 +237,10 @@ export default function TransactionsPage() {
         ) : (
           <ul className="border-hairline divide-y rounded-2xl border">
             {refunds.map((refund) => (
-              <li key={refund.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+              <li
+                key={refund.id}
+                className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+              >
                 <span className="tabular-nums font-medium">
                   {formatStroops(refund.amount_stroops)} {refund.asset}
                 </span>

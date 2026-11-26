@@ -15,9 +15,10 @@ interface AdminTableProps<T> {
   error: string | null
   onRetry: () => void
   emptyMessage: string
+  page: number
+  pageSize: number
   hasNextPage: boolean
-  isLoadingMore: boolean
-  onLoadMore: () => void
+  onPageChange: (page: number) => void
 }
 
 /**
@@ -31,9 +32,10 @@ export function AdminTable<T>({
   error,
   onRetry,
   emptyMessage,
+  page,
+  pageSize,
   hasNextPage,
-  isLoadingMore,
-  onLoadMore,
+  onPageChange,
 }: AdminTableProps<T>) {
   if (error) return <ErrorState message={error} onRetry={onRetry} />
 
@@ -45,25 +47,45 @@ export function AdminTable<T>({
     )
   }
 
-  const pagination = hasNextPage ? (
-    <div className="border-hairline flex items-center justify-center border-t px-4 py-3 text-sm">
-      <button
-        type="button"
-        onClick={onLoadMore}
-        disabled={isLoadingMore}
-        className="border-hairline flex items-center gap-2 rounded-md border px-3 py-1.5 disabled:opacity-40"
-      >
-        {isLoadingMore ? <LoadingSpinner /> : null}
-        Show more
-      </button>
-    </div>
-  ) : null
+  const pagination =
+    rows.length > 0 || page > 1 ? (
+      <div className="border-hairline flex items-center justify-between border-t px-4 py-3 text-sm">
+        <span className="text-dim">Page {page}</span>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onPageChange(page - 1)}
+            disabled={page === 1}
+            className="border-hairline rounded-md border px-3 py-1.5 disabled:opacity-40"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            onClick={() => onPageChange(page + 1)}
+            disabled={!hasNextPage || rows.length < pageSize}
+            className="border-hairline rounded-md border px-3 py-1.5 disabled:opacity-40"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    ) : null
 
-  if (rows.length === 0) {
+  if (rows.length === 0 && page === 1) {
     return (
       <div className="mt-6 flex flex-col items-center gap-3 py-12 text-center">
         <EmptyStateIllustration variant="empty" className="size-20" />
         <p className="text-dim text-sm">{emptyMessage}</p>
+      </div>
+    )
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="bg-panel border-hairline overflow-hidden rounded-2xl border">
+        <p className="text-dim px-4 py-8 text-center text-sm">No more records.</p>
+        {pagination}
       </div>
     )
   }

@@ -1,14 +1,12 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { AdminTable } from '@/components/admin/admin-table'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { api, type WithdrawalStatus } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
-import { useAdminCursorPagination } from '@/hooks/use-admin-cursor-pagination'
-import { WithdrawalActionDialog } from './withdrawal-action-dialog'
+import { useAdminPagination } from '@/hooks/use-admin-pagination'
 
 function statusVariant(status: WithdrawalStatus) {
   if (status === 'completed') return 'default' as const
@@ -25,24 +23,15 @@ function formatWhen(iso: string): string {
   })
 }
 
-type WithdrawalAction = 'retry' | 'resolve' | 'note'
-
 export default function AdminWithdrawalsPage() {
   const { token } = useAuthenticatedSession()
-  const { rows, error, hasNextPage, isLoadingMore, loadMore, retry, refreshRow } =
-    useAdminCursorPagination(
-      useCallback(
-        (cursor, pageSize, signal) =>
-          api.adminWithdrawals(token, cursor, pageSize, signal),
-        [token]
-      )
+  const { rows, error, page, pageSize, hasNextPage, setPage, retry } = useAdminPagination(
+    useCallback(
+      (requestedPage, requestedPageSize, signal) =>
+        api.adminWithdrawals(token, requestedPage, requestedPageSize, signal),
+      [token]
     )
-  const [pendingAction, setPendingAction] = useState<{
-    action: WithdrawalAction
-    withdrawalId: string
-  } | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
-  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
+  )
 
   return (
     <div>
@@ -51,25 +40,15 @@ export default function AdminWithdrawalsPage() {
         <p className="text-dim mt-1 text-sm">Cash-out requests across every merchant.</p>
       </header>
 
-      {actionSuccess ? (
-        <p role="status" className="mt-4 text-sm text-green-600">
-          {actionSuccess}
-        </p>
-      ) : null}
-      {actionError ? (
-        <p role="alert" className="text-destructive mt-4 text-sm">
-          {actionError}
-        </p>
-      ) : null}
-
       <div className="mt-6">
         <AdminTable
           rows={rows}
           error={error}
           onRetry={retry}
+          page={page}
+          pageSize={pageSize}
           hasNextPage={hasNextPage}
-          isLoadingMore={isLoadingMore}
-          onLoadMore={loadMore}
+          onPageChange={setPage}
           getRowKey={(row) => row.id}
           emptyMessage="No withdrawals yet."
           columns={[
@@ -117,70 +96,9 @@ export default function AdminWithdrawalsPage() {
               header: 'Created',
               render: (row) => <span className="text-dim">{formatWhen(row.created_at)}</span>,
             },
-            {
-              header: 'Actions',
-              render: (row) =>
-                row.status === 'failed' ? (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setActionError(null)
-                        setActionSuccess(null)
-                        setPendingAction({ action: 'retry', withdrawalId: row.id })
-                      }}
-                    >
-                      Retry
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setActionError(null)
-                        setActionSuccess(null)
-                        setPendingAction({ action: 'resolve', withdrawalId: row.id })
-                      }}
-                    >
-                      Mark resolved
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setActionError(null)
-                        setActionSuccess(null)
-                        setPendingAction({ action: 'note', withdrawalId: row.id })
-                      }}
-                    >
-                      Add note
-                    </Button>
-                  </div>
-                ) : (
-                  <span className="text-dim">—</span>
-                ),
-            },
           ]}
         />
       </div>
-
-      {pendingAction ? (
-        <WithdrawalActionDialog
-          action={pendingAction.action}
-          withdrawalId={pendingAction.withdrawalId}
-          token={token}
-          onClose={() => setPendingAction(null)}
-          onSuccess={(message) => {
-            setPendingAction(null)
-            setActionSuccess(message)
-            refreshRow(pendingAction.withdrawalId)
-          }}
-          onError={(message) => {
-            setPendingAction(null)
-            setActionError(message)
-          }}
-        />
-      ) : null}
     </div>
   )
 }

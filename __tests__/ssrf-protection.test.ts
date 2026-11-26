@@ -36,7 +36,7 @@ describe('SSRF Protection - IP Range Blocking', () => {
       expect(isIPInRange('169.254.169.254', '169.254.0.0/16')).toBe(true)
       expect(isIPInRange('169.254.0.1', '169.254.0.0/16')).toBe(true)
       expect(isIPInRange('169.254.255.255', '169.254.0.0/16')).toBe(true)
-    }
+    })
 
     it('blocks unspecified addresses (0.0.0.0)', () => {
       expect(isIPInRange('0.0.0.0', '0.0.0.0/8')).toBe(true)
@@ -47,7 +47,7 @@ describe('SSRF Protection - IP Range Blocking', () => {
       expect(isIPInRange('224.0.0.1', '224.0.0.0/4')).toBe(true)
       expect(isIPInRange('230.0.0.1', '224.0.0.0/4')).toBe(true)
       expect(isIPInRange('239.255.255.255', '224.0.0.0/4')).toBe(true)
-    }
+    })
 
     it('blocks benchmark range (198.18.x)', () => {
       expect(isIPInRange('198.18.0.1', '198.18.0.0/15')).toBe(true)

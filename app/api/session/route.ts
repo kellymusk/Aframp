@@ -11,10 +11,9 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server'
-import { cookies } from 'next/headers'
-import { serialize } from 'cookie'
 
-const BACKEND_URL = (process.env.NEXT_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
+// No default: the backend origin is deployment configuration (set NEXT_API_URL).
+const BACKEND_URL = process.env.NEXT_API_URL?.trim().replace(/\/+$/, '') || null
 
 /** Name of the httpOnly session cookie. */
 const SESSION_COOKIE = 'aframp_session'
@@ -48,6 +47,9 @@ export async function POST(request: NextRequest) {
   const token = (body as Record<string, string>).token
 
   // --- 2. Validate the token server-side by calling the backend /me ---
+  if (!BACKEND_URL) {
+    return NextResponse.json({ error: 'The backend is not configured.' }, { status: 503 })
+  }
   let meResponse: Response
   try {
     meResponse = await fetch(`${BACKEND_URL}/me`, {
@@ -57,7 +59,10 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch {
-    return NextResponse.json({ error: 'Could not reach the authentication server.' }, { status: 502 })
+    return NextResponse.json(
+      { error: 'Could not reach the authentication server.' },
+      { status: 502 }
+    )
   }
 
   if (!meResponse.ok) {
@@ -67,9 +72,16 @@ export async function POST(request: NextRequest) {
 
   let me: { user_id: string; merchant_id: string | null; is_admin: boolean }
   try {
-    me = (await meResponse.json()) as { user_id: string; merchant_id: string | null; is_admin: boolean }
+    me = (await meResponse.json()) as {
+      user_id: string
+      merchant_id: string | null
+      is_admin: boolean
+    }
   } catch {
-    return NextResponse.json({ error: 'Unexpected response from authentication server.' }, { status: 502 })
+    return NextResponse.json(
+      { error: 'Unexpected response from authentication server.' },
+      { status: 502 }
+    )
   }
 
   // --- 3. Write the cookie with server-confirmed identity only ---
@@ -80,19 +92,13 @@ export async function POST(request: NextRequest) {
     isAdmin: me.is_admin === true,
   })
 
-  const cookie = serialize(SESSION_COOKIE, payload, COOKIE_OPTS)
-
   const response = NextResponse.json({ ok: true })
-  response.headers.set('Set-Cookie', cookie)
+  response.cookies.set(SESSION_COOKIE, payload, COOKIE_OPTS)
   return response
 }
 
 export async function DELETE() {
-  const cookie = serialize(SESSION_COOKIE, '', {
-    ...COOKIE_OPTS,
-    maxAge: 0,
-  })
   const response = NextResponse.json({ ok: true })
-  response.headers.set('Set-Cookie', cookie)
+  response.cookies.set(SESSION_COOKIE, '', { ...COOKIE_OPTS, maxAge: 0 })
   return response
 }

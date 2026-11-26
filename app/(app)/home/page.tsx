@@ -58,7 +58,7 @@ export default function HomePage() {
   useEffect(() => {
     const controller = new AbortController()
     setNgnRates(null)
-    setRatesError(null)
+    setRatesError(false)
 
     void fetchNgnRates(controller.signal)
       .then(setNgnRates)

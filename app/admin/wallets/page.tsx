@@ -22,9 +22,10 @@ function formatWhen(iso: string): string {
 
 export default function AdminWalletsPage() {
   const { token } = useAuthenticatedSession()
-  const { rows, error, hasMore, isLoadingMore, loadMore, retry } = useAdminPagination(
+  const { rows, error, page, pageSize, hasNextPage, setPage, retry } = useAdminPagination(
     useCallback(
-      (cursor, signal) => api.adminWallets(token, cursor, signal),
+      (requestedPage, requestedPageSize, signal) =>
+        api.adminWallets(token, requestedPage, requestedPageSize, signal),
       [token]
     )
   )
@@ -41,9 +42,10 @@ export default function AdminWalletsPage() {
           rows={rows}
           error={error}
           onRetry={retry}
-          hasMore={hasMore}
-          isLoadingMore={isLoadingMore}
-          onLoadMore={loadMore}
+          page={page}
+          pageSize={pageSize}
+          hasNextPage={hasNextPage}
+          onPageChange={setPage}
           getRowKey={(row) => row.id}
           emptyMessage="No wallets yet."
           columns={[

@@ -7,8 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getStellarAccountUrl } from '@/lib/stellar-network'
 
-import { getStellarAccountUrl } from '@/lib/stellar-network'
-
 interface WalletInfoProps {
   walletName: string
   walletAddress: string

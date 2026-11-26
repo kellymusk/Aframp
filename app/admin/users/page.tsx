@@ -5,7 +5,7 @@ import { AdminTable } from '@/components/admin/admin-table'
 import { Badge } from '@/components/ui/badge'
 import { api } from '@/lib/api'
 import { useAuthenticatedSession } from '@/components/session-provider'
-import { useAdminCursorPagination } from '@/hooks/use-admin-cursor-pagination'
+import { useAdminPagination } from '@/hooks/use-admin-pagination'
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString('en-NG', {
@@ -19,9 +19,10 @@ function formatWhen(iso: string): string {
 
 export default function AdminUsersPage() {
   const { token } = useAuthenticatedSession()
-  const { rows, error, hasMore, isLoadingMore, loadMore, retry } = useAdminCursorPagination(
+  const { rows, error, page, pageSize, hasNextPage, setPage, retry } = useAdminPagination(
     useCallback(
-      (cursor, signal) => api.adminUsers(token, cursor, signal),
+      (requestedPage, requestedPageSize, signal) =>
+        api.adminUsers(token, requestedPage, requestedPageSize, signal),
       [token]
     )
   )
@@ -38,9 +39,10 @@ export default function AdminUsersPage() {
           rows={rows}
           error={error}
           onRetry={retry}
-          hasMore={hasMore}
-          isLoadingMore={isLoadingMore}
-          onLoadMore={loadMore}
+          page={page}
+          pageSize={pageSize}
+          hasNextPage={hasNextPage}
+          onPageChange={setPage}
           getRowKey={(row) => row.id}
           emptyMessage="No users yet."
           columns={[
