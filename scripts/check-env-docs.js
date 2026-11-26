@@ -37,7 +37,7 @@ const REQUIRED_TAGS = ['type', 'example']
  * or is missing the required/optional tag entirely.
  */
 function parseEnvExample(contents) {
-  const lines = contents.split('\n')
+  const lines = contents.split(/\r?\n/)
   const vars = []
   let pendingTags = {}
   let sawAnyTag = false
@@ -95,14 +95,26 @@ function parseEnvExample(contents) {
   return vars
 }
 
+/**
+ * Make a value safe to place in a pipe-delimited markdown table cell: a raw
+ * `|` (e.g. `enum: testnet | public`) would split the row into extra columns,
+ * and a newline would end the row early. GFM honours `\|` even inside code
+ * spans, so the rendered cell still shows a plain `|`.
+ */
+function escapeCell(value) {
+  return String(value ?? '')
+    .replace(/\r?\n/g, ' ')
+    .replace(/\|/g, '\\|')
+}
+
 /** Render the parsed variables as the markdown table that belongs in the README. */
 function renderTable(vars) {
   const header = '| Variable | Type | Required | Default | Example |'
   const divider = '| --- | --- | --- | --- | --- |'
   const rows = vars.map((v) => {
     const required = v.required ? 'Yes' : 'No'
-    const def = v.required ? '—' : `\`${v.default}\``
-    return `| \`${v.name}\` | ${v.type} | ${required} | ${def} | \`${v.example}\` |`
+    const def = v.required ? '—' : `\`${escapeCell(v.default)}\``
+    return `| \`${escapeCell(v.name)}\` | ${escapeCell(v.type)} | ${required} | ${def} | \`${escapeCell(v.example)}\` |`
   })
   return [header, divider, ...rows].join('\n')
 }
@@ -118,7 +130,39 @@ function readReadmeTable(readme) {
   return { start, end, current: readme.slice(start + START_MARKER.length, end).trim() }
 }
 
-function main() {
+/**
+ * Canonical form of a markdown table for comparison: ignores line endings and
+ * the column padding Prettier adds (README.md is Prettier-formatted, and CI
+ * runs `prettier --check`), so only real content differences count. Escaped
+ * pipes (`\|`) are cell content and are left alone.
+ */
+function normalizeTable(table) {
+  return table
+    .replace(/\r\n?/g, '\n')
+    .trim()
+    .split('\n')
+    .map((line) =>
+      line
+        .trim()
+        .replace(/\s*(?<!\\)\|\s*/g, '|')
+        .replace(/\|:?-{3,}:?(?=\|)/g, '|---')
+    )
+    .join('\n')
+}
+
+/** Format README.md the way `prettier --check` (CI) expects, if prettier is installed. */
+async function formatWithPrettier(contents) {
+  let prettier
+  try {
+    prettier = require('prettier')
+  } catch {
+    return contents
+  }
+  const options = (await prettier.resolveConfig(README_PATH)) ?? {}
+  return prettier.format(contents, { ...options, filepath: README_PATH })
+}
+
+async function main() {
   const write = process.argv.includes('--write')
 
   const envExample = fs.readFileSync(ENV_EXAMPLE_PATH, 'utf8')
@@ -131,13 +175,13 @@ function main() {
   if (write) {
     const before = readme.slice(0, start + START_MARKER.length)
     const after = readme.slice(end)
-    const updated = `${before}\n\n${table}\n\n${after}`
+    const updated = await formatWithPrettier(`${before}\n\n${table}\n\n${after}`)
     fs.writeFileSync(README_PATH, updated)
     console.log(`Wrote ${vars.length} variable(s) to README.md's Environment Variables table.`)
     return
   }
 
-  if (current !== table) {
+  if (normalizeTable(current) !== normalizeTable(table)) {
     console.error("README.md's Environment Variables table is out of sync with .env.example.")
     console.error('Run `npm run docs:env` to regenerate it, then commit the change.\n')
     console.error('Expected:\n' + table + '\n')
@@ -149,9 +193,11 @@ function main() {
   console.log(`.env.example and README.md agree on ${vars.length} variable(s).`)
 }
 
-try {
-  main()
-} catch (err) {
-  console.error(err.message)
-  process.exitCode = 1
+module.exports = { parseEnvExample, renderTable, escapeCell, normalizeTable }
+
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(err.message)
+    process.exitCode = 1
+  })
 }
