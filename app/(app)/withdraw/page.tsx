@@ -27,6 +27,7 @@ import { formatStroops, parseAmountToStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import {
   getBankOptions,
+  getSavedBeneficiaries,
   getWithdrawableAssets,
   getWithdrawalAssetConfig,
   validateWithdrawal,
@@ -124,6 +125,11 @@ export default function WithdrawPage() {
   // which is what every comparison below and the backend both expect. Null when
   // unparseable. See lib/money.ts for the unit and the two helpers.
   const stroops = parseAmountToStroops(amount)
+
+  const savedBeneficiaries = useMemo(
+    () => getSavedBeneficiaries(withdrawals, asset),
+    [withdrawals, asset]
+  )
 
   const selectAsset = useCallback((next: WithdrawalAsset) => {
     setAsset(next)
@@ -308,6 +314,36 @@ export default function WithdrawPage() {
               onChange={(event) => setAmount(event.target.value)}
             />
           </div>
+
+          {savedBeneficiaries.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-dim text-xs font-medium">Saved accounts</p>
+              <div className="flex flex-wrap gap-2">
+                {savedBeneficiaries.map((b) => {
+                  const isSelected =
+                    bankCode === b.bankCode && accountNumber === b.accountNumber
+                  return (
+                    <button
+                      key={`${b.bankCode}:${b.accountNumber}`}
+                      type="button"
+                      disabled={available === 0n}
+                      onClick={() => {
+                        setBankCode(b.bankCode)
+                        setAccountNumber(b.accountNumber)
+                      }}
+                      className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                        isSelected
+                          ? 'border-transparent bg-white text-black'
+                          : 'border-hairline text-dim hover:border-white/40 hover:text-white'
+                      } disabled:pointer-events-none disabled:opacity-40`}
+                    >
+                      {b.bankName} ···{b.accountNumber.slice(-4)}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="bank">Bank</Label>
