@@ -132,7 +132,12 @@ describe('SessionProvider', () => {
         await result.current.signIn('legacy@example.com', 'secret')
       })
 
-      const expected = { token: 'tok-legacy', userId: 'u-legacy', merchantId: 'm-legacy' }
+      const expected = {
+        token: 'tok-legacy',
+        userId: 'u-legacy',
+        merchantId: 'm-legacy',
+        expiresAt: expect.any(Number),
+      }
       expect(result.current.session).toEqual(expected)
       const [[, init]] = sessionCalls('POST')
       expect(JSON.parse(init.body as string)).toEqual(expected)
@@ -176,7 +181,12 @@ describe('SessionProvider', () => {
         await result.current.signIn('user@example.com', 'secret')
       })
 
-      expect(result.current.session).toEqual({ token: 'tok-2', userId: 'u-2', merchantId: null })
+      expect(result.current.session).toEqual({
+        token: 'tok-2',
+        userId: 'u-2',
+        merchantId: null,
+        expiresAt: expect.any(Number),
+      })
     })
   })
 
@@ -187,10 +197,16 @@ describe('SessionProvider', () => {
 
     let returned: OtpChallengeResponse | undefined
     await act(async () => {
-      returned = await result.current.signUp('new@example.com', 'pw', 'New Co', '08012345678')
+      returned = await result.current.signUp('new@example.com', 'pw', 'New Co', '08012345678', 'v1')
     })
 
-    expect(mockApi.signup).toHaveBeenCalledWith('new@example.com', 'pw', 'New Co', '08012345678')
+    expect(mockApi.signup).toHaveBeenCalledWith(
+      'new@example.com',
+      'pw',
+      'New Co',
+      '08012345678',
+      'v1'
+    )
     expect(returned).toEqual(challenge)
     expect(result.current.session).toBeNull()
   })
@@ -212,6 +228,7 @@ describe('SessionProvider', () => {
       token: 'tok-otp',
       userId: 'u-otp',
       merchantId: 'm-otp',
+      expiresAt: expect.any(Number),
     })
     expect(sessionCalls('POST')).toHaveLength(1)
   })

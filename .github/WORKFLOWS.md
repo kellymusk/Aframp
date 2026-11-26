@@ -142,9 +142,11 @@ the app actually hits them.
 - Three consecutive failing runs open a `🚨 AFRAMP production uptime alert` issue; the first healthy run closes it.
 - The failure count is kept in the Actions cache under `uptime-monitor-state-<run_id>-<run_attempt>`.
 
-**Monitored URL:** `https://app.aframp.com` by default. Set the `PRODUCTION_URL` repository variable (Settings → Secrets and variables → Actions → Variables, no trailing slash) to monitor another origin, such as the Vercel production URL, without a code change.
+**Monitored URL:** `https://aframp.vercel.app` (the public Vercel production alias) by default, as set in `uptime-monitor.yml`.
 
-**Prerequisite:** The monitored domain must resolve to the production deployment. For `app.aframp.com` that means adding it under the Vercel project's Domains and creating the DNS record Vercel asks for (see the `aframp.com` DNS provider). If the domain does not resolve, every run fails.
+> **Note:** The `PRODUCTION_URL` repository variable overrides this default. Set it under Settings → Secrets and variables → Actions → Variables (no trailing slash) to monitor another origin, such as the custom domain `https://app.aframp.com` once it is live, without a code change. A manual `workflow_dispatch` run can also pass a one-off `url` input, which takes precedence over both.
+
+**Prerequisite:** The monitored domain must resolve to the production deployment. Before pointing `PRODUCTION_URL` at `app.aframp.com`, add it under the Vercel project's Domains and create the DNS record Vercel asks for (see the `aframp.com` DNS provider). If the domain does not resolve, every run fails.
 
 ---
 
@@ -211,7 +213,7 @@ View workflow status in GitHub:
 Add to README:
 
 ```markdown
-[![CI](https://github.com/aframp/aframp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aframp/aframp/actions/workflows/ci.yml)
+[![CI](https://github.com/kellymusk/Aframp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kellymusk/Aframp/actions/workflows/ci.yml)
 ```
 
 ---
@@ -288,9 +290,17 @@ Tests ────────┘
 
 1. **Keep workflows simple** - One responsibility per job
 2. **Use caching** - Speed up dependency installation
-3. **Set timeouts** - Prevent hanging workflows
+3. **Set timeouts** - Every job sets `timeout-minutes` (5 for guards/comment jobs,
+   10 for lint/security/release, 15 for test/build/preview, 20 for E2E/Lighthouse)
+   so a hung step can't burn GitHub's 6-hour default
 4. **Monitor costs** - GitHub Actions has usage limits
 5. **Document changes** - Update this file when modifying workflows
+6. **Pin actions to commit SHAs** - Every `uses:` is pinned to a full 40-char
+   commit SHA with the release tag as a trailing comment
+   (`uses: actions/checkout@<sha> # v5.1.0`). Never use `@master`/`@main` or a
+   bare tag. Dependabot (`github-actions` ecosystem in `.github/dependabot.yml`)
+   opens a weekly grouped PR that rotates the pins; review the upstream release
+   notes/diff before merging. Pin any newly added action the same way.
 
 ---
 

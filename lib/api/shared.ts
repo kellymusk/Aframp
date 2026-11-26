@@ -56,16 +56,20 @@ export function isOffline(cause: unknown): boolean {
 }
 
 const BIGINT_KEYS_PATTERN = Array.from(BIGINT_KEYS).join('|')
+const BIGINT_MARKER = ' bigint '
+
+// Hoisted to module scope: parseWithBigInts/stringifyWithBigInts run on every
+// request/response, so these must not be recompiled per call. Safe to share —
+// String.prototype.replace resets lastIndex on global regexes.
+const BIGINT_FIELD_RE = new RegExp(`"(${BIGINT_KEYS_PATTERN})"\\s*:\\s*(-?\\d+)`, 'g')
+const BIGINT_MARKER_RE = new RegExp(`"${BIGINT_MARKER}(-?\\d+)${BIGINT_MARKER}"`, 'g')
 
 /**
  * Re-quotes large integer values before JSON.parse can round them, then revives
  * BIGINT_KEYS fields as bigint. The field-name pattern is derived from BIGINT_KEYS.
  */
 export function parseWithBigInts<T>(text: string): T {
-  const quoted = text.replace(
-    new RegExp(`"(${BIGINT_KEYS_PATTERN})"\\s*:\\s*(-?\\d+)`, 'g'),
-    '"$1":"$2"'
-  )
+  const quoted = text.replace(BIGINT_FIELD_RE, '"$1":"$2"')
   return JSON.parse(quoted, (key, value) =>
     BIGINT_KEYS.has(key) && typeof value === 'string' ? BigInt(value) : value
   ) as T
@@ -76,18 +80,19 @@ export function parseWithBigInts<T>(text: string): T {
  * past 2^53. This emits bigints as unquoted JSON integers instead.
  */
 export function stringifyWithBigInts(value: unknown): string {
-  const marker = ' bigint '
   const json = JSON.stringify(value, (_key, raw) =>
-    typeof raw === 'bigint' ? `${marker}${raw.toString()}${marker}` : raw
+    typeof raw === 'bigint' ? `${BIGINT_MARKER}${raw.toString()}${BIGINT_MARKER}` : raw
   )
-  return json.replace(new RegExp(`"${marker}(-?\\d+)${marker}"`, 'g'), '$1')
+  return json.replace(BIGINT_MARKER_RE, '$1')
 }
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
   body?: unknown
   token?: string
   signal?: AbortSignal
+  /** Sent as `Idempotency-Key` so the backend can dedupe retries of one intent. */
+  idempotencyKey?: string
 }
 
 /**
@@ -96,9 +101,44 @@ export interface RequestOptions {
  */
 const SERVER_ERROR_MESSAGE = 'Something went wrong on our end. Please try again in a moment.'
 
+function newIdempotencyKey(): string {
+  const webCrypto = globalThis.crypto
+  if (typeof webCrypto?.randomUUID === 'function') return webCrypto.randomUUID()
+  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}${Math.random().toString(16).slice(2)}`
+}
+
+/** Keys of intents whose last attempt may or may not have reached the backend. */
+const unsettledIntents = new Map<string, string>()
+
+/**
+ * Runs a money-moving request with an idempotency key tied to the user's
+ * intent (endpoint + account + payload). While an attempt ends without a
+ * definite answer (network error or 5xx) the same key is reused on retry, so the
+ * backend can dedupe; after a success or a definite rejection it is dropped.
+ */
+export async function withIdempotencyKey<T>(
+  scope: string,
+  token: string,
+  body: unknown,
+  send: (idempotencyKey: string) => Promise<T>
+): Promise<T> {
+  const intent = `${scope}|${token}|${stringifyWithBigInts(body)}`
+  const idempotencyKey = unsettledIntents.get(intent) ?? newIdempotencyKey()
+  unsettledIntents.set(intent, idempotencyKey)
+  try {
+    const result = await send(idempotencyKey)
+    unsettledIntents.delete(intent)
+    return result
+  } catch (cause) {
+    const outcomeUnknown = !(cause instanceof ApiError) || cause.status === 0 || cause.status >= 500
+    if (!outcomeUnknown) unsettledIntents.delete(intent)
+    throw cause
+  }
+}
+
 /** Exported for tests: the single fetch wrapper every `api.*` call funnels through. */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, token, signal } = options
+  const { method = 'GET', body, token, signal, idempotencyKey } = options
 
   let response: Response
   try {
@@ -108,6 +148,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       headers: {
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
       },
       body: body === undefined ? undefined : stringifyWithBigInts(body),
     })

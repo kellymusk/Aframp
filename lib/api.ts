@@ -12,17 +12,20 @@
 
 import { adminApi } from './api/admin'
 import { authApi } from './api/auth'
+import { contactsApi } from './api/contacts'
 import { paymentsApi } from './api/payments'
 import { remittanceApi } from './api/remittance'
 
 export * from './api/shared'
 export * from './api/auth'
+export * from './api/contacts'
 export * from './api/payments'
 export * from './api/admin'
 export * from './api/remittance'
 
 export const api = {
   ...authApi,
+  ...contactsApi,
   ...paymentsApi,
   ...remittanceApi,
   ...adminApi,

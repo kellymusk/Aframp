@@ -21,7 +21,7 @@ import {
   validateWithdrawal,
   type WithdrawalAsset,
 } from '@/lib/withdraw'
-import { BANKS, type Bank } from '@/lib/banks'
+import { NIGERIA_BANKS, getAccountNumberRule, type Bank } from '@/lib/banks'
 import { formatDateTime } from '@/lib/format-date'
 import {
   detectWithdrawalChanges,
@@ -70,11 +70,10 @@ export default function WithdrawPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [notices, setNotices] = useState<WithdrawalNotice[]>([])
-  const [nigeriaBanks, setNigeriaBanks] = useState<Bank[]>(BANKS)
+  const [nigeriaBanks, setNigeriaBanks] = useState<Bank[]>(NIGERIA_BANKS)
   const bankName = (code: string) =>
-    nigeriaBanks.find((bank) => bank.code === code)?.name ??
-    BANKS.find((bank) => bank.code === code)?.name ??
-    code
+    (asset === 'cNGN' ? nigeriaBanks : getBankOptions(asset)).find((bank) => bank.code === code)
+      ?.name ?? code
   const [banksLoading, setBanksLoading] = useState(false)
 
   useEffect(() => {
@@ -96,7 +95,7 @@ export default function WithdrawPage() {
         }
       } catch {
         if (isMounted) {
-          setNigeriaBanks(BANKS)
+          setNigeriaBanks(NIGERIA_BANKS)
         }
       } finally {
         if (isMounted) {
@@ -192,6 +191,7 @@ export default function WithdrawPage() {
 
   const withdrawableAssets = useMemo(() => getWithdrawableAssets(balances ?? []), [balances])
   const config = getWithdrawalAssetConfig(asset)
+  const accountRule = getAccountNumberRule(config.country, bankCode)
   const available = balances?.find((balance) => balance.asset === asset)?.available ?? 0n
   const stroops = parseAmountToStroops(amount)
 
@@ -212,13 +212,21 @@ export default function WithdrawPage() {
 
   function submit(event: React.FormEvent) {
     event.preventDefault()
-    const problem = validateWithdrawal(stroops, config, available, bankCode, accountNumber)
+    const bankOptions = asset === 'cNGN' ? nigeriaBanks : getBankOptions(asset)
+    const problem = validateWithdrawal(
+      stroops,
+      config,
+      available,
+      bankCode,
+      accountNumber,
+      bankOptions
+    )
     if (problem) {
       setError(problem)
       return
     }
 
-    const bankName = getBankOptions(asset).find((bank) => bank.code === bankCode)?.name ?? bankCode
+    const bankName = bankOptions.find((bank) => bank.code === bankCode)?.name ?? bankCode
     setError(null)
     setConfirmation({ amount: stroops!, asset, bankCode, bankName, accountNumber })
   }
@@ -416,13 +424,17 @@ export default function WithdrawPage() {
             <Input
               id="account"
               inputMode="numeric"
-              maxLength={config.accountNumberLength}
-              placeholder={`${config.accountNumberLength}-digit account number`}
+              maxLength={accountRule.maxLength}
+              placeholder={
+                accountRule.minLength === accountRule.maxLength
+                  ? `${accountRule.minLength}-digit account number`
+                  : `${accountRule.minLength}–${accountRule.maxLength}-digit reference`
+              }
               value={accountNumber}
-              disabled={available === 0n}
+              disabled={available === 0n || !bankCode}
               onChange={(event) =>
                 setAccountNumber(
-                  event.target.value.replace(/\D/g, '').slice(0, config.accountNumberLength)
+                  event.target.value.replace(/\D/g, '').slice(0, accountRule.maxLength)
                 )
               }
             />

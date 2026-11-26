@@ -9,15 +9,26 @@ export function usePaymentPoller(intervalMs = 30000) {
   const { session } = useSession()
   const seenIdsRef = useRef<Set<string>>(new Set())
   const initialFetchDone = useRef(false)
+  const sessionTokenRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
-    if (!session?.token) return
+    const token = session?.token
 
-    const token = session.token
+    if (sessionTokenRef.current !== token) {
+      sessionTokenRef.current = token
+      seenIdsRef.current = new Set()
+      initialFetchDone.current = false
+    }
+
+    if (!token) return
+
+    let active = true
 
     const pollTransactions = async () => {
       try {
         const payments = await api.listTransactions(token, 20)
+        if (!active) return
+
         const confirmedPayments = payments.filter((p: Payment) => p.status === 'confirmed')
 
         if (!initialFetchDone.current) {
@@ -53,6 +64,8 @@ export function usePaymentPoller(intervalMs = 30000) {
           }
         }
       } catch (err) {
+        if (!active) return
+
         // Silently catch polling errors to avoid disrupting the dashboard experience
         console.error('[poller] Failed to fetch transactions:', err)
       }
@@ -63,7 +76,8 @@ export function usePaymentPoller(intervalMs = 30000) {
     const timer = setInterval(pollTransactions, intervalMs)
 
     return () => {
+      active = false
       clearInterval(timer)
     }
-  }, [session, intervalMs])
+  }, [session?.token, intervalMs])
 }

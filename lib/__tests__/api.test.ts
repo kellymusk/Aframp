@@ -209,12 +209,12 @@ describe('request', () => {
 describe('api', () => {
   it('signup posts credentials and a phone number, and never gets a session back', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ challenge_id: 'chal-1', expires_in_secs: 600 }))
-    const result = await api.signup('a@b.c', 'pw', 'Name', '08011122233')
+    const result = await api.signup('a@b.c', 'pw', 'Name', '08011122233', 'v1')
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/backend/signup')
     expect(init.method).toBe('POST')
     expect(init.body).toBe(
-      '{"email":"a@b.c","password":"pw","name":"Name","phone_number":"08011122233"}'
+      '{"email":"a@b.c","password":"pw","name":"Name","phone_number":"08011122233","accepted_terms_version":"v1"}'
     )
     expect(result).toEqual({ challenge_id: 'chal-1', expires_in_secs: 600 })
   })
@@ -224,6 +224,40 @@ describe('api', () => {
     await api.login('a@b.c', 'pw')
     expect(fetchMock.mock.calls[0][0]).toBe('/backend/login')
     expect(fetchMock.mock.calls[0][1].method).toBe('POST')
+  })
+
+  it('requestPasswordReset posts only the email', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ challenge_id: 'chal-9', expires_in_secs: 600 }))
+    const result = await api.requestPasswordReset('a@b.c')
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/backend/password-reset')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe('{"email":"a@b.c"}')
+    expect(result.challenge_id).toBe('chal-9')
+  })
+
+  it('confirmPasswordReset posts the challenge, code and new password', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+    await api.confirmPasswordReset('chal-9', '482913', 'new-password-1')
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/backend/password-reset/confirm')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe(
+      '{"challenge_id":"chal-9","code":"482913","new_password":"new-password-1"}'
+    )
+  })
+
+  it('listSessions GETs /sessions and revokeSession DELETEs one by id', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse([]))
+    await api.listSessions('tok')
+    expect(fetchMock.mock.calls[0][0]).toBe('/backend/sessions')
+    expect(fetchMock.mock.calls[0][1].headers).toEqual({ Authorization: 'Bearer tok' })
+
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    await api.revokeSession('tok', 's-1')
+    const [url, init] = fetchMock.mock.calls[1]
+    expect(url).toBe('/backend/sessions/s-1')
+    expect(init.method).toBe('DELETE')
   })
 
   it('verifyOtp posts the challenge id and code, not an email', async () => {
@@ -317,6 +351,16 @@ describe('api', () => {
     )
   })
 
+  it('cancelPaymentRequest posts to the cancel endpoint with the token', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ status: 'cancelled' }))
+    await api.cancelPaymentRequest('tok', 'req-1')
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/backend/payment-requests/req-1/cancel')
+    expect(init.method).toBe('POST')
+    expect(init.headers).toEqual({ Authorization: 'Bearer tok' })
+    expect(init.body).toBeUndefined()
+  })
+
   it('listPaymentRequests builds the limit query', async () => {
     fetchMock.mockResolvedValue(jsonResponse([]))
     await api.listPaymentRequests('tok')
@@ -361,6 +405,7 @@ describe('api', () => {
     expect(init.headers).toEqual({
       'Content-Type': 'application/json',
       Authorization: 'Bearer tok',
+      'Idempotency-Key': expect.any(String),
     })
     expect(init.body).toBe(
       '{"amount_stroops":100,"recipient":"GDEST123","reason":"Customer request"}'
@@ -379,13 +424,23 @@ describe('api', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('/backend/api-keys')
   })
 
-  it('createApiKey posts name to /api-keys', async () => {
+  it('createApiKey posts name and scopes to /api-keys', async () => {
     fetchMock.mockResolvedValue(jsonResponse({}))
-    await api.createApiKey('tok', 'My Key')
+    await api.createApiKey('tok', 'My Key', { scopes: ['read'] })
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/backend/api-keys')
     expect(init.method).toBe('POST')
-    expect(init.body).toBe('{"name":"My Key"}')
+    expect(init.body).toBe('{"name":"My Key","scopes":["read"]}')
+  })
+
+  it('createApiKey rejects missing or empty scopes without a request', () => {
+    expect(() => api.createApiKey('tok', 'No scopes', undefined as never)).toThrow(
+      /at least one scope/
+    )
+    expect(() => api.createApiKey('tok', 'Empty scopes', { scopes: [] })).toThrow(
+      /at least one scope/
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('createApiKey sends scopes and expiry when given', async () => {
@@ -485,6 +540,67 @@ describe('api', () => {
     expect(init.body).toBe(
       '{"destination_address":"GDEST123","amount_stroops":500,"asset":"XLM","memo":"Invoice #12"}'
     )
+  })
+
+  describe('idempotency keys on money-moving POSTs', () => {
+    const keyOf = (call: number) => fetchMock.mock.calls[call][1].headers['Idempotency-Key']
+
+    it('sends an Idempotency-Key on withdrawals, sends, refunds and charges', async () => {
+      fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({})))
+      await api.createWithdrawal('tok-a', 1n, '044', '0123456789')
+      await api.createRemittance('tok-a', 'GDEST', 2n)
+      await api.createRefund('tok-a', 'pay-1', 3n, 'GDEST')
+      await api.createPaymentRequest('tok-a', 4n)
+      for (let i = 0; i < 4; i++) expect(typeof keyOf(i)).toBe('string')
+      expect(new Set([0, 1, 2, 3].map(keyOf)).size).toBe(4)
+    })
+
+    it('reuses the key when the same intent is retried after an unknown outcome', async () => {
+      fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      await expect(api.createWithdrawal('tok-b', 5n, '044', '0123456789')).rejects.toBeInstanceOf(
+        ApiError
+      )
+      fetchMock.mockResolvedValueOnce(jsonResponse({ error: 'boom' }, 503))
+      await expect(api.createWithdrawal('tok-b', 5n, '044', '0123456789')).rejects.toBeInstanceOf(
+        ApiError
+      )
+      fetchMock.mockResolvedValueOnce(jsonResponse({}))
+      await api.createWithdrawal('tok-b', 5n, '044', '0123456789')
+
+      expect(keyOf(1)).toBe(keyOf(0))
+      expect(keyOf(2)).toBe(keyOf(0))
+    })
+
+    it('uses a fresh key after a success or a definite rejection', async () => {
+      fetchMock.mockResolvedValueOnce(jsonResponse({}))
+      await api.createRemittance('tok-c', 'GDEST', 7n)
+      fetchMock.mockResolvedValueOnce(jsonResponse({ error: 'Invalid address' }, 400))
+      await expect(api.createRemittance('tok-c', 'GDEST', 7n)).rejects.toBeInstanceOf(ApiError)
+      fetchMock.mockResolvedValueOnce(jsonResponse({}))
+      await api.createRemittance('tok-c', 'GDEST', 7n)
+
+      expect(keyOf(1)).not.toBe(keyOf(0))
+      expect(keyOf(2)).not.toBe(keyOf(1))
+    })
+  })
+
+  describe('saved contacts', () => {
+    it('lists, creates, updates and deletes contacts through /contacts', async () => {
+      fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({})))
+      await api.listSavedContacts('tok')
+      await api.createSavedContact('tok', { name: 'Ada', address: 'GDEST' })
+      await api.updateSavedContact('tok', 'c-1', { name: 'Ada L.' })
+      await api.deleteSavedContact('tok', 'c-1')
+
+      const calls = fetchMock.mock.calls.map(([url, init]) => [init.method ?? 'GET', url])
+      expect(calls).toEqual([
+        ['GET', '/backend/contacts'],
+        ['POST', '/backend/contacts'],
+        ['PUT', '/backend/contacts/c-1'],
+        ['DELETE', '/backend/contacts/c-1'],
+      ])
+      expect(fetchMock.mock.calls[1][1].body).toBe('{"name":"Ada","address":"GDEST"}')
+    })
   })
 
   it('listRemittances GETs /remittances with limit', async () => {

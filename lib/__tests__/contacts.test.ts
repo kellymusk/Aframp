@@ -30,12 +30,34 @@ describe('readContacts / writeContacts', () => {
     expect(readContacts()).toEqual([])
   })
 
+  it('drops malformed entries instead of returning them to the UI', () => {
+    localStorage.setItem(
+      CONTACTS_STORAGE_KEY,
+      JSON.stringify([
+        {},
+        null,
+        'not an object',
+        42,
+        { name: 'No address' },
+        { address: '', name: 'Empty address' },
+        { address: 123, name: 'Numeric address' },
+        { address: ADDRESS, name: 'Valid' },
+      ])
+    )
+    expect(readContacts()).toEqual([{ name: 'Valid', address: ADDRESS }])
+  })
+
+  it('supplies a string name when a stored contact has a missing or invalid name', () => {
+    localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify([{ address: ADDRESS }]))
+    expect(readContacts()).toEqual([{ name: 'GBSN2Z...HQHA', address: ADDRESS }])
+  })
+
   it('swallows storage write failures', () => {
     jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('quota')
     })
+    // lib/storage swallows storage errors; the caller must not throw either.
     expect(() => writeContacts([])).not.toThrow()
-    expect(console.error).toHaveBeenCalled()
   })
 })
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, Bell, Mail, Save, Trash2, User } from 'lucide-react'
+import { AlertTriangle, Bell, Mail, Phone, Save, Trash2, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { PushNotificationToggle } from '@/components/push-notification-toggle'
+import { ActiveSessions } from '@/components/active-sessions'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +28,11 @@ import { useAuthenticatedSession, useSession } from '@/components/session-provid
 
 /** RFC-5322-inspired regex that catches obviously malformed addresses client-side. */
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const PHONE_REGEX = /^\+?[1-9]\d{8,14}$/
+
+function normalizePhone(value: string): string {
+  return value.trim().replace(/[\s()-]/g, '')
+}
 
 function getInitials(name: string | null): string {
   if (!name) return '?'
@@ -58,6 +64,15 @@ export default function ProfilePage() {
   const [newEmail, setNewEmail] = useState('')
   const [emailFormatError, setEmailFormatError] = useState<string | null>(null)
   const [emailSent, setEmailSent] = useState(false)
+
+  const [newPhone, setNewPhone] = useState('')
+  const [phoneCode, setPhoneCode] = useState('')
+  const [phoneChallenge, setPhoneChallenge] = useState<string | null>(null)
+  const [verifyingNewPhone, setVerifyingNewPhone] = useState(false)
+  const [savingPhone, setSavingPhone] = useState(false)
+  const [phoneChanged, setPhoneChanged] = useState(false)
+  const [phoneError, setPhoneError] = useState<string | null>(null)
+  const displayPhone = me?.phone_number || 'Not set'
 
   // The profile is loaded once by the session provider; seed the editable form from it.
   useEffect(() => {
@@ -123,6 +138,77 @@ export default function ProfilePage() {
     } finally {
       setSavingEmail(false)
     }
+  }
+
+  async function startPhoneChange(event: React.FormEvent) {
+    event.preventDefault()
+    const nextPhone = normalizePhone(newPhone)
+
+    if (!nextPhone || nextPhone === normalizePhone(displayPhone)) {
+      setPhoneError('Enter a different phone number to change it.')
+      return
+    }
+    if (!PHONE_REGEX.test(nextPhone)) {
+      setPhoneError('Enter a valid phone number (9–15 digits, optional + country code).')
+      return
+    }
+
+    setPhoneError(null)
+    setSavingPhone(true)
+    try {
+      const result = await api.changePhone(token, { new_phone: nextPhone })
+      if ('challenge_id' in result) {
+        setPhoneChallenge(result.challenge_id)
+        setVerifyingNewPhone(false)
+        setPhoneCode('')
+      } else {
+        setPhoneError('The server did not start a verification. Please try again.')
+      }
+    } catch (cause) {
+      setPhoneError(cause instanceof Error ? cause.message : 'Could not start phone change')
+    } finally {
+      setSavingPhone(false)
+    }
+  }
+
+  async function verifyPhoneChange(event: React.FormEvent) {
+    event.preventDefault()
+    if (!phoneChallenge) return
+    if (!/^\d{6}$/.test(phoneCode)) {
+      setPhoneError('Enter the 6-digit code sent by SMS.')
+      return
+    }
+
+    setPhoneError(null)
+    setSavingPhone(true)
+    try {
+      const result = await api.changePhone(token, {
+        challenge_id: phoneChallenge,
+        code: phoneCode,
+      })
+      if ('challenge_id' in result) {
+        setPhoneChallenge(result.challenge_id)
+        setVerifyingNewPhone(true)
+        setPhoneCode('')
+        showSuccess('Current number verified. Enter the code sent to your new number.')
+        return
+      }
+      const refreshed = await refreshMe()
+      if (!refreshed.success) throw new Error('Could not refresh your profile.')
+      setPhoneChallenge(null)
+      setPhoneChanged(true)
+      showSuccess('Phone number changed successfully.')
+    } catch (cause) {
+      setPhoneError(cause instanceof Error ? cause.message : 'Could not verify phone number')
+    } finally {
+      setSavingPhone(false)
+    }
+  }
+
+  function cancelPhoneChange() {
+    setPhoneChallenge(null)
+    setPhoneCode('')
+    setPhoneError(null)
   }
 
   async function deleteAccount() {
@@ -300,6 +386,93 @@ export default function ProfilePage() {
         )}
       </section>
 
+      {/* Phone number change */}
+      <section className="bg-panel border-hairline rounded-2xl border p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Phone className="size-4 text-dim" aria-hidden />
+          <h3 className="font-bold text-white">Phone number</h3>
+        </div>
+
+        <p className="text-dim text-sm">
+          Current number: <strong className="text-foreground">{displayPhone}</strong>
+        </p>
+
+        {phoneChanged ? (
+          <Alert className="border-emerald-500/30 bg-emerald-500/10">
+            <AlertDescription className="text-emerald-200">
+              Your phone number has been changed. Your new number will be used for OTP next time.
+            </AlertDescription>
+          </Alert>
+        ) : !phoneChallenge ? (
+          <form onSubmit={startPhoneChange} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-phone">New phone number</Label>
+              <Input
+                id="new-phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={newPhone}
+                onChange={(event) => {
+                  setNewPhone(event.target.value)
+                  setPhoneError(null)
+                }}
+                placeholder="+254712345678"
+              />
+              <p className="text-dim text-xs">
+                We will send a code to your current number and then to the new one. Both must be
+                verified before the change takes effect.
+              </p>
+              {phoneError && (
+                <p className="text-sm text-destructive" role="alert">
+                  {phoneError}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit" variant="outline" disabled={savingPhone || !newPhone.trim()}>
+                {savingPhone ? 'Sending…' : 'Change phone'}
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={verifyPhoneChange} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone-code">
+                {verifyingNewPhone
+                  ? 'Code sent to your new number'
+                  : 'Code sent to your current number'}
+              </Label>
+              <Input
+                id="phone-code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={phoneCode}
+                onChange={(event) => {
+                  setPhoneCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+                  setPhoneError(null)
+                }}
+                placeholder="6-digit code"
+              />
+            </div>
+            {phoneError && (
+              <p className="text-sm text-destructive" role="alert">
+                {phoneError}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={cancelPhoneChange}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={savingPhone || phoneCode.length !== 6}>
+                {savingPhone ? 'Verifying…' : 'Verify code'}
+              </Button>
+            </div>
+          </form>
+        )}
+      </section>
+
       {/* Push notifications */}
       <section className="bg-panel border-hairline rounded-2xl border p-5 space-y-4">
         <div className="flex items-center gap-2">
@@ -308,6 +481,8 @@ export default function ProfilePage() {
         </div>
         <PushNotificationToggle />
       </section>
+
+      <ActiveSessions />
 
       <Separator />
 

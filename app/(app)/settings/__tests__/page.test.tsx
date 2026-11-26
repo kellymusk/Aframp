@@ -17,6 +17,7 @@ jest.mock('@/lib/api', () => ({
     changeEmail: jest.fn().mockResolvedValue({ message: 'ok' }),
     updateProfile: jest.fn(() => Promise.resolve(mockMe)),
     deleteAccount: jest.fn().mockResolvedValue({}),
+    listSessions: jest.fn().mockResolvedValue([]),
   },
   ApiError: class ApiError extends Error {
     status: number

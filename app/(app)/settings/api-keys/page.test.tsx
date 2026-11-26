@@ -174,6 +174,43 @@ describe('ApiKeysPage - One-time key reveal', () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(fullKey)
   })
 
+  it('shows a manual-copy hint when copying the key fails', async () => {
+    const user = userEvent.setup()
+    const fullKey = 'ak_live_1234567890abcdef'
+    ;(api.createApiKey as jest.Mock).mockResolvedValue({
+      api_key: { id: '1', name: 'Test Key', key_preview: 'ak_live_••••••••••••••••' },
+      full_key: fullKey,
+    })
+
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        writeText: jest.fn().mockRejectedValue(new Error('Clipboard unavailable')),
+      },
+      configurable: true,
+    })
+
+    render(<ApiKeysPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('API Keys')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /new key/i }))
+    await user.type(screen.getByLabelText(/key name/i), 'Test Key')
+    await user.click(screen.getByRole('button', { name: /create key/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/save your api key now/i)).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /copy api key/i }))
+
+    expect(
+      await screen.findByText('Could not copy the key. Select it and copy it manually.')
+    ).toHaveAttribute('role', 'alert')
+    expect(screen.getByText(fullKey)).toHaveClass('select-all')
+  })
+
   it('shows clear warning that key will never be shown again', async () => {
     const user = userEvent.setup()
     ;(api.createApiKey as jest.Mock).mockResolvedValue({

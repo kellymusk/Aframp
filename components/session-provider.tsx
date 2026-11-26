@@ -25,6 +25,8 @@ interface Session {
   token: string
   userId: string
   merchantId: string | null
+  /** Epoch ms when the token expires (#867). Absent on cookies set before this field existed. */
+  expiresAt?: number
 }
 
 interface SessionContextValue {
@@ -39,7 +41,8 @@ interface SessionContextValue {
     email: string,
     password: string,
     name: string,
-    phoneNumber: string
+    phoneNumber: string,
+    acceptedTermsVersion: string
   ) => Promise<OtpChallengeResponse>
   completeOtp: (challengeId: string, code: string) => Promise<void>
   signOut: () => Promise<void>
@@ -63,6 +66,8 @@ function toSession(response: AuthResponse): Session {
     token: response.token,
     userId: response.user_id,
     merchantId: response.merchant_id,
+    // Matches COOKIE_MAX_AGE / JWT expiry in app/api/session/route.ts.
+    expiresAt: Date.now() + 24 * 60 * 60 * 1000,
   }
 }
 
@@ -140,8 +145,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   )
 
   const signUp = useCallback(
-    (email: string, password: string, name: string, phoneNumber: string) => {
-      return api.signup(email, password, name, phoneNumber)
+    (
+      email: string,
+      password: string,
+      name: string,
+      phoneNumber: string,
+      acceptedTermsVersion: string
+    ) => {
+      return api.signup(email, password, name, phoneNumber, acceptedTermsVersion)
     },
     []
   )
@@ -264,6 +275,11 @@ export function useSession() {
   const context = useContext(SessionContext)
   if (!context) throw new Error('useSession must be used inside <SessionProvider>')
   return context
+}
+
+/** Like `useSession`, but `null` outside a provider. For public pages a signed-in merchant may also open. */
+export function useOptionalSession() {
+  return useContext(SessionContext)
 }
 
 export function useAuthenticatedSession(): Session {

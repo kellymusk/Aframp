@@ -22,9 +22,10 @@ export function expiryFromOption(value: string, now = new Date()): string | null
 }
 
 export function isApiKeyExpired(key: Pick<ApiKey, 'expires_at'>, now = new Date()): boolean {
-  if (!key.expires_at) return false
+  if (key.expires_at == null) return false
   const timestamp = Date.parse(key.expires_at)
-  return Number.isFinite(timestamp) && timestamp <= now.getTime()
+  // Fail closed: a corrupt/unparseable timestamp must not keep a key valid.
+  return !Number.isFinite(timestamp) || timestamp <= now.getTime()
 }
 
 /**

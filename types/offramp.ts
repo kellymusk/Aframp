@@ -1,7 +1,19 @@
-import type { FiatCurrency } from '@/types/onramp'
+import type { CrossRailAsset, FiatCurrency } from '@/types/onramp'
 
 export type OfframpChain = 'Stellar' | 'Ethereum' | 'Polygon' | 'Base'
-export type OfframpAsset = 'cNGN' | 'USDC' | 'USDT' | 'XLM'
+
+/**
+ * Crypto assets the offramp can cash out to fiat.
+ *
+ * Per-rail support intentionally differs (#1178):
+ * - shared with the onramp: cNGN, USDC, XLM (see `CrossRailAsset`);
+ * - offramp-only: USDT — accepted for cash-out but never minted by the
+ *   onramp, so it only ever arrives from an external wallet.
+ *
+ * The union is composed from `CrossRailAsset` rather than restated, so the
+ * two rail unions can't drift apart without a compile error.
+ */
+export type OfframpAsset = CrossRailAsset | 'USDT'
 
 export interface OfframpAssetOption {
   id: string

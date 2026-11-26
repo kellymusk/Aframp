@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { safeSessionStorage } from '@/lib/safe-storage'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -46,7 +47,7 @@ export function ZarOnramp({ token, onSuccess }: ZarOnrampProps) {
     const params = new URLSearchParams(window.location.search)
     if (params.get('provider') !== 'ozow') return
 
-    const transactionId = sessionStorage.getItem(OZOW_TRANSACTION_ID_KEY)
+    const transactionId = safeSessionStorage.getItem(OZOW_TRANSACTION_ID_KEY)
     if (!transactionId) return
 
     let cancelled = false
@@ -57,7 +58,7 @@ export function ZarOnramp({ token, onSuccess }: ZarOnrampProps) {
       .then((result) => {
         if (cancelled) return
         if (result.status === 'completed' || result.status === 'failed') {
-          sessionStorage.removeItem(OZOW_TRANSACTION_ID_KEY)
+          safeSessionStorage.removeItem(OZOW_TRANSACTION_ID_KEY)
         }
         if (result.status === 'completed' && result.tx_hash) {
           onSuccess?.(result.tx_hash)
@@ -103,7 +104,7 @@ export function ZarOnramp({ token, onSuccess }: ZarOnrampProps) {
         throw new Error('Payment URL failed security validation. Please contact support.')
       }
 
-      sessionStorage.setItem(OZOW_TRANSACTION_ID_KEY, transaction_id)
+      safeSessionStorage.setItem(OZOW_TRANSACTION_ID_KEY, transaction_id)
 
       // Redirect to Ozow payment page
       redirectTo(new URL(payment_url).href)

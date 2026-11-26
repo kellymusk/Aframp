@@ -1,96 +1,105 @@
 # CI/CD Architecture
 
+This describes the `CI` workflow in [`workflows/ci.yml`](workflows/ci.yml). If the two disagree,
+`ci.yml` is the source of truth.
+
 ## Pipeline Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    AFRAMP CI/CD Pipeline                        │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         AFRAMP CI/CD Pipeline                           │
+└─────────────────────────────────────────────────────────────────────────┘
 
-                          Developer Push
-                                │
-                                ▼
-                    ┌───────────────────────┐
-                    │  GitHub Actions       │
-                    │  Triggered            │
-                    └───────────────────────┘
-                                │
-                ┌───────────────┼───────────────┐
-                │               │               │
-                ▼               ▼               ▼
-        ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-        │ Code Quality │ │ Tests &      │ │ Build        │
-        │              │ │ Coverage     │ │              │
-        │ • ESLint     │ │              │ │ • Next.js    │
-        │ • Prettier   │ │ • Jest       │ │ • Artifacts  │
-        │ • TypeScript │ │ • Codecov    │ │              │
-        └──────────────┘ └──────────────┘ └──────────────┘
-                │               │               │
-                └───────────────┼───────────────┘
-                                │
-                    ┌───────────▼───────────┐
-                    │  All Checks Pass?     │
-                    └───────────┬───────────┘
-                                │
-                    ┌───────────┴───────────┐
-                    │                       │
-                   YES                      NO
-                    │                       │
-                    ▼                       ▼
-            ┌──────────────┐        ┌──────────────┐
-            │ Coverage     │        │ Notify Dev   │
-            │ Badge Update │        │ (PR Comment) │
-            │              │        │              │
-            │ • Generate   │        │ • Show Logs  │
-            │ • Update     │        │ • Link Fixes │
-            │   README     │        └──────────────┘
-            └──────────────┘
-                    │
-                    ▼
-            ┌──────────────┐
-            │ Ready to     │
-            │ Merge        │
-            └──────────────┘
+                Push (main, develop) / Pull Request (main, develop, dev-frontend)
+                                        │
+                                        ▼
+                          ┌───────────────────────────┐
+                          │  GitHub Actions triggered │
+                          └─────────────┬─────────────┘
+                                        │
+     Stage 1 — all start in parallel    │
+  ┌──────────────┬──────────────┬───────┴──────┬──────────────┬──────────────┐
+  ▼              ▼              ▼              ▼              ▼              ▼
+┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐
+│ code-      │ │ test       │ │ security   │ │ e2e        │ │ image-     │ │ PR only:   │
+│ quality    │ │            │ │            │ │            │ │ budget     │ │            │
+│ • ESLint   │ │ • Jest +   │ │ • npm audit│ │ • Play-    │ │ • image    │ │ pr-        │
+│ • tsc      │ │   coverage │ │ • Snyk     │ │   wright   │ │   size     │ │ description│
+│ • Prettier │ │ • Bundle   │ │ • OWASP    │ │   (Chrome) │ │   budgets  │ │ diff-      │
+│            │ │   budget   │ │ • Wallet   │ │            │ │            │ │ coverage   │
+│            │ │ • Codecov  │ │   deps     │ │            │ │            │ │ (80% on    │
+│            │ │ • PR note  │ │   audit    │ │            │ │            │ │ changed)   │
+└─────┬──────┘ └─────┬──────┘ └────────────┘ └────────────┘ └────────────┘ └────────────┘
+      │              │
+      └──────┬───────┘   Stage 2 — needs code-quality + test
+             │
+      ┌──────┴───────────────────────┐
+      ▼                              ▼
+┌──────────────────┐        ┌──────────────────────────┐
+│ build            │        │ build-mainnet            │
+│ (Testnet)        │        │ PR into main only        │
+│ • next build     │        │ • next build, MAINNET env│
+└────────┬─────────┘        └──────────────────────────┘
+         │
+         ▼   Stage 3 — needs build
+┌──────────────────────────┐
+│ lighthouse               │
+│ • 90+ in all categories  │
+│ • Upload LHCI results    │
+└────────┬─────────────────┘
+         │
+         ▼
+┌───────────────────────────┐        ┌──────────────────────────────┐
+│ All required checks pass? │── NO ─▶│ PR shows failed checks       │
+└────────┬──────────────────┘        │ • Logs on the failed job     │
+         │ YES                       └──────────────────────────────┘
+         ▼
+┌──────────────────────────────┐
+│ Ready to merge               │
+│ (on main: badge-update.yml   │
+│  updates the coverage badge) │
+└──────────────────────────────┘
 ```
 
 ## Workflow Execution Timeline
 
+Typical pull request into `main`, from recent runs. Wall-clock total is **~10-15 minutes**,
+matching [WORKFLOWS.md](WORKFLOWS.md). The critical path is test → build → lighthouse, and a slow
+E2E run can also set the total.
+
 ```
-Time    Code Quality    Tests & Coverage    Build
-────────────────────────────────────────────────────
-0:00    ├─ Start        ├─ Start
-0:30    │  ESLint       │  Jest
-1:00    │  Prettier     │  Coverage
-1:30    │  TypeScript   │  Codecov
-2:00    ├─ Complete ✅  │  PR Comment
-2:30                    ├─ Complete ✅      ├─ Start
-3:00                                        │  Build
-4:00                                        │  Artifacts
-5:00                                        ├─ Complete ✅
-────────────────────────────────────────────────────
-Total: ~5 minutes (parallel execution)
+Min   0    1    2    3    4    5    6    7    8    9   10   11   12   13   14
+      │────│────│────│────│────│────│────│────│────│────│────│────│────│────│
+pr-description  ▏ (<1 min, PR only)
+image-budget    █ (~1 min)
+security        ██ (~1-2 min)
+e2e             ███···········  (~2-11 min)
+code-quality    ████  (~3.5-4 min)
+diff-coverage   ████  (~3-4 min, PR only)
+test            █████  (~4.5-5 min)
+build                █▉ (~1.5-2 min, after code-quality + test)
+build-mainnet        █▉ (~1.5-2 min, PR into main only)
+lighthouse             ███████·  (~4-8 min, after build)
+──────────────────────────────────────────────────────────────────────────────
+Total: ~10-15 minutes (parallel execution; critical path test → build → lighthouse)
 ```
 
 ## Job Dependencies
 
 ```
-                    ┌─────────────────┐
-                    │  code-quality   │
-                    │  (2-3 min)      │
-                    └────────┬────────┘
-                             │
-                    ┌────────▼────────┐
-                    │  test           │
-                    │  (3-5 min)      │
-                    └────────┬────────┘
-                             │
-                    ┌────────▼────────┐
-                    │  build          │
-                    │  (4-6 min)      │
-                    │  Depends on:    │
-                    │  • code-quality │
-                    │  • test         │
-                    └─────────────────┘
+ Independent (start immediately)        Gated
+ ────────────────────────────────       ─────────────────────────────────────────
+
+ code-quality ───────┐
+                     ├──▶ build (Testnet) ──────▶ lighthouse
+ test ───────────────┤
+                     └──▶ build-mainnet  (if: pull_request && base_ref == main)
+
+ security
+ e2e
+ image-budget
+ pr-description      (if: pull_request)
+ diff-coverage       (if: pull_request)
 ```
 
 ## Coverage Badge Workflow
@@ -293,7 +302,7 @@ Optimization Strategies
         │  └─ Speeds up dependency installation
         │
         ├─ Parallel Jobs
-        │  └─ Code Quality, Tests run simultaneously
+        │  └─ All stage-1 jobs run simultaneously; builds wait only on code-quality + test
         │
         ├─ Concurrency Control
         │  └─ Cancel previous runs on new push
@@ -302,7 +311,7 @@ Optimization Strategies
         │  └─ 1 day retention (saves storage)
         │
         └─ Node.js Version
-           └─ v20 (latest LTS)
+           └─ v22 (as pinned in ci.yml)
 ```
 
 ## Integration Points
@@ -393,6 +402,7 @@ CI Pipeline Passes
 
 ---
 
-**Architecture Version:** 1.0
-**Last Updated:** May 28, 2026
+**Architecture Version:** 1.1
 **Status:** Production Ready
+
+For when this document last changed, see its git history (`git log -- .github/CI-CD-ARCHITECTURE.md`).

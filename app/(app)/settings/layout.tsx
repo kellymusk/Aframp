@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { KeyRound, UserCircle } from 'lucide-react'
+import { KeyRound, ScrollText, UserCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const SETTINGS_LINKS = [
   { label: 'Profile', icon: UserCircle, href: '/settings' },
   { label: 'API Keys', icon: KeyRound, href: '/settings/api-keys' },
+  { label: 'Audit log', icon: ScrollText, href: '/settings/audit-log' },
 ]
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { safeSessionStorage } from '@/lib/safe-storage'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { WifiOff } from 'lucide-react'
@@ -72,7 +73,7 @@ export default function LoginPage() {
       const result = await signIn(email.trim(), password)
       if ('challenge_id' in result) {
         // #638: store challenge_id in sessionStorage instead of the URL
-        sessionStorage.setItem(CHALLENGE_SESSION_KEY, result.challenge_id)
+        safeSessionStorage.setItem(CHALLENGE_SESSION_KEY, result.challenge_id)
         router.push('/verify?flow=login')
       } else {
         router.replace(nextPath)
@@ -138,7 +139,15 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Password</Label>
+            <Link
+              href="/forgot-password"
+              className="text-primary text-xs font-medium hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
           <PasswordInput
             id="password"
             autoComplete="current-password"

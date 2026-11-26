@@ -233,7 +233,7 @@ describe('WithdrawPage', () => {
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '044' } })
     await user.type(screen.getByLabelText('Account number'), '123')
     await user.click(screen.getByRole('button', { name: 'Cash out' }))
-    expect(await screen.findByText('Account numbers are 10 digits.')).toBeInTheDocument()
+    expect(await screen.findByText('Nigerian accounts are 10 digits.')).toBeInTheDocument()
   })
 
   it('rejects an account number containing non-digit characters (#641)', async () => {
@@ -266,7 +266,7 @@ describe('WithdrawPage', () => {
     // and both block the submission.
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(
-      /Account numbers are 10 digits\.|Account number must contain digits only\./
+      /Nigerian accounts are 10 digits\.|Account number must contain digits only\./
     )
     expect(mockCreateWithdrawal).not.toHaveBeenCalled()
   })

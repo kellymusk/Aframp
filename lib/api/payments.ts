@@ -1,4 +1,4 @@
-import { request, type UUID } from './shared'
+import { request, withIdempotencyKey, type UUID } from './shared'
 
 export interface Wallet {
   id: UUID
@@ -33,7 +33,7 @@ export interface Payment {
   updated_at: string
 }
 
-export type PaymentRequestStatus = 'pending' | 'paid' | 'expired'
+export type PaymentRequestStatus = 'pending' | 'paid' | 'expired' | 'cancelled'
 
 export interface PaymentRequest {
   id: UUID
@@ -44,6 +44,8 @@ export interface PaymentRequest {
   amount_paid_stroops?: bigint
   asset: string
   memo: string
+  /** Business name shown to the customer on the public payment page. */
+  merchant_name?: string | null
   status: PaymentRequestStatus
   allow_partial?: boolean
   expires_at: string
@@ -101,7 +103,8 @@ export interface ApiKey {
 }
 
 export interface CreateApiKeyOptions {
-  scopes?: ApiKeyScope[]
+  /** At least one scope is required; never let the backend default to full access. */
+  scopes: ApiKeyScope[]
   /** ISO timestamp; omit or null for a key that never expires. */
   expiresAt?: string | null
 }
@@ -133,16 +136,15 @@ export function createPaymentRequest(
   expiresInSecs?: number,
   allowPartial = false
 ): Promise<PaymentRequest> {
-  return request<PaymentRequest>('/payment-requests', {
-    method: 'POST',
-    token,
-    body: {
-      amount_stroops: amountStroops,
-      ...(asset ? { asset } : {}),
-      ...(expiresInSecs ? { expires_in_secs: expiresInSecs } : {}),
-      ...(allowPartial ? { allow_partial: true } : {}),
-    },
-  })
+  const body = {
+    amount_stroops: amountStroops,
+    ...(asset ? { asset } : {}),
+    ...(expiresInSecs ? { expires_in_secs: expiresInSecs } : {}),
+    ...(allowPartial ? { allow_partial: true } : {}),
+  }
+  return withIdempotencyKey('/payment-requests', token, body, (idempotencyKey) =>
+    request<PaymentRequest>('/payment-requests', { method: 'POST', token, body, idempotencyKey })
+  )
 }
 
 export function listPaymentRequests(
@@ -151,6 +153,11 @@ export function listPaymentRequests(
   signal?: AbortSignal
 ): Promise<PaymentRequest[]> {
   return request<PaymentRequest[]>(`/payment-requests?limit=${limit}`, { token, signal })
+}
+
+/** Owner only, and only while the request is still pending. */
+export function cancelPaymentRequest(token: string, id: string): Promise<PaymentRequest> {
+  return request<PaymentRequest>(`/payment-requests/${id}/cancel`, { method: 'POST', token })
 }
 
 /** Deliberately public — a customer's wallet reads this without an account. */
@@ -165,15 +172,15 @@ export function createRefund(
   recipientAddress: string,
   reason?: string
 ): Promise<Refund> {
-  return request<Refund>(`/payments/${paymentId}/refund`, {
-    method: 'POST',
-    token,
-    body: {
-      amount_stroops: amountStroops,
-      recipient: recipientAddress,
-      ...(reason ? { reason } : {}),
-    },
-  })
+  const path = `/payments/${paymentId}/refund`
+  const body = {
+    amount_stroops: amountStroops,
+    recipient: recipientAddress,
+    ...(reason ? { reason } : {}),
+  }
+  return withIdempotencyKey(path, token, body, (idempotencyKey) =>
+    request<Refund>(path, { method: 'POST', token, body, idempotencyKey })
+  )
 }
 
 export function listRefunds(token: string, limit = 50, signal?: AbortSignal): Promise<Refund[]> {
@@ -187,16 +194,15 @@ export function createWithdrawal(
   accountNumber: string,
   asset = 'cNGN'
 ): Promise<Withdrawal> {
-  return request<Withdrawal>('/withdraw', {
-    method: 'POST',
-    token,
-    body: {
-      amount_stroops: amountStroops,
-      asset,
-      bank_code: bankCode,
-      account_number: accountNumber,
-    },
-  })
+  const body = {
+    amount_stroops: amountStroops,
+    asset,
+    bank_code: bankCode,
+    account_number: accountNumber,
+  }
+  return withIdempotencyKey('/withdraw', token, body, (idempotencyKey) =>
+    request<Withdrawal>('/withdraw', { method: 'POST', token, body, idempotencyKey })
+  )
 }
 
 export function listWithdrawals(
@@ -214,14 +220,18 @@ export function listApiKeys(token: string, signal?: AbortSignal): Promise<ApiKey
 export function createApiKey(
   token: string,
   name: string,
-  { scopes, expiresAt }: CreateApiKeyOptions = {}
+  options: CreateApiKeyOptions
 ): Promise<{ api_key: ApiKey; full_key: string }> {
+  const { scopes, expiresAt } = options ?? {}
+  if (!Array.isArray(scopes) || scopes.length === 0) {
+    throw new Error('createApiKey requires at least one scope')
+  }
   return request<{ api_key: ApiKey; full_key: string }>('/api-keys', {
     method: 'POST',
     token,
     body: {
       name,
-      ...(scopes ? { scopes } : {}),
+      scopes,
       ...(expiresAt ? { expires_at: expiresAt } : {}),
     },
   })
@@ -264,6 +274,7 @@ export const paymentsApi = {
   getBalances,
   listTransactions,
   createPaymentRequest,
+  cancelPaymentRequest,
   listPaymentRequests,
   getPaymentRequest,
   createRefund,

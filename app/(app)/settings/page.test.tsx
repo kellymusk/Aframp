@@ -30,6 +30,10 @@ jest.mock('@/lib/api', () => ({
   },
 }))
 
+jest.mock('@/components/active-sessions', () => ({
+  ActiveSessions: () => <div>Active Sessions</div>,
+}))
+
 // Mock the PushNotificationToggle component
 jest.mock('@/components/push-notification-toggle', () => ({
   PushNotificationToggle: () => <div>Push Notification Toggle</div>,

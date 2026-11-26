@@ -65,6 +65,31 @@ async function advance(ms: number) {
   })
 }
 
+describe('PaymentRequestPage merchant name', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    mockGetPaymentRequest.mockReset()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('shows which merchant is being paid', async () => {
+    mockGetPaymentRequest.mockResolvedValue(pendingRequest({ merchant_name: 'Ada Stores' }))
+    await renderPage()
+
+    expect(screen.getByText('Paying Ada Stores')).toBeInTheDocument()
+  })
+
+  it('omits the merchant line when the backend sends no name', async () => {
+    mockGetPaymentRequest.mockResolvedValue(pendingRequest({ merchant_name: null }))
+    await renderPage()
+
+    expect(screen.queryByText(/^Paying /)).not.toBeInTheDocument()
+  })
+})
+
 describe('PaymentRequestPage polling', () => {
   beforeEach(() => {
     jest.useFakeTimers()

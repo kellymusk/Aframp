@@ -4,6 +4,7 @@ import { headers } from 'next/headers'
 import { Atkinson_Hyperlegible } from 'next/font/google'
 import { ThemeProvider } from '@/components/theme-provider'
 import { SessionProvider } from '@/components/session-provider'
+import { InstallPromptBanner } from '@/components/pwa/install-prompt-banner'
 import './globals.css'
 
 // The Aframp brand typeface — picked for legibility at small sizes,
@@ -48,6 +49,7 @@ export default async function RootLayout({
           nonce={nonce}
         >
           <SessionProvider>{children}</SessionProvider>
+          <InstallPromptBanner />
         </ThemeProvider>
         <script
           nonce={nonce}
