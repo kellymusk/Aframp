@@ -1,5 +1,12 @@
 import type { Balance } from '@/lib/api'
-import { BANKS_BY_COUNTRY, type Bank, type BankCountry } from '@/lib/banks'
+import {
+  ACCOUNT_NUMBER_RULES,
+  BANKS_BY_COUNTRY,
+  getAccountNumberRule,
+  type AccountNumberRule,
+  type Bank,
+  type BankCountry,
+} from '@/lib/banks'
 import { formatStroops, isAmountMultipleOf } from '@/lib/money'
 
 /**
@@ -18,7 +25,8 @@ export interface WithdrawalAssetConfig {
   minimumStroops: bigint
   /** Smallest supported currency sub-unit, in stroops. */
   minimumPrecisionStroops: bigint
-  accountNumberLength: number
+  /** Default account-number rule for the country (per-code rules live in banks.ts). */
+  accountNumberRule: AccountNumberRule
 }
 
 /**
@@ -31,21 +39,21 @@ export const WITHDRAWAL_ASSET_CONFIG: Record<WithdrawalAsset, WithdrawalAssetCon
     country: 'Nigeria',
     minimumStroops: 500_000_000n,
     minimumPrecisionStroops: 100_000n,
-    accountNumberLength: 10,
+    accountNumberRule: ACCOUNT_NUMBER_RULES.Nigeria,
   },
   cKES: {
     asset: 'cKES',
     country: 'Kenya',
     minimumStroops: 100_000_000n,
     minimumPrecisionStroops: 100_000n,
-    accountNumberLength: 10,
+    accountNumberRule: ACCOUNT_NUMBER_RULES.Kenya,
   },
   cGHS: {
     asset: 'cGHS',
     country: 'Ghana',
     minimumStroops: 50_000_000n,
     minimumPrecisionStroops: 100_000n,
-    accountNumberLength: 10,
+    accountNumberRule: ACCOUNT_NUMBER_RULES.Ghana,
   },
 }
 
@@ -69,8 +77,12 @@ export function validateWithdrawal(
   }
   if (amount > available) return 'That is more than your available balance.'
   if (!bankCode) return 'Choose your bank.'
-  if (accountNumber.length !== config.accountNumberLength) {
-    return `Account numbers are ${config.accountNumberLength} digits.`
+  if (!getBankOptions(config.asset).some((bank) => bank.code === bankCode)) {
+    return `Choose a valid ${config.country} bank.`
+  }
+  const rule = getAccountNumberRule(config.country, bankCode)
+  if (accountNumber.length < rule.minLength || accountNumber.length > rule.maxLength) {
+    return rule.description
   }
   if (!/^\d+$/.test(accountNumber)) return 'Account number must contain digits only.'
   return null

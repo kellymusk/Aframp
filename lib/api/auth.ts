@@ -40,6 +40,8 @@ export interface Me {
   created_at: string
   merchant_id: UUID | null
   merchant_name: string | null
+  phone_number?: string | null
+  phone_verified?: boolean
   kyc_status?: KycStatus | null
 }
 
@@ -63,6 +65,20 @@ export interface ChangeEmailRequest {
 export interface ChangeEmailResponse {
   message: string
 }
+
+/** Phone change is a two-step OTP flow (current number, then new number).
+ * The backend contract lives in aframp-backend#1342; this client only calls
+ * the documented POST /me/phone endpoint through the /backend proxy. */
+export interface PhoneChangeChallenge {
+  challenge_id: UUID
+  expires_in_secs: number
+}
+
+export interface PhoneChangeResult {
+  message: string
+}
+
+export type PhoneChangeResponse = PhoneChangeChallenge | PhoneChangeResult
 
 export interface DeleteAccountResponse {
   message: string
@@ -137,6 +153,16 @@ export function changeEmail(token: string, newEmail: string): Promise<ChangeEmai
   })
 }
 
+/** Start a phone change (OTP to the current number), or submit an OTP code.
+ * A successful verification of the current number returns the next challenge;
+ * verifying the new number completes the change. */
+export function changePhone(
+  token: string,
+  body: { new_phone?: string; challenge_id?: string; code?: string }
+): Promise<PhoneChangeResponse> {
+  return request<PhoneChangeResponse>('/me/phone', { method: 'POST', token, body })
+}
+
 export function deleteAccount(token: string): Promise<DeleteAccountResponse> {
   return request<DeleteAccountResponse>('/me', { method: 'DELETE', token })
 }
@@ -171,6 +197,7 @@ export const authApi = {
   getMe,
   updateProfile,
   changeEmail,
+  changePhone,
   deleteAccount,
   registerPushSubscription,
   unregisterPushSubscription,

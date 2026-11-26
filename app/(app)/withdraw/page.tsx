@@ -21,7 +21,7 @@ import {
   validateWithdrawal,
   type WithdrawalAsset,
 } from '@/lib/withdraw'
-import { BANKS, type Bank } from '@/lib/banks'
+import { BANKS, getAccountNumberRule, type Bank } from '@/lib/banks'
 import { formatDateTime } from '@/lib/format-date'
 import {
   detectWithdrawalChanges,
@@ -192,6 +192,7 @@ export default function WithdrawPage() {
 
   const withdrawableAssets = useMemo(() => getWithdrawableAssets(balances ?? []), [balances])
   const config = getWithdrawalAssetConfig(asset)
+  const accountRule = getAccountNumberRule(config.country, bankCode)
   const available = balances?.find((balance) => balance.asset === asset)?.available ?? 0n
   const stroops = parseAmountToStroops(amount)
 
@@ -416,13 +417,17 @@ export default function WithdrawPage() {
             <Input
               id="account"
               inputMode="numeric"
-              maxLength={config.accountNumberLength}
-              placeholder={`${config.accountNumberLength}-digit account number`}
+              maxLength={accountRule.maxLength}
+              placeholder={
+                accountRule.minLength === accountRule.maxLength
+                  ? `${accountRule.minLength}-digit account number`
+                  : `${accountRule.minLength}–${accountRule.maxLength}-digit reference`
+              }
               value={accountNumber}
-              disabled={available === 0n}
+              disabled={available === 0n || !bankCode}
               onChange={(event) =>
                 setAccountNumber(
-                  event.target.value.replace(/\D/g, '').slice(0, config.accountNumberLength)
+                  event.target.value.replace(/\D/g, '').slice(0, accountRule.maxLength)
                 )
               }
             />
