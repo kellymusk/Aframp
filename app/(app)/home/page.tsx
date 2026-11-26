@@ -15,11 +15,15 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { OnboardingChecklist } from '@/components/onboarding/onboarding-checklist'
 import { PushNotificationOptIn } from '@/components/push-notification-opt-in'
 import { api, type Balance, type Payment, type PaymentRequest } from '@/lib/api'
+import { estimateAvailableNgn, fetchNgnRates, type NgnRates } from '@/lib/valuation'
 import { useAuthenticatedSession } from '@/components/session-provider'
 
 export default function HomePage() {
   const { token } = useAuthenticatedSession()
   const [balances, setBalances] = useState<Balance[] | null>(null)
+  const [ngnRates, setNgnRates] = useState<NgnRates | null>(null)
+  const [ratesError, setRatesError] = useState(false)
+  const [ratesAttempt, setRatesAttempt] = useState(0)
   const [payments, setPayments] = useState<Payment[]>([])
   const [openRequests, setOpenRequests] = useState<PaymentRequest[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -51,6 +55,21 @@ export default function HomePage() {
     return () => controller.abort()
   }, [load])
 
+  useEffect(() => {
+    const controller = new AbortController()
+    setNgnRates(null)
+    setRatesError(null)
+
+    void fetchNgnRates(controller.signal)
+      .then(setNgnRates)
+      .catch((cause: unknown) => {
+        if (cause instanceof DOMException && cause.name === 'AbortError') return
+        setRatesError(true)
+      })
+
+    return () => controller.abort()
+  }, [ratesAttempt])
+
   if (error) return <ErrorState message={error} onRetry={() => void load()} />
   if (!balances) {
     return (
@@ -59,6 +78,16 @@ export default function HomePage() {
       </div>
     )
   }
+
+  const estimatedNgn = ngnRates ? estimateAvailableNgn(balances, ngnRates) : null
+  const formattedEstimate =
+    estimatedNgn === null
+      ? null
+      : new Intl.NumberFormat('en-NG', {
+          style: 'currency',
+          currency: 'NGN',
+          maximumFractionDigits: 0,
+        }).format(estimatedNgn)
 
   return (
     <div>
@@ -85,7 +114,32 @@ export default function HomePage() {
 
       <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
         <section className="bg-panel border-hairline rounded-2xl border p-5">
-          <p className="text-dim text-xs">Available to cash out</p>
+          <div className="mb-5" aria-live="polite">
+            <p className="text-dim text-xs">Estimated total (NGN)</p>
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <p className="text-4xl font-bold tracking-tight tabular-nums">
+                {formattedEstimate ?? (ratesError ? 'Unavailable' : 'Loading estimate…')}
+              </p>
+              {ratesError && (
+                <button
+                  type="button"
+                  className="text-pos text-sm font-medium hover:underline"
+                  onClick={() => setRatesAttempt((attempt) => attempt + 1)}
+                >
+                  Retry
+                </button>
+              )}
+            </div>
+            <p className="text-dim mt-1 text-xs">
+              {ratesError
+                ? 'Market rates are temporarily unavailable.'
+                : estimatedNgn === null && ngnRates
+                  ? 'An available asset could not be valued.'
+                  : 'Approximate market value; pending balances are excluded.'}
+            </p>
+          </div>
+
+          <p className="text-dim mb-1 text-xs">Available balances</p>
           {balances.length === 0 ? (
             <p className="mt-1 text-4xl font-bold tracking-tight tabular-nums">
               0.00 <span className="text-dim text-base font-medium">XLM</span>
