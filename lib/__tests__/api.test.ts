@@ -546,7 +546,7 @@ describe('api', () => {
     const keyOf = (call: number) => fetchMock.mock.calls[call][1].headers['Idempotency-Key']
 
     it('sends an Idempotency-Key on withdrawals, sends, refunds and charges', async () => {
-      fetchMock.mockImplementation(async () => jsonResponse({}))
+      fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({})))
       await api.createWithdrawal('tok-a', 1n, '044', '0123456789')
       await api.createRemittance('tok-a', 'GDEST', 2n)
       await api.createRefund('tok-a', 'pay-1', 3n, 'GDEST')
@@ -586,7 +586,7 @@ describe('api', () => {
 
   describe('saved contacts', () => {
     it('lists, creates, updates and deletes contacts through /contacts', async () => {
-      fetchMock.mockImplementation(async () => jsonResponse({}))
+      fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({})))
       await api.listSavedContacts('tok')
       await api.createSavedContact('tok', { name: 'Ada', address: 'GDEST' })
       await api.updateSavedContact('tok', 'c-1', { name: 'Ada L.' })

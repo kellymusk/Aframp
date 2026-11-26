@@ -168,7 +168,13 @@ describe('country and mobile-money account number rules', () => {
 
   it.each(cases)('%s / %s validates %s', (asset, bankCode, accountNumber, expected) => {
     expect(
-      validateWithdrawal(500_000_000n, getWithdrawalAssetConfig(asset), 1_000_000_000n, bankCode, accountNumber)
+      validateWithdrawal(
+        500_000_000n,
+        getWithdrawalAssetConfig(asset),
+        1_000_000_000n,
+        bankCode,
+        accountNumber
+      )
     ).toBe(expected)
   })
 

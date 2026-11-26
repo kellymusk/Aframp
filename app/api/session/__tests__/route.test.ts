@@ -39,12 +39,15 @@ describe('POST /api/session', () => {
 
     expect(mockCookieSet).toHaveBeenCalledWith(
       'aframp.session',
-      JSON.stringify(sessionPayload),
+      expect.any(String),
       expect.objectContaining({
         httpOnly: true,
         sameSite: 'strict',
       })
     )
+    // The route stamps the session with when the cookie expires.
+    const stored = JSON.parse(mockCookieSet.mock.calls[0][1] as string) as Record<string, unknown>
+    expect(stored).toEqual({ ...sessionPayload, expiresAt: expect.any(Number) })
   })
 
   it('does not write to localStorage — token is in the httpOnly cookie only', async () => {

@@ -49,9 +49,7 @@ describe('readContacts / writeContacts', () => {
 
   it('supplies a string name when a stored contact has a missing or invalid name', () => {
     localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify([{ address: ADDRESS }]))
-    expect(readContacts()).toEqual([
-      { name: 'GBSN2Z...HQHA', address: ADDRESS },
-    ])
+    expect(readContacts()).toEqual([{ name: 'GBSN2Z...HQHA', address: ADDRESS }])
   })
 
   it('swallows storage write failures', () => {

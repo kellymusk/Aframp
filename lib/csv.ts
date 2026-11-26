@@ -11,8 +11,10 @@ export function toCsv(header: string[], rows: (string | number | bigint | null)[
 
 function escapeCell(value: string | number | bigint | null): string {
   let text = value === null ? '' : String(value)
+  // Whitespace before the formula is kept, quoted so a spreadsheet doesn't trim it.
+  const hiddenFormula = typeof value === 'string' && /^[\t\r\n ]+[=+\-@]/.test(text)
   if (typeof value === 'string' && /^[\t\r\n ]*[=+\-@]/.test(text)) text = `'${text}`
-  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+  return hiddenFormula || /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
 /** Starts a browser download of `content` as a CSV file. */

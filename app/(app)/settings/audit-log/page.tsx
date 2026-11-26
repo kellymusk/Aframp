@@ -120,7 +120,10 @@ export default function AuditLogPage() {
             {events.map((event, index) => {
               const badge = eventBadge(event)
               return (
-                <li key={event.id ?? `${event.created_at ?? 'event'}-${index}`} className="px-5 py-4">
+                <li
+                  key={event.id ?? `${event.created_at ?? 'event'}-${index}`}
+                  className="px-5 py-4"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
                       <p className="font-medium text-white">{eventTitle(event)}</p>

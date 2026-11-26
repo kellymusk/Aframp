@@ -42,8 +42,7 @@ export default function KycPage() {
 
       <div className="mt-6 max-w-xl space-y-5">
         <p className="text-sm">
-          Status:{' '}
-          <span className="font-semibold capitalize">{status ?? 'not started'}</span>
+          Status: <span className="font-semibold capitalize">{status ?? 'not started'}</span>
         </p>
         <Alert>
           <AlertDescription>{message}</AlertDescription>
