@@ -84,6 +84,18 @@ export interface DeleteAccountResponse {
   message: string
 }
 
+/** One signed-in device, as listed by `GET /sessions`. */
+export interface DeviceSession {
+  id: UUID
+  /** Browser or app the session was opened from, when the backend could tell. */
+  device: string | null
+  ip: string | null
+  created_at: string
+  last_seen_at: string
+  /** True for the session making the request, which can't be revoked from here. */
+  current?: boolean
+}
+
 export interface PushSubscriptionRequest {
   endpoint: string
   p256dh: string
@@ -107,11 +119,18 @@ export function signup(
   email: string,
   password: string,
   name: string,
-  phoneNumber: string
+  phoneNumber: string,
+  acceptedTermsVersion: string
 ): Promise<OtpChallengeResponse> {
   return request<OtpChallengeResponse>('/signup', {
     method: 'POST',
-    body: { email, password, name, phone_number: phoneNumber },
+    body: {
+      email,
+      password,
+      name,
+      phone_number: phoneNumber,
+      accepted_terms_version: acceptedTermsVersion,
+    },
   })
 }
 
@@ -121,12 +140,41 @@ export function login(email: string, password: string): Promise<LoginResult> {
   return request<LoginResult>('/login', { method: 'POST', body: { email, password } })
 }
 
+/**
+ * Starts a password reset. The backend answers the same way whether or not the
+ * email has an account, so this never reveals which emails are registered.
+ */
+export function requestPasswordReset(email: string): Promise<OtpChallengeResponse> {
+  return request<OtpChallengeResponse>('/password-reset', { method: 'POST', body: { email } })
+}
+
+/** Completes a reset with the OTP; the backend signs out existing sessions. */
+export function confirmPasswordReset(
+  challengeId: string,
+  code: string,
+  newPassword: string
+): Promise<void> {
+  return request<void>('/password-reset/confirm', {
+    method: 'POST',
+    body: { challenge_id: challengeId, code, new_password: newPassword },
+  })
+}
+
 /** The only call that ever turns a challenge into a session. */
 export function verifyOtp(challengeId: string, code: string): Promise<AuthResponse> {
   return request<AuthResponse>('/verify-otp', {
     method: 'POST',
     body: { challenge_id: challengeId, code },
   })
+}
+
+export function listSessions(token: string, signal?: AbortSignal): Promise<DeviceSession[]> {
+  return request<DeviceSession[]>('/sessions', { token, signal })
+}
+
+/** Signs that device out immediately; its token stops working. */
+export function revokeSession(token: string, id: UUID): Promise<void> {
+  return request<void>(`/sessions/${id}`, { method: 'DELETE', token })
 }
 
 export function logout(token?: string): Promise<void> {
@@ -193,6 +241,10 @@ export const authApi = {
   signup,
   login,
   verifyOtp,
+  requestPasswordReset,
+  confirmPasswordReset,
+  listSessions,
+  revokeSession,
   logout,
   getMe,
   updateProfile,

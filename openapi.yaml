@@ -17,7 +17,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, password, name]
+              required: [email, password, name, accepted_terms_version]
               properties:
                 email:
                   type: string
@@ -26,6 +26,9 @@ paths:
                   type: string
                 name:
                   type: string
+                accepted_terms_version:
+                  type: string
+                  description: Version of the terms and privacy policy the merchant accepted. Signup without it is rejected with 400.
       responses:
         '200':
           description: Authenticated user and merchant session
@@ -190,6 +193,70 @@ paths:
       responses:
         '200':
           description: Payment request detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentRequest'
+  /sessions:
+    get:
+      summary: List the signed-in devices for this account
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Active sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, created_at, last_seen_at]
+                  properties:
+                    id:
+                      type: string
+                    device:
+                      type: string
+                      nullable: true
+                    ip:
+                      type: string
+                      nullable: true
+                    created_at:
+                      type: string
+                      format: date-time
+                    last_seen_at:
+                      type: string
+                      format: date-time
+                    current:
+                      type: boolean
+  /sessions/{id}:
+    delete:
+      summary: Sign a device out; its token stops working immediately
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Session revoked
+  /payment-requests/{id}/cancel:
+    post:
+      summary: Cancel a pending payment request (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request, now with status cancelled
           content:
             application/json:
               schema:
@@ -460,7 +527,7 @@ components:
           type: string
         status:
           type: string
-          enum: [pending, paid, expired]
+          enum: [pending, paid, expired, cancelled]
         allow_partial:
           type: boolean
         expires_at:

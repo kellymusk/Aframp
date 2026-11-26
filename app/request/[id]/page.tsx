@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import QRCode from 'react-qr-code'
-import { Check, Clock, Copy, Share2, TriangleAlert } from 'lucide-react'
+import { Ban, Check, Clock, Copy, Share2, TriangleAlert } from 'lucide-react'
 import { AframpMark } from '@/components/brand/aframp-mark'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -11,6 +11,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
 import { api, ApiError, type PaymentRequest } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
+import { useOptionalSession } from '@/components/session-provider'
 
 /** The backend confirms a deposit within one Horizon poll cycle (60s default). */
 const POLL_INTERVAL_MS = 3000
@@ -144,6 +145,22 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
   const [request, setRequest] = useState<PaymentRequest | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [remaining, setRemaining] = useState(0)
+  const session = useOptionalSession()?.session ?? null
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+
+  const cancelRequest = async () => {
+    if (!session) return
+    setCancelling(true)
+    setCancelError(null)
+    try {
+      setRequest(await api.cancelPaymentRequest(session.token, id))
+    } catch (cause) {
+      setCancelError(cause instanceof Error ? cause.message : 'Could not cancel this request')
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -237,6 +254,7 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
   const paidRatio =
     request.amount_stroops > 0n ? Number((paidAmount * 100n) / request.amount_stroops) : 0
   const hasPartialPayment = request.allow_partial || paidAmount > 0n
+  const isOwner = !!session && session.merchantId === request.merchant_id
 
   if (request.status === 'paid') {
     return (
@@ -251,6 +269,27 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
         <Button asChild size="lg" className="w-full">
           <Link href="/charge">New charge</Link>
         </Button>
+      </main>
+    )
+  }
+
+  if (request.status === 'cancelled') {
+    return (
+      <main className="font-brand mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-6 px-6 text-center">
+        <div className="bg-muted text-muted-foreground flex size-20 items-center justify-center rounded-full">
+          <Ban className="size-10" aria-hidden />
+        </div>
+        <div className="space-y-1">
+          <h1 className="font-display text-2xl font-semibold tracking-tight">Request cancelled</h1>
+          <p className="text-muted-foreground text-sm">
+            This request for {amount} was cancelled. Please don&apos;t pay it.
+          </p>
+        </div>
+        {session && (
+          <Button asChild size="lg" className="w-full">
+            <Link href="/charge">Start a new charge</Link>
+          </Button>
+        )}
       </main>
     )
   }
@@ -356,6 +395,25 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
         <Clock className="size-4" aria-hidden />
         {remaining > 0 ? `Expires in ${formatCountdown(remaining)}` : 'Expiring…'}
       </p>
+
+      {isOwner && (
+        <div className="space-y-2">
+          {cancelError && (
+            <Alert variant="destructive">
+              <AlertDescription>{cancelError}</AlertDescription>
+            </Alert>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={cancelling}
+            onClick={() => void cancelRequest()}
+          >
+            {cancelling ? 'Cancelling…' : 'Cancel request'}
+          </Button>
+        </div>
+      )}
     </main>
   )
 }

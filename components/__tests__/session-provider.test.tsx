@@ -187,10 +187,22 @@ describe('SessionProvider', () => {
 
     let returned: OtpChallengeResponse | undefined
     await act(async () => {
-      returned = await result.current.signUp('new@example.com', 'pw', 'New Co', '08012345678')
+      returned = await result.current.signUp(
+        'new@example.com',
+        'pw',
+        'New Co',
+        '08012345678',
+        'v1'
+      )
     })
 
-    expect(mockApi.signup).toHaveBeenCalledWith('new@example.com', 'pw', 'New Co', '08012345678')
+    expect(mockApi.signup).toHaveBeenCalledWith(
+      'new@example.com',
+      'pw',
+      'New Co',
+      '08012345678',
+      'v1'
+    )
     expect(returned).toEqual(challenge)
     expect(result.current.session).toBeNull()
   })

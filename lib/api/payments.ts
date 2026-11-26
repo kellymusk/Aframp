@@ -33,7 +33,7 @@ export interface Payment {
   updated_at: string
 }
 
-export type PaymentRequestStatus = 'pending' | 'paid' | 'expired'
+export type PaymentRequestStatus = 'pending' | 'paid' | 'expired' | 'cancelled'
 
 export interface PaymentRequest {
   id: UUID
@@ -153,6 +153,11 @@ export function listPaymentRequests(
   return request<PaymentRequest[]>(`/payment-requests?limit=${limit}`, { token, signal })
 }
 
+/** Owner only, and only while the request is still pending. */
+export function cancelPaymentRequest(token: string, id: string): Promise<PaymentRequest> {
+  return request<PaymentRequest>(`/payment-requests/${id}/cancel`, { method: 'POST', token })
+}
+
 /** Deliberately public — a customer's wallet reads this without an account. */
 export function getPaymentRequest(id: string, signal?: AbortSignal): Promise<PaymentRequest> {
   return request<PaymentRequest>(`/payment-requests/${id}`, { signal })
@@ -264,6 +269,7 @@ export const paymentsApi = {
   getBalances,
   listTransactions,
   createPaymentRequest,
+  cancelPaymentRequest,
   listPaymentRequests,
   getPaymentRequest,
   createRefund,

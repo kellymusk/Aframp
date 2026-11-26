@@ -41,7 +41,8 @@ interface SessionContextValue {
     email: string,
     password: string,
     name: string,
-    phoneNumber: string
+    phoneNumber: string,
+    acceptedTermsVersion: string
   ) => Promise<OtpChallengeResponse>
   completeOtp: (challengeId: string, code: string) => Promise<void>
   signOut: () => Promise<void>
@@ -144,8 +145,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   )
 
   const signUp = useCallback(
-    (email: string, password: string, name: string, phoneNumber: string) => {
-      return api.signup(email, password, name, phoneNumber)
+    (
+      email: string,
+      password: string,
+      name: string,
+      phoneNumber: string,
+      acceptedTermsVersion: string
+    ) => {
+      return api.signup(email, password, name, phoneNumber, acceptedTermsVersion)
     },
     []
   )
@@ -268,6 +275,11 @@ export function useSession() {
   const context = useContext(SessionContext)
   if (!context) throw new Error('useSession must be used inside <SessionProvider>')
   return context
+}
+
+/** Like `useSession`, but `null` outside a provider. For public pages a signed-in merchant may also open. */
+export function useOptionalSession() {
+  return useContext(SessionContext)
 }
 
 export function useAuthenticatedSession(): Session {

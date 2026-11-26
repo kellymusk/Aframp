@@ -96,13 +96,15 @@ describe('SignupPage', () => {
     await user.type(screen.getByLabelText(/phone number/i), '08011122233')
     await user.type(screen.getByLabelText(/^password$/i), 'verysecret')
     await user.type(screen.getByLabelText(/confirm password/i), 'verysecret')
+    await user.click(screen.getByRole('checkbox', { name: /terms of service/i }))
     await user.click(screen.getByRole('button', { name: /create account/i }))
 
     expect(signUp).toHaveBeenCalledWith(
       'hello@acme.com',
       'verysecret',
       'Acme Pay',
-      '+2348011122233'
+      '+2348011122233',
+      'v1'
     )
     expect(signUp).toHaveBeenCalledTimes(1)
     // challenge_id must be in sessionStorage, NOT in the URL
@@ -110,6 +112,29 @@ describe('SignupPage', () => {
     expect(push).toHaveBeenCalledWith('/verify?flow=signup')
     expect(push).not.toHaveBeenCalledWith(expect.stringContaining('challenge_id'))
     expect(replace).not.toHaveBeenCalledWith('/charge')
+  })
+
+  it('requires accepting the terms and privacy policy before creating an account', async () => {
+    const user = userEvent.setup()
+    render(<SignupPage />)
+
+    await user.type(screen.getByLabelText(/business name/i), 'Acme Pay')
+    await user.type(screen.getByLabelText(/email/i), 'hello@acme.com')
+    await user.type(screen.getByLabelText(/phone number/i), '08011122233')
+    await user.type(screen.getByLabelText(/^password$/i), 'verysecret')
+    await user.type(screen.getByLabelText(/confirm password/i), 'verysecret')
+    await user.click(screen.getByRole('button', { name: /create account/i }))
+
+    expect(screen.getByText(/accept the terms of service/i)).toBeInTheDocument()
+    expect(signUp).not.toHaveBeenCalled()
+    expect(screen.getByRole('link', { name: /terms of service/i })).toHaveAttribute(
+      'href',
+      '/terms'
+    )
+    expect(screen.getByRole('link', { name: /privacy policy/i })).toHaveAttribute(
+      'href',
+      '/privacy'
+    )
   })
 
   it('displays a backend error when account creation fails', async () => {
@@ -122,6 +147,7 @@ describe('SignupPage', () => {
     await user.type(screen.getByLabelText(/phone number/i), '08011122233')
     await user.type(screen.getByLabelText(/^password$/i), 'verysecret')
     await user.type(screen.getByLabelText(/confirm password/i), 'verysecret')
+    await user.click(screen.getByRole('checkbox', { name: /terms of service/i }))
     await user.click(screen.getByRole('button', { name: /create account/i }))
 
     expect(await screen.findByText('Email already in use')).toBeInTheDocument()
@@ -137,6 +163,7 @@ describe('SignupPage', () => {
     await user.type(screen.getByLabelText(/phone number/i), '08011122233')
     await user.type(screen.getByLabelText(/^password$/i), 'verysecret')
     await user.type(screen.getByLabelText(/confirm password/i), 'verysecret')
+    await user.click(screen.getByRole('checkbox', { name: /terms of service/i }))
     await user.click(screen.getByRole('button', { name: /create account/i }))
 
     expect(await screen.findByText('Network unavailable')).toBeInTheDocument()

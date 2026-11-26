@@ -43,6 +43,15 @@ describe('LoginPage', () => {
     expect(await axe(container)).toHaveNoViolations()
   })
 
+  it('links to the password reset page', () => {
+    render(<LoginPage />)
+
+    expect(screen.getByRole('link', { name: /forgot password/i })).toHaveAttribute(
+      'href',
+      '/forgot-password'
+    )
+  })
+
   it('shows a validation message when required fields are empty', async () => {
     const user = userEvent.setup()
     render(<LoginPage />)
