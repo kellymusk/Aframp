@@ -18,6 +18,8 @@ import {
   getVerifyPath,
 } from '@/lib/payment-intent'
 
+import { getPasswordStrength, isCommonPassword, MIN_PASSWORD_STRENGTH } from '@/lib/password'
+
 const MIN_PASSWORD_LENGTH = 8
 
 export default function SignupPage() {
@@ -69,8 +71,20 @@ function SignupForm() {
       return
     }
 
+    if (getPasswordStrength(password) < MIN_PASSWORD_STRENGTH) {
+      setError('Choose a stronger password with a mix of character types.')
+      setSubmitting(false)
+      return
+    }
+
     setSubmitting(true)
     try {
+      if (await isCommonPassword(password)) {
+        setError('Choose a password that has not appeared in known data breaches.')
+        setSubmitting(false)
+        return
+      }
+
       const challenge = await signUp(email.trim(), password, name.trim(), phone.trim())
       router.push(getVerifyPath(challenge.challenge_id, 'signup', intent))
     } catch (cause) {
@@ -148,7 +162,7 @@ function SignupForm() {
             onChange={(event) => setPassword(event.target.value)}
           />
           <p className="text-muted-foreground text-xs">
-            At least {MIN_PASSWORD_LENGTH} characters.
+            At least {MIN_PASSWORD_LENGTH} characters with a mix of character types.
           </p>
         </div>
 

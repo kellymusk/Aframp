@@ -5,6 +5,7 @@ import SignupPage from './page'
 import { useSession } from '@/components/session-provider'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ApiError } from '@/lib/api'
+import { isCommonPassword } from '@/lib/password'
 
 jest.mock('@/components/session-provider', () => ({
   useSession: jest.fn(),
@@ -18,6 +19,11 @@ jest.mock('next/navigation', () => ({
 function paramsWith(entries: Record<string, string>) {
   return { get: (key: string) => entries[key] ?? null }
 }
+
+jest.mock('@/lib/password', () => ({
+  ...jest.requireActual('@/lib/password'),
+  isCommonPassword: jest.fn(),
+}))
 
 describe('SignupPage', () => {
   const replace = jest.fn()
@@ -36,6 +42,7 @@ describe('SignupPage', () => {
       signIn: jest.fn(),
       signUp,
     })
+    ;(isCommonPassword as jest.Mock).mockReset().mockResolvedValue(false)
   })
 
   it('renders an accessible sign-up form', async () => {
@@ -67,10 +74,15 @@ describe('SignupPage', () => {
     await user.type(screen.getByLabelText(/business name/i), 'Acme Pay')
     await user.type(screen.getByLabelText(/email/i), 'hello@acme.com')
     await user.type(screen.getByLabelText(/phone number/i), '08011122233')
-    await user.type(screen.getByLabelText(/password/i), 'verysecret')
+    await user.type(screen.getByLabelText(/password/i), 'V3ry$ecret!Passphrase')
     await user.click(screen.getByRole('button', { name: /create account/i }))
 
-    expect(signUp).toHaveBeenCalledWith('hello@acme.com', 'verysecret', 'Acme Pay', '08011122233')
+    expect(signUp).toHaveBeenCalledWith(
+      'hello@acme.com',
+      'V3ry$ecret!Passphrase',
+      'Acme Pay',
+      '08011122233'
+    )
     expect(signUp).toHaveBeenCalledTimes(1)
     expect(push).toHaveBeenCalledWith('/verify?challenge_id=chal-456&flow=signup')
     expect(replace).not.toHaveBeenCalledWith('/charge')
@@ -105,8 +117,43 @@ describe('SignupPage', () => {
     await user.type(screen.getByLabelText(/password/i), 'short')
     await user.click(screen.getByRole('button', { name: /create account/i }))
 
+    expect(screen.getByText('Use at least 8 characters for your password.')).toBeInTheDocument()
+    expect(signUp).not.toHaveBeenCalled()
+  })
+
+  it.each(['bbbbbbbb', 'abcdefgh'])(
+    'rejects weak passwords before calling the API: %s',
+    async (password) => {
+      const user = userEvent.setup()
+      render(<SignupPage />)
+
+      await user.type(screen.getByLabelText(/business name/i), 'Acme Pay')
+      await user.type(screen.getByLabelText(/email/i), 'hello@acme.com')
+      await user.type(screen.getByLabelText(/phone number/i), '08011122233')
+      await user.type(screen.getByLabelText(/password/i), password)
+      await user.click(screen.getByRole('button', { name: /create account/i }))
+
+      expect(
+        screen.getByText('Choose a stronger password with a mix of character types.')
+      ).toBeInTheDocument()
+      expect(signUp).not.toHaveBeenCalled()
+      expect(isCommonPassword).not.toHaveBeenCalled()
+    }
+  )
+
+  it('rejects passwords found in known data breaches before calling the API', async () => {
+    const user = userEvent.setup()
+    ;(isCommonPassword as jest.Mock).mockResolvedValueOnce(true)
+    render(<SignupPage />)
+
+    await user.type(screen.getByLabelText(/business name/i), 'Acme Pay')
+    await user.type(screen.getByLabelText(/email/i), 'hello@acme.com')
+    await user.type(screen.getByLabelText(/phone number/i), '08011122233')
+    await user.type(screen.getByLabelText(/password/i), 'V3ry$ecret!Passphrase')
+    await user.click(screen.getByRole('button', { name: /create account/i }))
+
     expect(
-      screen.getByText('Use at least 8 characters for your password.')
+      await screen.findByText('Choose a password that has not appeared in known data breaches.')
     ).toBeInTheDocument()
     expect(signUp).not.toHaveBeenCalled()
   })
@@ -117,7 +164,7 @@ describe('SignupPage', () => {
 
     await user.type(screen.getByLabelText(/business name/i), 'Acme Pay')
     await user.type(screen.getByLabelText(/email/i), 'hello@acme.com')
-    await user.type(screen.getByLabelText(/password/i), 'verysecret')
+    await user.type(screen.getByLabelText(/password/i), 'V3ry$ecret!Passphrase')
     await user.click(screen.getByRole('button', { name: /create account/i }))
 
     expect(
@@ -134,7 +181,7 @@ describe('SignupPage', () => {
     await user.type(screen.getByLabelText(/business name/i), 'Acme Pay')
     await user.type(screen.getByLabelText(/email/i), 'hello@acme.com')
     await user.type(screen.getByLabelText(/phone number/i), '08011122233')
-    await user.type(screen.getByLabelText(/password/i), 'verysecret')
+    await user.type(screen.getByLabelText(/password/i), 'V3ry$ecret!Passphrase')
     await user.click(screen.getByRole('button', { name: /create account/i }))
 
     expect(await screen.findByText('No connection')).toBeInTheDocument()
@@ -149,7 +196,7 @@ describe('SignupPage', () => {
     await user.type(screen.getByLabelText(/business name/i), 'Acme Pay')
     await user.type(screen.getByLabelText(/email/i), 'hello@acme.com')
     await user.type(screen.getByLabelText(/phone number/i), '08011122233')
-    await user.type(screen.getByLabelText(/password/i), 'verysecret')
+    await user.type(screen.getByLabelText(/password/i), 'V3ry$ecret!Passphrase')
     await user.click(screen.getByRole('button', { name: /create account/i }))
 
     expect(await screen.findByText('Email already in use')).toBeInTheDocument()

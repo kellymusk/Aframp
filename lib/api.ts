@@ -23,11 +23,9 @@ const BASE_URL = '/backend'
 
 /**
  * Every backend wire field carrying a large integer must be listed here.
- * JSON.parse would silently round values past 2^53, so keep this set in sync
- * with the field-name alternatives in parseWithBigInts' pre-parse regex.
- *
  * Amount fields are `i64` on the wire. JSON.parse would silently round anything
- * past 2^53, so these keys are re-quoted before parsing and revived as bigint.
+ * past 2^53, so parseWithBigInts parses the JSON structure and preserves these
+ * integer tokens before conversion to Number is possible.
  *
  * **Every one of these is denominated in stroops, never in whole asset units.**
  * 1 unit = 10,000,000 stroops (`STROOPS_PER_UNIT` in lib/money.ts), so
@@ -414,28 +412,179 @@ export interface PushSubscriptionStatus {
   enabled: boolean
 }
 
+const BIGINT_OBJECT_KEY = '__bigint'
+
 /**
- * Re-quotes large integer values before JSON.parse can round them, then revives
- * registered fields as bigint. When adding a key to BIGINT_KEYS, also add it
- * to the field-name alternatives in this regex; see lib/__tests__/api.test.ts.
+ * Parses JSON without passing numeric wire values through Number first.
+ * Registered property values and tagged bigint objects are revived exactly.
  */
 export function parseWithBigInts<T>(text: string): T {
-  const quoted = text.replace(/"(amount_stroops|available|pending|fee_stroops|network_fee_stroops|total_stroops)"\s*:\s*(-?\d+)/g, '"$1":"$2"')
-  return JSON.parse(quoted, (key, value) =>
-    BIGINT_KEYS.has(key) && typeof value === 'string' ? BigInt(value) : value
-  ) as T
+  let position = 0
+
+  function skipWhitespace(): void {
+    while (/[\s]/.test(text[position] ?? '\0')) position++
+  }
+
+  function parseString(): string {
+    const start = position
+    position++
+    let escaped = false
+    for (; position < text.length; position++) {
+      const char = text[position]
+      if (escaped) {
+        escaped = false
+      } else if (char === '\\') {
+        escaped = true
+      } else if (char === '"') {
+        position++
+        return JSON.parse(text.slice(start, position)) as string
+      }
+    }
+    throw new SyntaxError('Unterminated JSON string')
+  }
+
+  function parseNumber(key?: string): unknown {
+    const start = position
+    while (/[-+\d.eE]/.test(text[position] ?? '\0')) position++
+    const raw = text.slice(start, position)
+    if (key && BIGINT_KEYS.has(key) && /^-?\d+$/.test(raw)) return BigInt(raw)
+    return JSON.parse(raw) as number
+  }
+
+  function parseValue(key?: string): unknown {
+    skipWhitespace()
+    const char = text[position]
+    if (char === '"') return parseString()
+    if (char === '{') return parseObject()
+    if (char === '[') return parseArray()
+    if (text.startsWith('true', position)) {
+      position += 4
+      return true
+    }
+    if (text.startsWith('false', position)) {
+      position += 5
+      return false
+    }
+    if (text.startsWith('null', position)) {
+      position += 4
+      return null
+    }
+    if (char === '-' || /\d/.test(char ?? '')) return parseNumber(key)
+    throw new SyntaxError(`Unexpected JSON token at position ${position}`)
+  }
+
+  function parseArray(): unknown[] {
+    const result: unknown[] = []
+    position++
+    skipWhitespace()
+    if (text[position] === ']') {
+      position++
+      return result
+    }
+    while (true) {
+      result.push(parseValue())
+      skipWhitespace()
+      if (text[position] === ']') {
+        position++
+        return result
+      }
+      if (text[position] !== ',') throw new SyntaxError('Expected comma in JSON array')
+      position++
+    }
+  }
+
+  function parseObject(): unknown {
+    const result: Record<string, unknown> = {}
+    position++
+    skipWhitespace()
+    if (text[position] === '}') {
+      position++
+      return result
+    }
+    while (true) {
+      if (text[position] !== '"') throw new SyntaxError('Expected JSON property name')
+      const key = parseString()
+      skipWhitespace()
+      if (text[position] !== ':') throw new SyntaxError('Expected colon after JSON property name')
+      position++
+      result[key] = parseValue(key)
+      skipWhitespace()
+      if (text[position] === '}') {
+        position++
+        if (
+          Object.keys(result).length === 1 &&
+          typeof result[BIGINT_OBJECT_KEY] === 'string'
+        ) {
+          const tagged = result[BIGINT_OBJECT_KEY]
+          if (/^-?\d+$/.test(tagged)) return BigInt(tagged)
+        }
+        return result
+      }
+      if (text[position] !== ',') throw new SyntaxError('Expected comma in JSON object')
+      position++
+    }
+  }
+
+  const result = parseValue()
+  skipWhitespace()
+  if (position !== text.length) throw new SyntaxError('Unexpected content after JSON value')
+  return result as T
 }
 
 /**
- * JSON.stringify throws on bigint, and `Number(stroops)` would silently round
- * past 2^53. This emits bigints as unquoted JSON integers instead.
+ * JSON.stringify throws on bigint. This structural serializer escapes strings
+ * normally. Registered wire keys remain exact unquoted JSON integers for
+ * backend compatibility; other bigints use an exact tagged-object encoding.
  */
 export function stringifyWithBigInts(value: unknown): string {
-  const marker = ' bigint '
-  const json = JSON.stringify(value, (_key, raw) =>
-    typeof raw === 'bigint' ? `${marker}${raw.toString()}${marker}` : raw
-  )
-  return json.replace(new RegExp(`"${marker}(-?\\d+)${marker}"`, 'g'), '$1')
+  const ancestors = new WeakSet<object>()
+
+  function serialize(raw: unknown, key?: string): string {
+    if (typeof raw === 'bigint') {
+      if (key && BIGINT_KEYS.has(key)) return raw.toString()
+      return `{"${BIGINT_OBJECT_KEY}":"${raw.toString()}"}`
+    }
+    if (typeof raw === 'string' || typeof raw === 'boolean' || raw === null) {
+      return JSON.stringify(raw)
+    }
+    if (typeof raw === 'number') {
+      return Number.isFinite(raw) ? JSON.stringify(raw) : 'null'
+    }
+    if (typeof raw === 'undefined' || typeof raw === 'function' || typeof raw === 'symbol') {
+      return 'undefined'
+    }
+    if (typeof raw !== 'object') return 'undefined'
+
+    if (ancestors.has(raw)) throw new TypeError('Converting circular structure to JSON')
+
+    const withToJSON = raw as { toJSON?: (key: string) => unknown }
+    if (typeof withToJSON.toJSON === 'function') {
+      return serialize(withToJSON.toJSON(''))
+    }
+
+    ancestors.add(raw)
+    let result: string
+    if (Array.isArray(raw)) {
+      const items = raw.map((item) => {
+        const serialized = serialize(item)
+        return serialized === 'undefined' ? 'null' : serialized
+      })
+      result = `[${items.join(',')}]`
+    } else {
+      const entries: string[] = []
+      for (const key of Object.keys(raw)) {
+        const serialized = serialize((raw as Record<string, unknown>)[key], key)
+        if (serialized !== 'undefined') {
+          entries.push(`${JSON.stringify(key)}:${serialized}`)
+        }
+      }
+      result = `{${entries.join(',')}}`
+    }
+    ancestors.delete(raw)
+    return result
+  }
+
+  return serialize(value)
 }
 
 interface RequestOptions {

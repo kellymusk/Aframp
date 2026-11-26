@@ -13,10 +13,14 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { OZOW_BANKS } from '@/lib/payment-providers'
-import { calculateFees, formatCurrency } from '@/lib/payment-providers'
+import {
+  calculateFees,
+  formatCurrency,
+  getAmountValidationError,
+  OZOW_BANKS,
+  PROVIDER_CONFIGS,
+} from '@/lib/payment-providers'
 import { api } from '@/lib/api'
-import { redirectTo } from '@/lib/navigation'
 
 interface ZarOnrampProps {
   token: string
@@ -29,12 +33,14 @@ export function ZarOnramp({ token }: ZarOnrampProps) {
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const config = PROVIDER_CONFIGS.ozow
   const amountNum = parseFloat(amount) || 0
-  const fees = amountNum > 0 ? calculateFees(amountNum, 'ozow') : null
+  const amountValidationError = amountNum > 0 ? getAmountValidationError(amountNum, 'ozow') : null
+  const fees = amountNum > 0 && !amountValidationError ? calculateFees(amountNum, 'ozow') : null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedBank || amountNum < 10) return
+    if (!selectedBank || getAmountValidationError(amountNum, 'ozow')) return
 
     setIsProcessing(true)
     setError(null)
@@ -80,14 +86,15 @@ export function ZarOnramp({ token }: ZarOnrampProps) {
               id="amount"
               type="number"
               placeholder="100.00"
-              min="10"
+              min={config.minAmount}
+              max={config.maxAmount}
               step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               required
             />
-            {amountNum > 0 && amountNum < 10 && (
-              <p className="text-sm text-destructive">Minimum amount is R10</p>
+            {amountValidationError && (
+              <p className="text-sm text-destructive">{amountValidationError}</p>
             )}
           </div>
 
@@ -133,7 +140,9 @@ export function ZarOnramp({ token }: ZarOnrampProps) {
           <Button
             type="submit"
             className="w-full"
-            disabled={!selectedBank || amountNum < 10 || isProcessing}
+            disabled={
+              !selectedBank || Boolean(amountValidationError) || amountNum <= 0 || isProcessing
+            }
           >
             {isProcessing ? 'Processing...' : 'Continue to Ozow'}
           </Button>
