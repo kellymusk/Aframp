@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
   return response
 }
 
-export async function DELETE() {
+export function DELETE() {
   const response = NextResponse.json({ ok: true })
   response.cookies.set(SESSION_COOKIE, '', { ...COOKIE_OPTS, maxAge: 0 })
   return response

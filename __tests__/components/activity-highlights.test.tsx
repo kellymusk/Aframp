@@ -36,7 +36,7 @@ describe('ActivityHighlights timezone consistency', () => {
     })
 
     // Render as if it's still the same UTC day
-    const { container } = render(<ActivityHighlights payments={[payment]} openRequestCount={0} />)
+    render(<ActivityHighlights payments={[payment]} openRequestCount={0} />)
 
     // Should show the payment in "Taken today"
     expect(screen.getByText(/Taken today/)).toBeInTheDocument()
@@ -54,7 +54,7 @@ describe('ActivityHighlights timezone consistency', () => {
       amount_stroops: 3000000n,
     })
 
-    const { container } = render(<ActivityHighlights payments={[payment]} openRequestCount={0} />)
+    render(<ActivityHighlights payments={[payment]} openRequestCount={0} />)
 
     // Should show "Nothing yet" because payment is from yesterday UTC
     expect(screen.getByText('Nothing yet')).toBeInTheDocument()

@@ -28,7 +28,7 @@ export function InstallPromptBanner() {
     if (!deferredPrompt) return
 
     deferredPrompt.prompt()
-    const { outcome } = await deferredPrompt.userChoice
+    await deferredPrompt.userChoice
 
     setDeferredPrompt(null)
     setIsVisible(false)

@@ -643,7 +643,7 @@ describe('CSRF token inclusion', () => {
 describe('query/path encoding', () => {
   beforeEach(() => fetchMock.mockResolvedValue(jsonResponse({})))
 
-  it('rejects asset codes that could inject query parameters', async () => {
+  it('rejects asset codes that could inject query parameters', () => {
     for (const bad of ['XLM&amount_stroops=1', 'a=b', 'X#Y', 'X LM', '', 'A'.repeat(17)]) {
       expect(() => api.getRemittanceFeeEstimate('t', 1n, bad)).toThrow(ApiError)
     }

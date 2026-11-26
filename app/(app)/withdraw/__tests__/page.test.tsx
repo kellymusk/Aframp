@@ -19,12 +19,16 @@ jest.mock('@/lib/api', () => {
       getBalances: jest.fn(),
       listWithdrawals: jest.fn(),
       createWithdrawal: jest.fn(),
+      getMe: jest.fn(),
     },
     ApiError,
   }
 })
 
-const mockSession = { token: 'test-token', me: { kyc_status: 'approved' } as Record<string, unknown> }
+const mockSession = {
+  token: 'test-token',
+  me: { kyc_status: 'approved' } as Record<string, unknown>,
+}
 
 jest.mock('@/components/session-provider', () => ({
   useAuthenticatedSession: () => mockSession,
@@ -43,8 +47,7 @@ jest.mock('@/components/ui/select', () => {
   const SelectItem = ({ value, children }: any) =>
     React.createElement('option', { value }, children)
 
-  const SelectContent = ({ children }: any) =>
-    React.createElement(React.Fragment, null, children)
+  const SelectContent = ({ children }: any) => React.createElement(React.Fragment, null, children)
 
   const flattenOptions = (nodes: any): any[] =>
     React.Children.toArray(nodes).flatMap((node: any) => {
@@ -124,6 +127,8 @@ beforeEach(() => {
   mockGetBalances.mockResolvedValue([])
   mockListWithdrawals.mockResolvedValue([])
   mockCreateWithdrawal.mockResolvedValue({})
+  // The page reads KYC status from /me before showing the cash-out form.
+  ;(api.getMe as jest.Mock).mockImplementation(() => Promise.resolve(mockSession.me))
 })
 
 describe('WithdrawPage', () => {
@@ -329,7 +334,6 @@ describe('WithdrawPage', () => {
   })
 
   it('submits a valid cash-out', async () => {
-
     // Simulate a programmatic bypass: set a 10-char value containing a
     // non-digit that skips the onChange .replace(/\D/g,'') handler.
     // We do this by calling fireEvent.change with nativeEvent to bypass React's
@@ -361,7 +365,6 @@ describe('WithdrawPage', () => {
   })
 
   it('submits a valid cash-out', async () => {
-
     // Simulate a programmatic bypass: directly set a non-digit account number
     // that bypasses the onChange .replace(/\D/g,'') handler.
     const accountInput = screen.getByLabelText('Account number')
@@ -369,9 +372,7 @@ describe('WithdrawPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Cash out' }))
 
-    expect(
-      await screen.findByText('Account number must contain digits only.')
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Account number must contain digits only.')).toBeInTheDocument()
     expect(mockCreateWithdrawal).not.toHaveBeenCalled()
   })
 

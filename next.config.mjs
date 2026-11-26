@@ -98,54 +98,6 @@ async function checkResolvedIPs(hostname) {
   return blockedRanges
 }
 
-/**
- * Validate a URL for safe use as NEXT_API_URL.
- * Throws on any SSRF risk.
- */
-async function validateBackendUrl(url) {
-  let parsed
-  try {
-    parsed = new URL(url)
-  } catch (err) {
-    throw new Error(`Invalid URL format: ${err.message}`)
-  }
-
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`Invalid protocol: ${parsed.protocol} (must be http: or https:)`)
-  }
-
-  if (!parsed.hostname) {
-    throw new Error('URL must include a hostname')
-  }
-
-  const hostname = parsed.hostname
-
-  // Check if hostname is a literal IP address
-  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/
-  const isLiteralIP = ipv4Regex.test(hostname)
-
-  if (isLiteralIP) {
-    const blocked = isIPBlocked(hostname)
-    if (blocked) {
-      throw new Error(
-        `Hostname ${hostname} is a ${blocked} address. ` +
-        'Private, loopback, link-local, and broadcast addresses are not allowed.'
-      )
-    }
-  } else {
-    // For hostnames, resolve and check each resolved IP
-    const blockedIPs = await checkResolvedIPs(hostname)
-    if (blockedIPs.length > 0) {
-      throw new Error(
-        `Hostname "${hostname}" resolves to blocked IP(s): ${blockedIPs.join(', ')}. ` +
-        'This may indicate a DNS-based SSRF attempt. Use a static IP or a known-safe hostname.'
-      )
-    }
-  }
-
-  return true
-}
-
 // Export for testing
 export { isIPInRange, isIPBlocked, checkResolvedIPs }
 
