@@ -108,6 +108,12 @@ export interface OtpChallengeResponse {
  */
 export type LoginResult = AuthResponse | OtpChallengeResponse
 
+/**
+ * KYC verification state for a merchant account. Mirrors the `kyc_status`
+ * field on the `Me` schema in the backend's `openapi.yaml`.
+ */
+export type KycStatus = 'pending' | 'approved' | 'rejected'
+
 export interface Me {
   user_id: UUID
   email: string
@@ -116,6 +122,30 @@ export interface Me {
   created_at: string
   merchant_id: UUID | null
   merchant_name: string | null
+  /**
+   * Optional by contract: older backend builds omit it entirely. A missing
+   * field is *not* the same as a non-approved status — see `getKycGateState`,
+   * which callers must use instead of comparing this directly.
+   */
+  kyc_status?: KycStatus | null
+}
+
+/**
+ * How a KYC-gated action (currently cash-out) should present itself.
+ *
+ * - `approved`: the gate is open.
+ * - `not-approved`: the backend explicitly reported a non-approved status
+ *   (`pending`, `rejected`, or an explicit `null`), so the user has a real
+ *   state to act on.
+ * - `unavailable`: the backend didn't send `kyc_status` at all. This is a
+ *   contract gap, not a rejection — callers should show a clear "we can't
+ *   confirm your verification status" state rather than silently blocking.
+ */
+export type KycGateState = 'approved' | 'not-approved' | 'unavailable'
+
+export function getKycGateState(me: Pick<Me, 'kyc_status'> | null | undefined): KycGateState {
+  if (!me || me.kyc_status === undefined) return 'unavailable'
+  return me.kyc_status === 'approved' ? 'approved' : 'not-approved'
 }
 
 export interface Wallet {

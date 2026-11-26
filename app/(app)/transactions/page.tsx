@@ -28,6 +28,19 @@ function statusVariant(status: PaymentStatus) {
   return 'secondary' as const
 }
 
+function matchesSearch(payment: Payment, query: string): boolean {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return true
+  const haystack = [
+    payment.tx_hash,
+    payment.wallet_address,
+    payment.asset,
+    payment.memo,
+    payment.reference,
+  ]
+  return haystack.some((value) => typeof value === 'string' && value.toLowerCase().includes(needle))
+}
+
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString('en-NG', {
     day: 'numeric',
@@ -57,6 +70,7 @@ export default function TransactionsPage() {
   const [refunds, setRefunds] = useState<Refund[]>([])
   const [refundingId, setRefundingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
 
   const load = useCallback(
     async (signal?: AbortSignal, l: number = limit) => {
@@ -133,6 +147,8 @@ export default function TransactionsPage() {
     )
   }
 
+  const visiblePayments = payments.filter((payment) => matchesSearch(payment, search))
+
   return (
     <div>
       <header className="space-y-3">
@@ -149,6 +165,14 @@ export default function TransactionsPage() {
             Export CSV
           </Button>
         </div>
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search by reference, hash, wallet address or asset"
+          aria-label="Search payments"
+          className="border-hairline bg-panel w-full rounded-2xl border px-4 py-2 text-sm"
+        />
         {balances.length > 0 && (
           <ul className="grid gap-2 sm:grid-cols-2">
             {balances.map((balance) => (
@@ -173,14 +197,24 @@ export default function TransactionsPage() {
             No payments yet. Charge a customer and they&apos;ll show up here.
           </p>
         </div>
+      ) : visiblePayments.length === 0 ? (
+        <div className="mt-6 flex flex-col items-center gap-3 py-12 text-center">
+          <EmptyStateIllustration variant="empty" className="size-20" />
+          <p className="text-dim text-sm">No payments match “{search}”.</p>
+        </div>
       ) : (
         <ul className="border-hairline mt-6 divide-y">
-          {payments.map((payment) => (
+          {visiblePayments.map((payment) => (
             <li key={payment.id} className="flex items-center justify-between gap-3 py-3">
               <div className="min-w-0 space-y-1">
                 <p className="text-base font-bold tabular-nums text-white">
                   {formatStroops(payment.amount_stroops)} {payment.asset}
                 </p>
+                {(payment.reference || payment.memo) && (
+                  <p className="text-dim truncate text-xs">
+                    {payment.reference || payment.memo}
+                  </p>
+                )}
                 <p className="text-dim text-xs">
                   {formatWhen(payment.created_at)} ·{' '}
                   <a

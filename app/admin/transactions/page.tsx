@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { api, type PaymentStatus } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
-import { useAdminPagination } from '@/hooks/use-admin-pagination'
+import { useAdminCursorPagination } from '@/hooks/use-admin-cursor-pagination'
 
 /** Testnet today; swap for `public` when the backend points at mainnet Horizon. */
 const EXPLORER_BASE = 'https://stellar.expert/explorer/testnet/tx'
@@ -39,10 +39,9 @@ function formatWhen(iso: string): string {
 
 export default function AdminTransactionsPage() {
   const { token } = useAuthenticatedSession()
-  const { rows, error, page, pageSize, hasNextPage, setPage, retry } = useAdminPagination(
+  const { rows, error, hasNextPage, isLoadingMore, loadMore, retry } = useAdminCursorPagination(
     useCallback(
-      (requestedPage, requestedPageSize, signal) =>
-        api.adminTransactions(token, requestedPage, requestedPageSize, signal),
+      (cursor, limit, signal) => api.adminTransactions(token, cursor, limit, signal),
       [token]
     )
   )
@@ -59,10 +58,9 @@ export default function AdminTransactionsPage() {
           rows={rows}
           error={error}
           onRetry={retry}
-          page={page}
-          pageSize={pageSize}
           hasNextPage={hasNextPage}
-          onPageChange={setPage}
+          isLoadingMore={isLoadingMore}
+          onLoadMore={loadMore}
           getRowKey={(row) => row.id}
           emptyMessage="No transactions yet."
           columns={[

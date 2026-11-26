@@ -22,10 +22,9 @@ function formatWhen(iso: string): string {
 
 export default function AdminMerchantsPage() {
   const { token } = useAuthenticatedSession()
-  const { rows, error, page, pageSize, hasNextPage, setPage, retry } = useAdminPagination(
+  const { rows, error, hasMore, isLoadingMore, loadMore, retry } = useAdminPagination(
     useCallback(
-      (requestedPage, requestedPageSize, signal) =>
-        api.adminMerchants(token, requestedPage, requestedPageSize, signal),
+      (cursor, signal) => api.adminMerchants(token, cursor, signal),
       [token]
     )
   )
@@ -42,10 +41,9 @@ export default function AdminMerchantsPage() {
           rows={rows}
           error={error}
           onRetry={retry}
-          page={page}
-          pageSize={pageSize}
-          hasNextPage={hasNextPage}
-          onPageChange={setPage}
+          hasMore={hasMore}
+          isLoadingMore={isLoadingMore}
+          onLoadMore={loadMore}
           getRowKey={(row) => row.id}
           emptyMessage="No merchants yet."
           columns={[

@@ -15,7 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { api, ApiError, type Balance, type Withdrawal, type WithdrawalStatus } from '@/lib/api'
+import {
+  api,
+  ApiError,
+  type Balance,
+  type Me,
+  type Withdrawal,
+  type WithdrawalStatus,
+} from '@/lib/api'
 import { formatStroops, parseAmountToStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import {
@@ -36,6 +43,8 @@ const STATUS_LABEL: Record<WithdrawalStatus, string> = {
 export default function WithdrawPage() {
   const { token } = useAuthenticatedSession()
   const [balances, setBalances] = useState<Balance[] | null>(null)
+  const [me, setMe] = useState<Me | null>(null)
+  const [meError, setMeError] = useState<string | null>(null)
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
   const [asset, setAsset] = useState<WithdrawalAsset>('cNGN')
   const [amount, setAmount] = useState('')
@@ -49,12 +58,15 @@ export default function WithdrawPage() {
   const load = useCallback(
     async (signal?: AbortSignal) => {
       try {
-        const [nextBalances, nextWithdrawals] = await Promise.all([
+        const [nextBalances, nextWithdrawals, nextMe] = await Promise.all([
           api.getBalances(token, signal),
           api.listWithdrawals(token, 20, signal),
+          api.getMe(token, signal),
         ])
         setBalances(nextBalances)
         setWithdrawals(nextWithdrawals)
+        setMe(nextMe)
+        setMeError(null)
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return
         if (cause instanceof ApiError && cause.status === 0) {
@@ -69,11 +81,39 @@ export default function WithdrawPage() {
     [token]
   )
 
+  // The KYC gate is loaded separately so a failure to read `me` shows an
+  // explicit "status unavailable" state instead of silently blocking cash-out.
+  const loadMe = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const nextMe = await api.getMe(token, signal)
+        setMe(nextMe)
+        setMeError(null)
+      } catch (cause) {
+        if (cause instanceof DOMException && cause.name === 'AbortError') return
+        setMeError(
+          cause instanceof ApiError && cause.status === 0
+            ? 'backend-down'
+            : cause instanceof Error
+              ? cause.message
+              : 'Could not load your verification status'
+        )
+      }
+    },
+    [token]
+  )
+
   useEffect(() => {
     const controller = new AbortController()
     void load(controller.signal)
     return () => controller.abort()
   }, [load])
+
+  // `kyc_status` is optional in the API contract: a backend that doesn't send
+  // it must surface as "unavailable", never as a silent block.
+  const kycStatus = me?.kyc_status ?? null
+  const kycApproved = kycStatus === 'approved'
+  const kycUnavailable = !kycApproved && (meError !== null || kycStatus === null)
 
   const withdrawableAssets = useMemo(() => getWithdrawableAssets(balances ?? []), [balances])
   const config = getWithdrawalAssetConfig(asset)
@@ -140,6 +180,63 @@ export default function WithdrawPage() {
     return (
       <div className="flex justify-center py-16">
         <LoadingSpinner />
+      </div>
+    )
+  }
+
+  if (!kycApproved) {
+    return (
+      <div>
+        <header>
+          <h1 className="text-2xl font-bold tracking-tight">Cash out</h1>
+          <p className="text-dim mt-1 text-sm">Verify your identity to cash out.</p>
+        </header>
+
+        <div className="mt-6 max-w-xl space-y-5">
+          {kycUnavailable ? (
+            <Alert>
+              <AlertDescription>
+                <p className="font-bold">KYC status unavailable</p>
+                <p className="mt-1">
+                  We couldn&apos;t confirm your identity verification status, so cash-out is
+                  paused for now. This is not a rejection — please retry, or contact support if
+                  it keeps happening.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setMeError(null)
+                      void loadMe()
+                    }}
+                  >
+                    Retry
+                  </Button>
+                  <Button asChild variant="ghost">
+                    <a href="mailto:support@aframp.com">Contact support</a>
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Alert>
+              <AlertDescription>
+                <p className="font-bold">Identity verification required</p>
+                <p className="mt-1">
+                  Your verification status is{' '}
+                  <span className="font-bold">{kycStatus}</span>. Complete verification to cash
+                  out.
+                </p>
+                <div className="mt-3">
+                  <Button asChild>
+                    <a href="/kyc">Verify your identity</a>
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
       </div>
     )
   }

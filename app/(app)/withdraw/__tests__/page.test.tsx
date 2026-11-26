@@ -24,8 +24,10 @@ jest.mock('@/lib/api', () => {
   }
 })
 
+const mockSession = { token: 'test-token', me: { kyc_status: 'approved' } as Record<string, unknown> }
+
 jest.mock('@/components/session-provider', () => ({
-  useAuthenticatedSession: () => ({ token: 'test-token' }),
+  useAuthenticatedSession: () => mockSession,
 }))
 
 // Replace Radix Select with a plain <select> so value changes can be driven
@@ -118,6 +120,7 @@ function withdrawal(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockSession.me = { kyc_status: 'approved' }
   mockGetBalances.mockResolvedValue([])
   mockListWithdrawals.mockResolvedValue([])
   mockCreateWithdrawal.mockResolvedValue({})
@@ -134,6 +137,45 @@ describe('WithdrawPage', () => {
   it('shows a no-balance message when nothing can be cashed out', async () => {
     render(<WithdrawPage />)
     expect(await screen.findByText(/no balance to cash out/i)).toBeInTheDocument()
+  })
+
+  it('renders the cash-out form when KYC is approved', async () => {
+    mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
+    render(<WithdrawPage />)
+    expect(await screen.findByRole('heading', { name: 'Cash out' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Amount (cNGN)')).toBeInTheDocument()
+  })
+
+  it.each(['pending', 'rejected', 'unverified'])(
+    'shows the KYC-required message when kyc_status is %s',
+    async (status) => {
+      mockSession.me = { kyc_status: status }
+      mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
+      render(<WithdrawPage />)
+
+      expect(await screen.findByText(/verify your identity/i)).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Cash out' })).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Amount (cNGN)')).not.toBeInTheDocument()
+    }
+  )
+
+  it('shows a clear KYC-unavailable state when kyc_status is missing', async () => {
+    mockSession.me = {}
+    mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
+    render(<WithdrawPage />)
+
+    expect(await screen.findByText(/kyc status unavailable/i)).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Cash out' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Amount (cNGN)')).not.toBeInTheDocument()
+  })
+
+  it('shows a clear KYC-unavailable state when kyc_status is null', async () => {
+    mockSession.me = { kyc_status: null }
+    mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
+    render(<WithdrawPage />)
+
+    expect(await screen.findByText(/kyc status unavailable/i)).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Cash out' })).not.toBeInTheDocument()
   })
 
   it('has no accessibility violations in the cash-out form', async () => {
