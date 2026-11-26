@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs'
+import { redactSentryEvent } from './lib/sentry-redact'
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -11,17 +12,7 @@ Sentry.init({
 
   release: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? 'dev',
 
-  // Redact secrets from captured events before they leave the process
-  beforeSend(event) {
-    // Remove any Stellar private keys or mnemonics accidentally captured in extras
-    if (event.extra) {
-      const redactKeys = ['secretKey', 'mnemonic', 'privateKey', 'secret', 'password', 'token']
-      for (const key of redactKeys) {
-        if (key in event.extra) {
-          event.extra[key] = '[REDACTED]'
-        }
-      }
-    }
-    return event
-  },
+  // Redact secrets / PII (extra, request, contexts, breadcrumbs, ...) using
+  // the rules shared with the edge and client configs.
+  beforeSend: redactSentryEvent,
 })

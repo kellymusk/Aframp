@@ -1,21 +1,46 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { WifiOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { useSession } from '@/components/session-provider'
 import { isOffline } from '@/lib/api'
+import {
+  getLoginPath,
+  getPaymentIntent,
+  getPostAuthPath,
+  getVerifyPath,
+} from '@/lib/payment-intent'
+
+import { getPasswordStrength, isCommonPassword, MIN_PASSWORD_STRENGTH } from '@/lib/password'
 
 const MIN_PASSWORD_LENGTH = 8
 
 export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-dvh items-center justify-center">
+          <LoadingSpinner />
+        </main>
+      }
+    >
+      <SignupForm />
+    </Suspense>
+  )
+}
+
+function SignupForm() {
   const { session, ready, signUp } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const intent = getPaymentIntent(searchParams.get('intent'))
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -25,8 +50,8 @@ export default function SignupPage() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    if (ready && session) router.replace('/charge')
-  }, [ready, session, router])
+    if (ready && session) router.replace(getPostAuthPath(intent))
+  }, [ready, session, router, intent])
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -46,10 +71,22 @@ export default function SignupPage() {
       return
     }
 
+    if (getPasswordStrength(password) < MIN_PASSWORD_STRENGTH) {
+      setError('Choose a stronger password with a mix of character types.')
+      setSubmitting(false)
+      return
+    }
+
     setSubmitting(true)
     try {
+      if (await isCommonPassword(password)) {
+        setError('Choose a password that has not appeared in known data breaches.')
+        setSubmitting(false)
+        return
+      }
+
       const challenge = await signUp(email.trim(), password, name.trim(), phone.trim())
-      router.push(`/verify?challenge_id=${challenge.challenge_id}&flow=signup`)
+      router.push(getVerifyPath(challenge.challenge_id, 'signup', intent))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not create your account')
       setOffline(isOffline(cause))
@@ -125,7 +162,7 @@ export default function SignupPage() {
             onChange={(event) => setPassword(event.target.value)}
           />
           <p className="text-muted-foreground text-xs">
-            At least {MIN_PASSWORD_LENGTH} characters.
+            At least {MIN_PASSWORD_LENGTH} characters with a mix of character types.
           </p>
         </div>
 
@@ -136,7 +173,7 @@ export default function SignupPage() {
 
       <p className="text-muted-foreground text-center text-sm">
         Already have an account?{' '}
-        <Link href="/login" className="text-primary font-medium hover:underline">
+        <Link href={getLoginPath(intent)} className="text-primary font-medium hover:underline">
           Sign in
         </Link>
       </p>

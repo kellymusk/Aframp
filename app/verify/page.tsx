@@ -11,6 +11,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { useSession } from '@/components/session-provider'
 import { ApiError, isOffline } from '@/lib/api'
+import {
+  getLoginPath,
+  getPaymentIntent,
+  getPostAuthPath,
+  getSignupPath,
+} from '@/lib/payment-intent'
 
 const CODE_LENGTH = 6
 
@@ -42,6 +48,7 @@ function VerifyOtpForm() {
   const searchParams = useSearchParams()
   const challengeId = searchParams.get('challenge_id')
   const flow: Flow = searchParams.get('flow') === 'signup' ? 'signup' : 'login'
+  const intent = getPaymentIntent(searchParams.get('intent'))
 
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -51,15 +58,15 @@ function VerifyOtpForm() {
   const codeInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (ready && session) router.replace('/charge')
-  }, [ready, session, router])
+    if (ready && session) router.replace(getPostAuthPath(intent))
+  }, [ready, session, router, intent])
 
   // There's no OTP flow without a challenge to verify — someone landed here
   // directly (bookmark, back button after completing it) rather than via
   // signup/login handing one off.
   useEffect(() => {
-    if (!challengeId) router.replace('/login')
-  }, [challengeId, router])
+    if (!challengeId) router.replace(getLoginPath(intent))
+  }, [challengeId, intent, router])
 
   useEffect(() => {
     codeInputRef.current?.focus()
@@ -79,7 +86,7 @@ function VerifyOtpForm() {
     setSubmitting(true)
     try {
       await completeOtp(challengeId, code.trim())
-      router.replace('/charge')
+      router.replace(getPostAuthPath(intent))
     } catch (cause) {
       if (cause instanceof ApiError && cause.code && TERMINAL_CODES.has(cause.code)) {
         setTerminal(true)
@@ -101,7 +108,7 @@ function VerifyOtpForm() {
 
   if (!challengeId) return null
 
-  const restartHref = flow === 'signup' ? '/signup' : '/login'
+  const restartHref = flow === 'signup' ? getSignupPath(intent) : getLoginPath(intent)
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-8 px-6 py-12">

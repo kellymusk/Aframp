@@ -1,21 +1,24 @@
 import type { Payment } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
 
-function isToday(iso: string): boolean {
+/**
+ * Checks if the given ISO timestamp falls on the same UTC calendar day as `now`.
+ * Uses UTC to match backend and revenue chart day boundaries.
+ */
+function isToday(iso: string, now: Date = new Date()): boolean {
   const date = new Date(iso)
-  const now = new Date()
   return (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
+    date.getUTCFullYear() === now.getUTCFullYear() &&
+    date.getUTCMonth() === now.getUTCMonth() &&
+    date.getUTCDate() === now.getUTCDate()
   )
 }
 
 /** Sums confirmed payments taken today, keyed by asset. */
-function takingsToday(payments: Payment[]): Map<string, bigint> {
+function takingsToday(payments: Payment[], now: Date = new Date()): Map<string, bigint> {
   const totals = new Map<string, bigint>()
   for (const payment of payments) {
-    if (payment.status !== 'confirmed' || !isToday(payment.created_at)) continue
+    if (payment.status !== 'confirmed' || !isToday(payment.created_at, now)) continue
     totals.set(payment.asset, (totals.get(payment.asset) ?? 0n) + payment.amount_stroops)
   }
   return totals

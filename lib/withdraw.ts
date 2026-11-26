@@ -9,7 +9,7 @@
  * all live in `lib/money.ts` — use them rather than dividing by hand.
  */
 
-import type { Balance } from '@/lib/api'
+import type { Balance, Withdrawal } from '@/lib/api'
 import { BANKS_BY_COUNTRY, type Bank, type BankCountry } from '@/lib/banks'
 import { formatStroops, isAmountMultipleOf } from '@/lib/money'
 
@@ -158,4 +158,49 @@ export function getWithdrawableAssets(balances: Balance[]): WithdrawalAsset[] {
     balances.filter((balance) => balance.available > 0n).map((balance) => balance.asset)
   )
   return WITHDRAWAL_ASSETS.filter((asset) => held.has(asset))
+}
+
+/** A bank + account pair the merchant has used before. */
+export interface SavedBeneficiary {
+  bankCode: string
+  bankName: string
+  accountNumber: string
+}
+
+/**
+ * Unique bank+account pairs extracted from past withdrawals, most-recent first.
+ *
+ * Only withdrawals that have both `bank_code` and `account_number` are
+ * considered. The dedup key is `${bankCode}:${accountNumber}`, so the same
+ * account at different banks is treated as separate entries (which it is).
+ *
+ * The list is scoped to the given `asset` so a cNGN beneficiary never shows up
+ * when the merchant is cashing out cKES. Pass `undefined` to skip the filter.
+ */
+export function getSavedBeneficiaries(
+  withdrawals: Withdrawal[],
+  asset?: WithdrawalAsset
+): SavedBeneficiary[] {
+  const seen = new Set<string>()
+  const result: SavedBeneficiary[] = []
+
+  for (const w of withdrawals) {
+    if (!w.bank_code || !w.account_number) continue
+    if (asset && w.asset !== asset) continue
+
+    const key = `${w.bank_code}:${w.account_number}`
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    // Look up the display name from the hardcoded bank lists. If the code
+    // isn't recognised (e.g. a new bank added since the last deploy), fall back
+    // to the raw code so the button still renders something meaningful.
+    const country = WITHDRAWAL_ASSET_CONFIG[w.asset as WithdrawalAsset]?.country
+    const banks = country ? BANKS_BY_COUNTRY[country] : []
+    const bankName = banks.find((b) => b.code === w.bank_code)?.name ?? w.bank_code
+
+    result.push({ bankCode: w.bank_code, bankName, accountNumber: w.account_number })
+  }
+
+  return result
 }

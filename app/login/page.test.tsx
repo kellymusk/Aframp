@@ -3,7 +3,7 @@ import { axe } from 'jest-axe'
 import userEvent from '@testing-library/user-event'
 import LoginPage from './page'
 import { useSession } from '@/components/session-provider'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 jest.mock('@/components/session-provider', () => ({
   useSession: jest.fn(),
@@ -11,7 +11,12 @@ jest.mock('@/components/session-provider', () => ({
 
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
+  useSearchParams: jest.fn(),
 }))
+
+function paramsWith(entries: Record<string, string>) {
+  return { get: (key: string) => entries[key] ?? null }
+}
 
 describe('LoginPage', () => {
   const replace = jest.fn()
@@ -23,6 +28,7 @@ describe('LoginPage', () => {
     push.mockReset()
     signIn.mockReset()
     ;(useRouter as jest.Mock).mockReturnValue({ replace, push })
+    ;(useSearchParams as jest.Mock).mockReturnValue(paramsWith({}))
     ;(useSession as jest.Mock).mockReturnValue({
       session: null,
       ready: true,
@@ -74,6 +80,23 @@ describe('LoginPage', () => {
 
     expect(push).toHaveBeenCalledWith('/verify?challenge_id=chal-123&flow=login')
     expect(replace).not.toHaveBeenCalledWith('/charge')
+  })
+
+  it('preserves the selected intent through login and OTP verification', async () => {
+    ;(useSearchParams as jest.Mock).mockReturnValue(paramsWith({ intent: 'buy' }))
+    const user = userEvent.setup()
+    signIn.mockResolvedValue({ challenge_id: 'chal-123', expires_in_secs: 600 })
+    render(<LoginPage />)
+
+    await user.type(screen.getByLabelText(/email/i), 'merchant@example.com')
+    await user.type(screen.getByLabelText(/password/i), 'secret-pass')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+
+    expect(push).toHaveBeenCalledWith('/verify?challenge_id=chal-123&flow=login&intent=buy')
+    expect(screen.getByRole('link', { name: /create a merchant account/i })).toHaveAttribute(
+      'href',
+      '/signup?intent=buy'
+    )
   })
 
   it('displays the backend error when sign-in fails', async () => {

@@ -23,11 +23,9 @@ const BASE_URL = '/backend'
 
 /**
  * Every backend wire field carrying a large integer must be listed here.
- * JSON.parse would silently round values past 2^53, so keep this set in sync
- * with the field-name alternatives in parseWithBigInts' pre-parse regex.
- *
  * Amount fields are `i64` on the wire. JSON.parse would silently round anything
- * past 2^53, so these keys are re-quoted before parsing and revived as bigint.
+ * past 2^53, so parseWithBigInts parses the JSON structure and preserves these
+ * integer tokens before conversion to Number is possible.
  *
  * **Every one of these is denominated in stroops, never in whole asset units.**
  * 1 unit = 10,000,000 stroops (`STROOPS_PER_UNIT` in lib/money.ts), so
@@ -108,6 +106,12 @@ export interface OtpChallengeResponse {
  */
 export type LoginResult = AuthResponse | OtpChallengeResponse
 
+/**
+ * KYC verification state for a merchant account. Mirrors the `kyc_status`
+ * field on the `Me` schema in the backend's `openapi.yaml`.
+ */
+export type KycStatus = 'pending' | 'approved' | 'rejected'
+
 export interface Me {
   user_id: UUID
   email: string
@@ -116,6 +120,30 @@ export interface Me {
   created_at: string
   merchant_id: UUID | null
   merchant_name: string | null
+  /**
+   * Optional by contract: older backend builds omit it entirely. A missing
+   * field is *not* the same as a non-approved status — see `getKycGateState`,
+   * which callers must use instead of comparing this directly.
+   */
+  kyc_status?: KycStatus | null
+}
+
+/**
+ * How a KYC-gated action (currently cash-out) should present itself.
+ *
+ * - `approved`: the gate is open.
+ * - `not-approved`: the backend explicitly reported a non-approved status
+ *   (`pending`, `rejected`, or an explicit `null`), so the user has a real
+ *   state to act on.
+ * - `unavailable`: the backend didn't send `kyc_status` at all. This is a
+ *   contract gap, not a rejection — callers should show a clear "we can't
+ *   confirm your verification status" state rather than silently blocking.
+ */
+export type KycGateState = 'approved' | 'not-approved' | 'unavailable'
+
+export function getKycGateState(me: Pick<Me, 'kyc_status'> | null | undefined): KycGateState {
+  if (!me || me.kyc_status === undefined) return 'unavailable'
+  return me.kyc_status === 'approved' ? 'approved' : 'not-approved'
 }
 
 export interface Wallet {
@@ -171,7 +199,7 @@ export interface PaymentRequest {
   allow_partial?: boolean
   expires_at: string
   created_at: string
-  /** null for any asset with no configured issuer — currently everything but XLM. */
+  /** null when the asset has no configured issuer, so no SEP-7 URI can be built. */
   sep7_uri: string | null
 }
 
@@ -384,28 +412,176 @@ export interface PushSubscriptionStatus {
   enabled: boolean
 }
 
+const BIGINT_OBJECT_KEY = '__bigint'
+
 /**
- * Re-quotes large integer values before JSON.parse can round them, then revives
- * registered fields as bigint. When adding a key to BIGINT_KEYS, also add it
- * to the field-name alternatives in this regex; see lib/__tests__/api.test.ts.
+ * Parses JSON without passing numeric wire values through Number first.
+ * Registered property values and tagged bigint objects are revived exactly.
  */
 export function parseWithBigInts<T>(text: string): T {
-  const quoted = text.replace(/"(amount_stroops|available|pending|fee_stroops|network_fee_stroops|total_stroops)"\s*:\s*(-?\d+)/g, '"$1":"$2"')
-  return JSON.parse(quoted, (key, value) =>
-    BIGINT_KEYS.has(key) && typeof value === 'string' ? BigInt(value) : value
-  ) as T
+  let position = 0
+
+  function skipWhitespace(): void {
+    while (/[\s]/.test(text[position] ?? '\0')) position++
+  }
+
+  function parseString(): string {
+    const start = position
+    position++
+    let escaped = false
+    for (; position < text.length; position++) {
+      const char = text[position]
+      if (escaped) {
+        escaped = false
+      } else if (char === '\\') {
+        escaped = true
+      } else if (char === '"') {
+        position++
+        return JSON.parse(text.slice(start, position)) as string
+      }
+    }
+    throw new SyntaxError('Unterminated JSON string')
+  }
+
+  function parseNumber(key?: string): unknown {
+    const start = position
+    while (/[-+\d.eE]/.test(text[position] ?? '\0')) position++
+    const raw = text.slice(start, position)
+    if (key && BIGINT_KEYS.has(key) && /^-?\d+$/.test(raw)) return BigInt(raw)
+    return JSON.parse(raw) as number
+  }
+
+  function parseValue(key?: string): unknown {
+    skipWhitespace()
+    const char = text[position]
+    if (char === '"') return parseString()
+    if (char === '{') return parseObject()
+    if (char === '[') return parseArray()
+    if (text.startsWith('true', position)) {
+      position += 4
+      return true
+    }
+    if (text.startsWith('false', position)) {
+      position += 5
+      return false
+    }
+    if (text.startsWith('null', position)) {
+      position += 4
+      return null
+    }
+    if (char === '-' || /\d/.test(char ?? '')) return parseNumber(key)
+    throw new SyntaxError(`Unexpected JSON token at position ${position}`)
+  }
+
+  function parseArray(): unknown[] {
+    const result: unknown[] = []
+    position++
+    skipWhitespace()
+    if (text[position] === ']') {
+      position++
+      return result
+    }
+    while (true) {
+      result.push(parseValue())
+      skipWhitespace()
+      if (text[position] === ']') {
+        position++
+        return result
+      }
+      if (text[position] !== ',') throw new SyntaxError('Expected comma in JSON array')
+      position++
+    }
+  }
+
+  function parseObject(): unknown {
+    const result: Record<string, unknown> = {}
+    position++
+    skipWhitespace()
+    if (text[position] === '}') {
+      position++
+      return result
+    }
+    while (true) {
+      if (text[position] !== '"') throw new SyntaxError('Expected JSON property name')
+      const key = parseString()
+      skipWhitespace()
+      if (text[position] !== ':') throw new SyntaxError('Expected colon after JSON property name')
+      position++
+      result[key] = parseValue(key)
+      skipWhitespace()
+      if (text[position] === '}') {
+        position++
+        if (Object.keys(result).length === 1 && typeof result[BIGINT_OBJECT_KEY] === 'string') {
+          const tagged = result[BIGINT_OBJECT_KEY]
+          if (/^-?\d+$/.test(tagged)) return BigInt(tagged)
+        }
+        return result
+      }
+      if (text[position] !== ',') throw new SyntaxError('Expected comma in JSON object')
+      position++
+    }
+  }
+
+  const result = parseValue()
+  skipWhitespace()
+  if (position !== text.length) throw new SyntaxError('Unexpected content after JSON value')
+  return result as T
 }
 
 /**
- * JSON.stringify throws on bigint, and `Number(stroops)` would silently round
- * past 2^53. This emits bigints as unquoted JSON integers instead.
+ * JSON.stringify throws on bigint. This structural serializer escapes strings
+ * normally. Registered wire keys remain exact unquoted JSON integers for
+ * backend compatibility; other bigints use an exact tagged-object encoding.
  */
 export function stringifyWithBigInts(value: unknown): string {
-  const marker = ' bigint '
-  const json = JSON.stringify(value, (_key, raw) =>
-    typeof raw === 'bigint' ? `${marker}${raw.toString()}${marker}` : raw
-  )
-  return json.replace(new RegExp(`"${marker}(-?\\d+)${marker}"`, 'g'), '$1')
+  const ancestors = new WeakSet<object>()
+
+  function serialize(raw: unknown, key?: string): string {
+    if (typeof raw === 'bigint') {
+      if (key && BIGINT_KEYS.has(key)) return raw.toString()
+      return `{"${BIGINT_OBJECT_KEY}":"${raw.toString()}"}`
+    }
+    if (typeof raw === 'string' || typeof raw === 'boolean' || raw === null) {
+      return JSON.stringify(raw)
+    }
+    if (typeof raw === 'number') {
+      return Number.isFinite(raw) ? JSON.stringify(raw) : 'null'
+    }
+    if (typeof raw === 'undefined' || typeof raw === 'function' || typeof raw === 'symbol') {
+      return 'undefined'
+    }
+    if (typeof raw !== 'object') return 'undefined'
+
+    if (ancestors.has(raw)) throw new TypeError('Converting circular structure to JSON')
+
+    const withToJSON = raw as { toJSON?: (key: string) => unknown }
+    if (typeof withToJSON.toJSON === 'function') {
+      return serialize(withToJSON.toJSON(''))
+    }
+
+    ancestors.add(raw)
+    let result: string
+    if (Array.isArray(raw)) {
+      const items = raw.map((item) => {
+        const serialized = serialize(item)
+        return serialized === 'undefined' ? 'null' : serialized
+      })
+      result = `[${items.join(',')}]`
+    } else {
+      const entries: string[] = []
+      for (const key of Object.keys(raw)) {
+        const serialized = serialize((raw as Record<string, unknown>)[key], key)
+        if (serialized !== 'undefined') {
+          entries.push(`${JSON.stringify(key)}:${serialized}`)
+        }
+      }
+      result = `{${entries.join(',')}}`
+    }
+    ancestors.delete(raw)
+    return result
+  }
+
+  return serialize(value)
 }
 
 interface RequestOptions {
@@ -472,7 +648,42 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     throw new ApiError(message, response.status, code, field)
   }
 
-  return text ? parseWithBigInts<T>(text) : (undefined as T)
+  // Void endpoints resolve to undefined for empty success bodies; tolerate
+  // malformed success bodies the same way rather than leaking JSON SyntaxError.
+  if (!text.trim()) return undefined as T
+  try {
+    return parseWithBigInts<T>(text)
+  } catch {
+    return undefined as T
+  }
+}
+
+/** Asset codes are alphanumeric (Stellar caps them at 12; 16 leaves headroom). */
+const ASSET_PATTERN = /^[A-Za-z0-9]{1,16}$/
+
+export function assertValidAsset(asset: string): string {
+  if (!ASSET_PATTERN.test(asset)) {
+    throw new ApiError(
+      `Invalid asset code: ${JSON.stringify(asset)}`,
+      400,
+      'invalid_asset',
+      'asset'
+    )
+  }
+  return asset
+}
+
+/** Encodes a value interpolated into a URL path segment. */
+const seg = (value: string | number | bigint) => encodeURIComponent(String(value))
+
+/** Builds `?a=1&b=2` with every key and value encoded. */
+export function buildQuery(params: Record<string, string | number | bigint>): string {
+  return (
+    '?' +
+    Object.entries(params)
+      .map(([k, v]) => `${encodeURIComponent(k)}=${seg(v)}`)
+      .join('&')
+  )
 }
 
 export const api = {
@@ -510,7 +721,7 @@ export const api = {
     request<Balance[]>('/balance', { token, signal }),
 
   listTransactions: (token: string, limit = 50, signal?: AbortSignal) =>
-    request<Payment[]>(`/transactions?limit=${limit}`, { token, signal }),
+    request<Payment[]>(`/transactions${buildQuery({ limit })}`, { token, signal }),
 
   createPaymentRequest: (
     token: string,
@@ -532,11 +743,11 @@ export const api = {
     }),
 
   listPaymentRequests: (token: string, limit = 50, signal?: AbortSignal) =>
-    request<PaymentRequest[]>(`/payment-requests?limit=${limit}`, { token, signal }),
+    request<PaymentRequest[]>(`/payment-requests${buildQuery({ limit })}`, { token, signal }),
 
   /** Deliberately public — a customer's wallet reads this without an account. */
   getPaymentRequest: (id: string, signal?: AbortSignal) =>
-    request<PaymentRequest>(`/payment-requests/${id}`, { signal }),
+    request<PaymentRequest>(`/payment-requests/${seg(id)}`, { signal }),
 
   createRefund: (
     token: string,
@@ -546,7 +757,7 @@ export const api = {
     recipientAddress: string,
     reason?: string
   ) =>
-    request<Refund>(`/payments/${paymentId}/refund`, {
+    request<Refund>(`/payments/${seg(paymentId)}/refund`, {
       method: 'POST',
       token,
       body: {
@@ -557,7 +768,7 @@ export const api = {
     }),
 
   listRefunds: (token: string, limit = 50, signal?: AbortSignal) =>
-    request<Refund[]>(`/refunds?limit=${limit}`, { token, signal }),
+    request<Refund[]>(`/refunds${buildQuery({ limit })}`, { token, signal }),
 
   createWithdrawal: (
     token: string,
@@ -579,7 +790,7 @@ export const api = {
     }),
 
   listWithdrawals: (token: string, limit = 50, signal?: AbortSignal) =>
-    request<Withdrawal[]>(`/withdrawals?limit=${limit}`, { token, signal }),
+    request<Withdrawal[]>(`/withdrawals${buildQuery({ limit })}`, { token, signal }),
 
   listApiKeys: (token: string, signal?: AbortSignal) =>
     request<ApiKey[]>('/api-keys', { token, signal }),
@@ -592,7 +803,7 @@ export const api = {
     }),
 
   revokeApiKey: (token: string, id: UUID) =>
-    request<void>(`/api-keys/${id}`, { method: 'DELETE', token }),
+    request<void>(`/api-keys/${seg(id)}`, { method: 'DELETE', token }),
 
   updateProfile: (token: string, body: UpdateProfileRequest) =>
     request<UpdateProfileResponse>('/me', { method: 'POST', token, body }),
@@ -627,10 +838,13 @@ export const api = {
     asset = 'XLM',
     signal?: AbortSignal
   ) =>
-    request<FeeEstimate>(`/remittance/estimate?amount_stroops=${amountStroops}&asset=${asset}`, {
-      token,
-      signal,
-    }),
+    request<FeeEstimate>(
+      `/remittance/estimate${buildQuery({ amount_stroops: amountStroops, asset: assertValidAsset(asset) })}`,
+      {
+        token,
+        signal,
+      }
+    ),
 
   createRemittance: (
     token: string,
@@ -652,7 +866,7 @@ export const api = {
     }),
 
   listRemittances: (token: string, limit = 50, signal?: AbortSignal) =>
-    request<Remittance[]>(`/remittances?limit=${limit}`, { token, signal }),
+    request<Remittance[]>(`/remittances${buildQuery({ limit })}`, { token, signal }),
 
   // ZAR onramp via Ozow
   createOzowPayment: (token: string, amountZAR: number, bankCode: string, returnUrl: string) =>
@@ -668,7 +882,7 @@ export const api = {
 
   verifyOzowPayment: (token: string, transactionId: string) =>
     request<{ status: 'pending' | 'completed' | 'failed'; tx_hash?: string }>(
-      `/onramp/ozow/verify/${transactionId}`,
+      `/onramp/ozow/verify/${seg(transactionId)}`,
       { token }
     ),
 
@@ -676,35 +890,44 @@ export const api = {
     request<AdminOverview>('/admin/overview', { token, signal }),
 
   adminUsers: (token: string, page = 1, pageSize = 25, signal?: AbortSignal) =>
-    request<AdminUserRow[]>(`/admin/users?page=${page}&page_size=${pageSize}`, { token, signal }),
+    request<AdminUserRow[]>(`/admin/users${buildQuery({ page, page_size: pageSize })}`, {
+      token,
+      signal,
+    }),
 
   adminMerchants: (token: string, page = 1, pageSize = 25, signal?: AbortSignal) =>
-    request<AdminMerchantRow[]>(`/admin/merchants?page=${page}&page_size=${pageSize}`, {
+    request<AdminMerchantRow[]>(`/admin/merchants${buildQuery({ page, page_size: pageSize })}`, {
       token,
       signal,
     }),
 
   adminWallets: (token: string, page = 1, pageSize = 25, signal?: AbortSignal) =>
-    request<AdminWalletRow[]>(`/admin/wallets?page=${page}&page_size=${pageSize}`, {
+    request<AdminWalletRow[]>(`/admin/wallets${buildQuery({ page, page_size: pageSize })}`, {
       token,
       signal,
     }),
 
   adminTransactions: (token: string, page = 1, pageSize = 25, signal?: AbortSignal) =>
-    request<AdminTransactionRow[]>(`/admin/transactions?page=${page}&page_size=${pageSize}`, {
-      token,
-      signal,
-    }),
+    request<AdminTransactionRow[]>(
+      `/admin/transactions${buildQuery({ page, page_size: pageSize })}`,
+      {
+        token,
+        signal,
+      }
+    ),
 
   adminWithdrawals: (token: string, page = 1, pageSize = 25, signal?: AbortSignal) =>
-    request<AdminWithdrawalRow[]>(`/admin/withdrawals?page=${page}&page_size=${pageSize}`, {
-      token,
-      signal,
-    }),
+    request<AdminWithdrawalRow[]>(
+      `/admin/withdrawals${buildQuery({ page, page_size: pageSize })}`,
+      {
+        token,
+        signal,
+      }
+    ),
 
   adminPaymentRequests: (token: string, page = 1, pageSize = 25, signal?: AbortSignal) =>
     request<AdminPaymentRequestRow[]>(
-      `/admin/payment-requests?page=${page}&page_size=${pageSize}`,
+      `/admin/payment-requests${buildQuery({ page, page_size: pageSize })}`,
       {
         token,
         signal,

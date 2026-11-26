@@ -27,21 +27,35 @@ The AFRAMP frontend repository is organized for clarity and scalability:
 
 ```
 Aframp/
-├── public/                 # Static assets
-├── src/
-│   ├── assets/            # Images, fonts, icons
-│   ├── components/        # Reusable UI components (Buttons, Modals, etc.)
-│   ├── contexts/          # React contexts (Auth, Wallet, Theme)
-│   ├── hooks/             # Custom React hooks
-│   ├── pages/             # Top-level page components (Dashboard, Onramp, Bills)
-│   ├── services/          # API and blockchain service integrations
-│   ├── styles/            # Global and module CSS/Tailwind config
-│   ├── utils/             # Helper functions and constants
-│   └── App.js             # Main application component
-├── .env.example           # Environment variables template
+├── app/                        # Next.js App Router
+│   ├── (app)/                  # Authenticated routes (guarded by layout)
+│   │   ├── charge/
+│   │   ├── contacts/
+│   │   ├── home/
+│   │   ├── remittances/
+│   │   ├── send/
+│   │   ├── settings/
+│   │   ├── transactions/
+│   │   ├── wallet/
+│   │   ├── withdraw/
+│   │   └── layout.tsx          # Auth-guard layout for all (app) routes
+│   ├── admin/                  # Admin panel routes
+│   ├── landing/                # Marketing landing page (alternate route)
+│   ├── login/                  # Login page
+│   ├── signup/                 # Signup page
+│   ├── verify/                 # Email / OTP verification page
+│   ├── request/[id]/           # Public payment-request viewer
+│   ├── layout.tsx              # Root layout (fonts, providers)
+│   └── page.tsx                # Root entry — public marketing page (Hero, FAQ, etc.)
+├── components/                 # Reusable UI components
+├── lib/                        # API client, money formatting, utilities
+├── public/                     # Static assets
+├── .env.example                # Environment variables template
 ├── package.json
 └── README.md
 ```
+
+For a deeper look at data-loading patterns and route-level architecture decisions, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Architecture Decisions
 
@@ -123,6 +137,10 @@ npm run dev
 Access the app at `http://localhost:3000` ✅
 
 ---
+
+## 📲 PWA
+
+Aframp is installable; see [docs/PWA.md](docs/PWA.md).
 
 ## 🔧 Environment Variables
 

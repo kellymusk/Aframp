@@ -19,13 +19,19 @@ jest.mock('@/lib/api', () => {
       getBalances: jest.fn(),
       listWithdrawals: jest.fn(),
       createWithdrawal: jest.fn(),
+      getMe: jest.fn(),
     },
     ApiError,
   }
 })
 
+const mockSession = {
+  token: 'test-token',
+  me: { kyc_status: 'approved' } as Record<string, unknown>,
+}
+
 jest.mock('@/components/session-provider', () => ({
-  useAuthenticatedSession: () => ({ token: 'test-token' }),
+  useAuthenticatedSession: () => mockSession,
 }))
 
 // Replace Radix Select with a plain <select> so value changes can be driven
@@ -41,8 +47,7 @@ jest.mock('@/components/ui/select', () => {
   const SelectItem = ({ value, children }: any) =>
     React.createElement('option', { value }, children)
 
-  const SelectContent = ({ children }: any) =>
-    React.createElement(React.Fragment, null, children)
+  const SelectContent = ({ children }: any) => React.createElement(React.Fragment, null, children)
 
   const flattenOptions = (nodes: any): any[] =>
     React.Children.toArray(nodes).flatMap((node: any) => {
@@ -65,6 +70,9 @@ jest.mock('@/components/ui/select', () => {
           option.props.children
         )
       )
+      if (value === '') {
+        options.unshift(React.createElement('option', { key: 'empty', value: '' }, ''))
+      }
 
       return React.createElement(
         'select',
@@ -115,9 +123,12 @@ function withdrawal(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockSession.me = { kyc_status: 'approved' }
   mockGetBalances.mockResolvedValue([])
   mockListWithdrawals.mockResolvedValue([])
   mockCreateWithdrawal.mockResolvedValue({})
+  // The page reads KYC status from /me before showing the cash-out form.
+  ;(api.getMe as jest.Mock).mockImplementation(() => Promise.resolve(mockSession.me))
 })
 
 describe('WithdrawPage', () => {
@@ -131,6 +142,45 @@ describe('WithdrawPage', () => {
   it('shows a no-balance message when nothing can be cashed out', async () => {
     render(<WithdrawPage />)
     expect(await screen.findByText(/no balance to cash out/i)).toBeInTheDocument()
+  })
+
+  it('renders the cash-out form when KYC is approved', async () => {
+    mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
+    render(<WithdrawPage />)
+    expect(await screen.findByRole('heading', { name: 'Cash out' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Amount (cNGN)')).toBeInTheDocument()
+  })
+
+  it.each(['pending', 'rejected', 'unverified'])(
+    'shows the KYC-required message when kyc_status is %s',
+    async (status) => {
+      mockSession.me = { kyc_status: status }
+      mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
+      render(<WithdrawPage />)
+
+      expect(await screen.findByText(/verify your identity/i)).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Cash out' })).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Amount (cNGN)')).not.toBeInTheDocument()
+    }
+  )
+
+  it('shows a clear KYC-unavailable state when kyc_status is missing', async () => {
+    mockSession.me = {}
+    mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
+    render(<WithdrawPage />)
+
+    expect(await screen.findByText(/kyc status unavailable/i)).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Cash out' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Amount (cNGN)')).not.toBeInTheDocument()
+  })
+
+  it('shows a clear KYC-unavailable state when kyc_status is null', async () => {
+    mockSession.me = { kyc_status: null }
+    mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
+    render(<WithdrawPage />)
+
+    expect(await screen.findByText(/kyc status unavailable/i)).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Cash out' })).not.toBeInTheDocument()
   })
 
   it('has no accessibility violations in the cash-out form', async () => {
@@ -284,7 +334,6 @@ describe('WithdrawPage', () => {
   })
 
   it('submits a valid cash-out', async () => {
-
     // Simulate a programmatic bypass: set a 10-char value containing a
     // non-digit that skips the onChange .replace(/\D/g,'') handler.
     // We do this by calling fireEvent.change with nativeEvent to bypass React's
@@ -316,7 +365,6 @@ describe('WithdrawPage', () => {
   })
 
   it('submits a valid cash-out', async () => {
-
     // Simulate a programmatic bypass: directly set a non-digit account number
     // that bypasses the onChange .replace(/\D/g,'') handler.
     const accountInput = screen.getByLabelText('Account number')
@@ -324,13 +372,39 @@ describe('WithdrawPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Cash out' }))
 
-    expect(
-      await screen.findByText('Account number must contain digits only.')
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Account number must contain digits only.')).toBeInTheDocument()
     expect(mockCreateWithdrawal).not.toHaveBeenCalled()
   })
 
-  it('submits a valid cash-out', async () => {
+  it('keeps confirmation open and blocks duplicate cash-outs while submitting', async () => {
+    const user = userEvent.setup()
+    let resolveWithdrawal!: (value: unknown) => void
+    mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
+    mockCreateWithdrawal.mockReturnValue(
+      new Promise((resolve) => {
+        resolveWithdrawal = resolve
+      })
+    )
+    render(<WithdrawPage />)
+
+    await screen.findByRole('heading', { name: 'Cash out' })
+    await user.type(screen.getByLabelText('Amount (cNGN)'), '50')
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '044' } })
+    await user.type(screen.getByLabelText('Account number'), '0123456789')
+    await user.click(screen.getByRole('button', { name: 'Cash out' }))
+    await user.click(await screen.findByRole('button', { name: 'Confirm cash out' }))
+
+    const sendingButton = await screen.findByRole('button', { name: 'Sending…' })
+    expect(sendingButton).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    expect(mockCreateWithdrawal).toHaveBeenCalledTimes(1)
+
+    resolveWithdrawal({})
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(screen.getByLabelText('Amount (cNGN)')).toHaveValue('')
+  })
+
+  it('submits a valid cash-out after confirmation', async () => {
     const user = userEvent.setup()
     mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
     render(<WithdrawPage />)
@@ -341,6 +415,7 @@ describe('WithdrawPage', () => {
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '044' } })
     await user.type(screen.getByLabelText('Account number'), '0123456789')
     await user.click(screen.getByRole('button', { name: 'Cash out' }))
+    await user.click(await screen.findByRole('button', { name: 'Confirm cash out' }))
 
     await waitFor(() =>
       expect(mockCreateWithdrawal).toHaveBeenCalledWith(
@@ -369,8 +444,10 @@ describe('WithdrawPage', () => {
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '044' } })
     await user.type(screen.getByLabelText('Account number'), '0123456789')
     await user.click(screen.getByRole('button', { name: 'Cash out' }))
+    await user.click(await screen.findByRole('button', { name: 'Confirm cash out' }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Bank provider unavailable')
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 })

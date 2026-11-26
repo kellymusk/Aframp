@@ -1,12 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
+import { ConfirmWithdrawalDialog } from '@/components/withdraw/confirm-withdrawal-dialog'
 import {
   Select,
   SelectContent,
@@ -14,11 +15,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { api, ApiError, type Balance, type Withdrawal, type WithdrawalStatus } from '@/lib/api'
+import {
+  api,
+  ApiError,
+  type Balance,
+  type Me,
+  type Withdrawal,
+  type WithdrawalStatus,
+} from '@/lib/api'
 import { formatStroops, parseAmountToStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import {
   getBankOptions,
+  getSavedBeneficiaries,
   getWithdrawableAssets,
   getWithdrawalAssetConfig,
   validateWithdrawal,
@@ -35,6 +44,8 @@ const STATUS_LABEL: Record<WithdrawalStatus, string> = {
 export default function WithdrawPage() {
   const { token } = useAuthenticatedSession()
   const [balances, setBalances] = useState<Balance[] | null>(null)
+  const [me, setMe] = useState<Me | null>(null)
+  const [meError, setMeError] = useState<string | null>(null)
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
   const [asset, setAsset] = useState<WithdrawalAsset>('cNGN')
   const [amount, setAmount] = useState('')
@@ -42,16 +53,21 @@ export default function WithdrawPage() {
   const [accountNumber, setAccountNumber] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [confirmationOpen, setConfirmationOpen] = useState(false)
+  const submissionInFlight = useRef(false)
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
       try {
-        const [nextBalances, nextWithdrawals] = await Promise.all([
+        const [nextBalances, nextWithdrawals, nextMe] = await Promise.all([
           api.getBalances(token, signal),
           api.listWithdrawals(token, 20, signal),
+          api.getMe(token, signal),
         ])
         setBalances(nextBalances)
         setWithdrawals(nextWithdrawals)
+        setMe(nextMe)
+        setMeError(null)
       } catch (cause) {
         if (cause instanceof DOMException && cause.name === 'AbortError') return
         if (cause instanceof ApiError && cause.status === 0) {
@@ -66,11 +82,39 @@ export default function WithdrawPage() {
     [token]
   )
 
+  // The KYC gate is loaded separately so a failure to read `me` shows an
+  // explicit "status unavailable" state instead of silently blocking cash-out.
+  const loadMe = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const nextMe = await api.getMe(token, signal)
+        setMe(nextMe)
+        setMeError(null)
+      } catch (cause) {
+        if (cause instanceof DOMException && cause.name === 'AbortError') return
+        setMeError(
+          cause instanceof ApiError && cause.status === 0
+            ? 'backend-down'
+            : cause instanceof Error
+              ? cause.message
+              : 'Could not load your verification status'
+        )
+      }
+    },
+    [token]
+  )
+
   useEffect(() => {
     const controller = new AbortController()
     void load(controller.signal)
     return () => controller.abort()
   }, [load])
+
+  // `kyc_status` is optional in the API contract: a backend that doesn't send
+  // it must surface as "unavailable", never as a silent block.
+  const kycStatus = me?.kyc_status ?? null
+  const kycApproved = kycStatus === 'approved'
+  const kycUnavailable = !kycApproved && (meError !== null || kycStatus === null)
 
   const withdrawableAssets = useMemo(() => getWithdrawableAssets(balances ?? []), [balances])
   const config = getWithdrawalAssetConfig(asset)
@@ -81,6 +125,11 @@ export default function WithdrawPage() {
   // which is what every comparison below and the backend both expect. Null when
   // unparseable. See lib/money.ts for the unit and the two helpers.
   const stroops = parseAmountToStroops(amount)
+
+  const savedBeneficiaries = useMemo(
+    () => getSavedBeneficiaries(withdrawals, asset),
+    [withdrawals, asset]
+  )
 
   const selectAsset = useCallback((next: WithdrawalAsset) => {
     setAsset(next)
@@ -96,35 +145,28 @@ export default function WithdrawPage() {
     selectAsset(withdrawableAssets[0])
   }, [withdrawableAssets, asset, selectAsset])
 
-  function validate(): string | null {
-    if (stroops === null || stroops <= 0n) return 'Enter an amount to cash out.'
-    if (!isWholeKobo(stroops)) return 'Amount must have at most 2 decimal places.'
-    if (stroops < config.minimumStroops)
-      return `The smallest cash-out is ${formatStroops(config.minimumStroops)} ${asset}.`
-    if (stroops > available) return 'That is more than your available balance.'
-    if (!bankCode) return 'Choose your bank.'
-    if (accountNumber.length !== config.accountNumberLength) {
-      return `Account numbers are ${config.accountNumberLength} digits.`
-    }
-    if (!/^\d+$/.test(accountNumber)) {
-      return 'Account number must contain digits only.'
-    }
-    return null
-  }
-
-  async function submit(event: React.FormEvent) {
+  function submit(event: React.FormEvent) {
     event.preventDefault()
+    if (submissionInFlight.current) return
+
     const problem = validateWithdrawal(stroops, config, available, bankCode, accountNumber)
     if (problem) {
       setError(problem)
       return
     }
 
+    setError(null)
+    setConfirmationOpen(true)
+  }
+
+  async function confirmWithdrawal() {
+    if (submissionInFlight.current) return
+    submissionInFlight.current = true
+
     setSubmitting(true)
     setError(null)
     try {
-      // `stroops!` is the amount in stroops, not units — validate() has already
-      // ruled out null by this point. See lib/money.ts.
+      // `stroops!` is in stroops, not whole asset units; validation has ruled out null.
       await api.createWithdrawal(token, stroops!, bankCode, accountNumber, asset)
       setAmount('')
       setBankCode('')
@@ -134,7 +176,9 @@ export default function WithdrawPage() {
       // A 502 carries Paystack's own message — show it rather than a generic one.
       setError(cause instanceof Error ? cause.message : 'Cash-out failed')
     } finally {
+      submissionInFlight.current = false
       setSubmitting(false)
+      setConfirmationOpen(false)
     }
   }
 
@@ -142,6 +186,63 @@ export default function WithdrawPage() {
     return (
       <div className="flex justify-center py-16">
         <LoadingSpinner />
+      </div>
+    )
+  }
+
+  if (!kycApproved) {
+    return (
+      <div>
+        <header>
+          <h1 className="text-2xl font-bold tracking-tight">Cash out</h1>
+          <p className="text-dim mt-1 text-sm">Verify your identity to cash out.</p>
+        </header>
+
+        <div className="mt-6 max-w-xl space-y-5">
+          {kycUnavailable ? (
+            <Alert>
+              <AlertDescription>
+                <p className="font-bold">KYC status unavailable</p>
+                <p className="mt-1">
+                  We couldn&apos;t confirm your identity verification status, so cash-out is
+                  paused for now. This is not a rejection — please retry, or contact support if
+                  it keeps happening.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setMeError(null)
+                      void loadMe()
+                    }}
+                  >
+                    Retry
+                  </Button>
+                  <Button asChild variant="ghost">
+                    <a href="mailto:support@aframp.com">Contact support</a>
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Alert>
+              <AlertDescription>
+                <p className="font-bold">Identity verification required</p>
+                <p className="mt-1">
+                  Your verification status is{' '}
+                  <span className="font-bold">{kycStatus}</span>. Complete verification to cash
+                  out.
+                </p>
+                <div className="mt-3">
+                  <Button asChild>
+                    <a href="/kyc">Verify your identity</a>
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
       </div>
     )
   }
@@ -214,6 +315,36 @@ export default function WithdrawPage() {
             />
           </div>
 
+          {savedBeneficiaries.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-dim text-xs font-medium">Saved accounts</p>
+              <div className="flex flex-wrap gap-2">
+                {savedBeneficiaries.map((b) => {
+                  const isSelected =
+                    bankCode === b.bankCode && accountNumber === b.accountNumber
+                  return (
+                    <button
+                      key={`${b.bankCode}:${b.accountNumber}`}
+                      type="button"
+                      disabled={available === 0n}
+                      onClick={() => {
+                        setBankCode(b.bankCode)
+                        setAccountNumber(b.accountNumber)
+                      }}
+                      className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                        isSelected
+                          ? 'border-transparent bg-white text-black'
+                          : 'border-hairline text-dim hover:border-white/40 hover:text-white'
+                      } disabled:pointer-events-none disabled:opacity-40`}
+                    >
+                      {b.bankName} ···{b.accountNumber.slice(-4)}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="bank">Bank</Label>
             <Select value={bankCode} onValueChange={setBankCode} disabled={available === 0n}>
@@ -252,6 +383,17 @@ export default function WithdrawPage() {
           </Button>
         </form>
 
+        <ConfirmWithdrawalDialog
+          open={confirmationOpen}
+          onOpenChange={(open) => {
+            if (!submitting) setConfirmationOpen(open)
+          }}
+          amount={amount}
+          asset={asset}
+          submitting={submitting}
+          onConfirm={() => void confirmWithdrawal()}
+        />
+
         {withdrawals.length > 0 && (
           <section className="space-y-3">
             <h2 className="text-dim text-xs font-bold tracking-widest uppercase">
@@ -272,7 +414,9 @@ export default function WithdrawPage() {
                           ? 'default'
                           : withdrawal.status === 'failed'
                             ? 'destructive'
-                            : 'secondary'
+                            : withdrawal.status === 'processing'
+                              ? 'processing'
+                              : 'secondary'
                       }
                     >
                       {STATUS_LABEL[withdrawal.status] ?? withdrawal.status}

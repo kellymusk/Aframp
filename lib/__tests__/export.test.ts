@@ -1,5 +1,5 @@
 import type { Payment } from '@/lib/api'
-import { exportPaymentsToCSV } from '@/lib/export'
+import { escapeCsvCell, exportPaymentsToCSV } from '@/lib/export'
 
 const payment: Payment = {
   id: 'payment-1',
@@ -24,6 +24,14 @@ describe('exportPaymentsToCSV', () => {
     )
   })
 
+  it('exports large amounts without locale grouping', () => {
+    const result = exportPaymentsToCSV([
+      { ...payment, amount_stroops: 12_345n * 10_000_000n },
+    ])
+
+    expect(result).toContain('2026-09-28T12:00:00.000Z,12345,XLM,')
+  })
+
   it('escapes CSV delimiters and prevents formula execution in text fields', () => {
     const result = exportPaymentsToCSV([
       { ...payment, asset: 'XLM, "Gold"', wallet_address: '=IMPORTDATA("https://example.com")' },
@@ -37,5 +45,22 @@ describe('exportPaymentsToCSV', () => {
     expect(exportPaymentsToCSV([])).toBe(
       'created_at,amount,asset,status,tx_hash,wallet_address,network,confirmations'
     )
+  })
+})
+
+describe('escapeCsvCell', () => {
+  it.each(['=SUM(A1)', '+1', '-1', '@x', ' =SUM(A1)', '\n=SUM(A1)', '\t+1', '\r-1'])(
+    'neutralises formula %j',
+    (value) => {
+      const out = escapeCsvCell(value)
+      expect(out.replace(/^"/, '').startsWith("'")).toBe(true)
+    }
+  )
+
+  it('leaves numbers alone and quotes commas', () => {
+    expect(escapeCsvCell(-5)).toBe('-5')
+    expect(escapeCsvCell('-5', false)).toBe('-5')
+    expect(escapeCsvCell('a,b')).toBe('"a,b"')
+    expect(escapeCsvCell(null)).toBe('')
   })
 })

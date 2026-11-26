@@ -26,12 +26,19 @@ export interface DailyRevenueEntry {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
+/**
+ * Returns the ISO calendar date (YYYY-MM-DD) for the given date in UTC.
+ * Uses UTC to match backend and activity-highlights day boundaries.
+ */
 function dateKey(date: Date): string {
-  return date.toISOString().slice(0, 10)
+  const year = date.getUTCFullYear()
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(date.getUTCDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function weekdayLabel(date: Date): string {
-  return date.toLocaleDateString('en-US', { weekday: 'short' })
+  return date.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
 }
 
 /**

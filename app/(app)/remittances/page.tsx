@@ -7,6 +7,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { api, type Remittance } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
+import { getTransactionExplorerUrl } from '@/lib/config/network'
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString('en-NG', {
@@ -19,8 +20,13 @@ function formatWhen(iso: string): string {
 }
 
 function statusVariant(status: Remittance['status']) {
+  // Use distinct variants for each state so merchants can visually distinguish progress
   if (status === 'confirmed') return 'default' as const
   if (status === 'failed') return 'destructive' as const
+  // 'submitted' is in-flight (sent to network, awaiting confirmation)
+  // 'pending' has not started yet — keep these visually distinct
+  if (status === 'submitted') return 'processing' as const
+  // 'pending' = awaiting initiation
   return 'secondary' as const
 }
 
@@ -103,7 +109,7 @@ export default function RemittancesPage() {
                   <td className="px-4 py-3">
                     {row.tx_hash ? (
                       <a
-                        href={`https://stellar.expert/explorer/testnet/tx/${row.tx_hash}`}
+                        href={getTransactionExplorerUrl(row.tx_hash)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-brand font-mono text-xs hover:underline"

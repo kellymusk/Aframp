@@ -11,8 +11,14 @@ import { ErrorState } from '@/components/ui/error-state'
 import { api, ApiError, type PaymentRequest } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
 
-/** The backend confirms a deposit within one Horizon poll cycle (60s default). */
-const POLL_INTERVAL_MS = 3000
+/**
+ * The backend confirms a deposit within one Horizon poll cycle (60s default), so
+ * polling faster than that mostly returns no-ops. Start fairly quick (the customer
+ * may have just scanned) and back off to a ceiling while the request stays pending.
+ */
+const POLL_INITIAL_MS = 5000
+const POLL_MAX_MS = 15000
+const POLL_BACKOFF = 1.5
 
 function secondsUntil(iso: string): number {
   return Math.max(0, Math.floor((new Date(iso).getTime() - Date.now()) / 1000))
@@ -52,22 +58,49 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
   )
 
   // Poll while the customer hasn't paid yet; stop as soon as it settles.
+  // Backs off while pending, and pauses entirely while the tab is hidden.
   useEffect(() => {
     const controller = new AbortController()
-    let timer: ReturnType<typeof setTimeout>
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let delay = POLL_INITIAL_MS
+    let settled = false
+
+    const schedule = () => {
+      clearTimeout(timer)
+      timer = setTimeout(tick, delay)
+      delay = Math.min(POLL_MAX_MS, Math.round(delay * POLL_BACKOFF))
+    }
 
     const tick = async () => {
+      if (document.hidden) return // resumed by the visibilitychange handler
       const next = await load(controller.signal)
       if (controller.signal.aborted) return
       if (!next || next.status === 'pending') {
-        timer = setTimeout(tick, POLL_INTERVAL_MS)
+        if (!document.hidden) schedule()
+      } else {
+        settled = true
       }
     }
+
+    const onVisibilityChange = () => {
+      if (settled || controller.signal.aborted) return
+      if (document.hidden) {
+        clearTimeout(timer)
+      } else {
+        // Refresh right away on return, then start the backoff over.
+        clearTimeout(timer)
+        delay = POLL_INITIAL_MS
+        void tick()
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
     void tick()
 
     return () => {
       controller.abort()
       clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [load])
 

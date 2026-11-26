@@ -7,25 +7,18 @@ import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
 import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration'
-import { api, ApiError, type Balance, type Payment, type PaymentStatus, type Refund } from '@/lib/api'
+import { api, ApiError, type Balance, type Payment, type Refund } from '@/lib/api'
 import { exportPaymentsToCSV } from '@/lib/export'
-import { formatStroops } from '@/lib/money'
+import { formatStroops, formatStroopsPlain } from '@/lib/money'
+import { paymentStatusLabel, paymentStatusVariant } from '@/lib/payment-status'
 import { useAuthenticatedSession } from '@/components/session-provider'
+import { getStellarTransactionUrl } from '@/lib/stellar-network'
 
-/** Testnet today; swap for `public` when the backend points at mainnet Horizon. */
-const EXPLORER_BASE = 'https://stellar.expert/explorer/testnet/tx'
-
-const STATUS_LABEL: Record<PaymentStatus, string> = {
-  detected: 'Detected',
-  verified: 'Verifying',
-  confirmed: 'Paid',
-  failed: 'Failed',
-}
-
-function statusVariant(status: PaymentStatus) {
-  if (status === 'confirmed') return 'default' as const
-  if (status === 'failed') return 'destructive' as const
-  return 'secondary' as const
+function matchesSearch(payment: Payment, query: string): boolean {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return true
+  const haystack = [payment.tx_hash, payment.wallet_address, payment.asset]
+  return haystack.some((value) => typeof value === 'string' && value.toLowerCase().includes(needle))
 }
 
 function formatWhen(iso: string): string {
@@ -57,6 +50,7 @@ export default function TransactionsPage() {
   const [refunds, setRefunds] = useState<Refund[]>([])
   const [refundingId, setRefundingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
 
   const load = useCallback(
     async (signal?: AbortSignal, l: number = limit) => {
@@ -85,7 +79,7 @@ export default function TransactionsPage() {
   const handleRefund = useCallback(
     async (payment: Payment) => {
       const confirmed = window.confirm(
-        `Refund ${formatStroops(payment.amount_stroops)} ${payment.asset} to ${payment.wallet_address}?`
+        `Refund ${formatStroopsPlain(payment.amount_stroops)} ${payment.asset} to ${payment.wallet_address}?`
       )
       if (!confirmed) return
 
@@ -133,6 +127,8 @@ export default function TransactionsPage() {
     )
   }
 
+  const visiblePayments = payments.filter((payment) => matchesSearch(payment, search))
+
   return (
     <div>
       <header className="space-y-3">
@@ -149,6 +145,14 @@ export default function TransactionsPage() {
             Export CSV
           </Button>
         </div>
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search by reference, hash, wallet address or asset"
+          aria-label="Search payments"
+          className="border-hairline bg-panel w-full rounded-2xl border px-4 py-2 text-sm"
+        />
         {balances.length > 0 && (
           <ul className="grid gap-2 sm:grid-cols-2">
             {balances.map((balance) => (
@@ -173,9 +177,14 @@ export default function TransactionsPage() {
             No payments yet. Charge a customer and they&apos;ll show up here.
           </p>
         </div>
+      ) : visiblePayments.length === 0 ? (
+        <div className="mt-6 flex flex-col items-center gap-3 py-12 text-center">
+          <EmptyStateIllustration variant="empty" className="size-20" />
+          <p className="text-dim text-sm">No payments match “{search}”.</p>
+        </div>
       ) : (
         <ul className="border-hairline mt-6 divide-y">
-          {payments.map((payment) => (
+          {visiblePayments.map((payment) => (
             <li key={payment.id} className="flex items-center justify-between gap-3 py-3">
               <div className="min-w-0 space-y-1">
                 <p className="text-base font-bold tabular-nums text-white">
@@ -184,7 +193,7 @@ export default function TransactionsPage() {
                 <p className="text-dim text-xs">
                   {formatWhen(payment.created_at)} ·{' '}
                   <a
-                    href={`${EXPLORER_BASE}/${payment.tx_hash}`}
+                    href={getStellarTransactionUrl(payment.tx_hash)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:text-bright underline underline-offset-2"
@@ -205,8 +214,8 @@ export default function TransactionsPage() {
                     {refundingId === payment.id ? 'Refunding…' : 'Refund'}
                   </Button>
                 )}
-                <Badge variant={statusVariant(payment.status)}>
-                  {STATUS_LABEL[payment.status] ?? payment.status}
+                <Badge variant={paymentStatusVariant(payment.status)}>
+                  {paymentStatusLabel(payment.status)}
                 </Badge>
               </div>
             </li>
@@ -228,7 +237,10 @@ export default function TransactionsPage() {
         ) : (
           <ul className="border-hairline divide-y rounded-2xl border">
             {refunds.map((refund) => (
-              <li key={refund.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+              <li
+                key={refund.id}
+                className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+              >
                 <span className="tabular-nums font-medium">
                   {formatStroops(refund.amount_stroops)} {refund.asset}
                 </span>

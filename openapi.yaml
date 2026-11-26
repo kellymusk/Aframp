@@ -339,6 +339,15 @@ components:
         merchant_name:
           type: string
           nullable: true
+        kyc_status:
+          type: string
+          nullable: true
+          enum: [pending, approved, rejected, expired]
+          description: |
+            Merchant KYC verification status. Optional: older backends may omit
+            this field entirely. Clients must treat a missing value as unknown
+            (not approved) and surface a clear state rather than silently
+            blocking cash-out.
     Wallet:
       type: object
       required: [id, merchant_id, address, network, created_at]

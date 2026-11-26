@@ -69,10 +69,25 @@ describe('parseWithBigInts', () => {
   })
 
   it('leaves non-bigint keys and string values untouched', () => {
-    const parsed = parseWithBigInts<{ asset: string; status: string; note: string }>(
-      '{"asset":"cNGN","status":"pending","note":"amount_stroops: 123"}'
+    const parsed = parseWithBigInts<{ asset: string; status: string; note: string; marker: string }>(
+      '{"asset":"cNGN","status":"pending","note":"amount_stroops: 123","marker":" bigint 9007199254740993 bigint "}'
     )
-    expect(parsed).toEqual({ asset: 'cNGN', status: 'pending', note: 'amount_stroops: 123' })
+    expect(parsed).toEqual({
+      asset: 'cNGN',
+      status: 'pending',
+      note: 'amount_stroops: 123',
+      marker: ' bigint 9007199254740993 bigint ',
+    })
+  })
+
+  it('revives tagged bigint objects without confusing strings', () => {
+    const parsed = parseWithBigInts<{ amount: bigint; text: string }>(
+      '{"amount":{"__bigint":"9007199254740993"},"text":"{\\"__bigint\\":\\"123\\"}"}'
+    )
+    expect(parsed).toEqual({
+      amount: 9007199254740993n,
+      text: '{"__bigint":"123"}',
+    })
   })
 })
 
@@ -80,6 +95,12 @@ describe('stringifyWithBigInts', () => {
   it('emits bigints as unquoted JSON integers', () => {
     expect(stringifyWithBigInts({ amount_stroops: 9007199254740993n })).toBe(
       '{"amount_stroops":9007199254740993}'
+    )
+  })
+
+  it('tags bigints outside registered wire keys', () => {
+    expect(stringifyWithBigInts({ arbitrary: 9007199254740993n })).toBe(
+      '{"arbitrary":{"__bigint":"9007199254740993"}}'
     )
   })
 
@@ -92,8 +113,37 @@ describe('stringifyWithBigInts', () => {
     expect(parseWithBigInts<typeof value>(stringifyWithBigInts(value))).toEqual(value)
   })
 
+  it('round-trips arbitrarily keyed bigints exactly', () => {
+    const value = { balanceAdjustment: 9007199254740993n, count: -42n }
+    expect(parseWithBigInts<typeof value>(stringifyWithBigInts(value))).toEqual(value)
+  })
+
   it('leaves plain JSON alone', () => {
     expect(stringifyWithBigInts({ asset: 'cNGN', n: 42 })).toBe('{"asset":"cNGN","n":42}')
+  })
+
+  it('does not collide with marker text inside strings', () => {
+    const value = {
+      amount_stroops: 9007199254740993n,
+      memo: 'quoted bigint marker: bigint 9007199254740993 bigint ',
+    }
+    expect(parseWithBigInts<typeof value>(stringifyWithBigInts(value))).toEqual(value)
+  })
+
+  it('does not rewrite a string containing a bigint key pattern', () => {
+    const value = {
+      amount_stroops: 9007199254740993n,
+      memo: 'The API quoted: "amount_stroops": 123',
+    }
+    expect(parseWithBigInts<typeof value>(stringifyWithBigInts(value))).toEqual(value)
+  })
+
+  it('preserves strings containing the bigint object shape', () => {
+    const value = {
+      amount_stroops: 9007199254740993n,
+      memo: 'Literal text: {"__bigint":"123"}',
+    }
+    expect(parseWithBigInts<typeof value>(stringifyWithBigInts(value))).toEqual(value)
   })
 })
 
@@ -119,6 +169,14 @@ describe('request', () => {
     fetchMock.mockResolvedValue(new Response('', { status: 200 }))
     await expect(request('/wallet')).resolves.toBeUndefined()
   })
+
+  it.each([' \n\t', '<html>Not JSON</html>'])(
+    'returns undefined for a 200 response with a non-JSON body (%j)',
+    async (body) => {
+      fetchMock.mockResolvedValue(new Response(body, { status: 200 }))
+      await expect(request<void>('/logout')).resolves.toBeUndefined()
+    }
+  )
 
   it('serializes bigint request bodies without rounding', async () => {
     fetchMock.mockResolvedValue(new Response('', { status: 200 }))
@@ -158,6 +216,18 @@ describe('request', () => {
     fetchMock.mockResolvedValue(new Response('{"error":"Insufficient balance"}', { status: 400 }))
     await expect(request('/withdraw', { method: 'POST' })).rejects.toMatchObject({
       message: 'Insufficient balance',
+      status: 400,
+    })
+  })
+
+  it('leaves bigint-looking text in JSON error bodies unchanged', async () => {
+    const memo = 'The API quoted: "amount_stroops": 123'
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ error: memo, code: 'quoted' }), { status: 400 })
+    )
+    await expect(request('/withdraw', { method: 'POST' })).rejects.toMatchObject({
+      message: memo,
+      code: 'quoted',
       status: 400,
     })
   })
@@ -567,5 +637,26 @@ describe('CSRF token inclusion', () => {
       status: 403,
       message: 'CSRF validation failed.',
     })
+  })
+})
+
+describe('query/path encoding', () => {
+  beforeEach(() => fetchMock.mockResolvedValue(jsonResponse({})))
+
+  it('rejects asset codes that could inject query parameters', () => {
+    for (const bad of ['XLM&amount_stroops=1', 'a=b', 'X#Y', 'X LM', '', 'A'.repeat(17)]) {
+      expect(() => api.getRemittanceFeeEstimate('t', 1n, bad)).toThrow(ApiError)
+    }
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('sends a valid asset in the query string', async () => {
+    await api.getRemittanceFeeEstimate('t', 5n, 'cNGN')
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/remittance\/estimate\?amount_stroops=5&asset=cNGN$/)
+  })
+
+  it('encodes ids interpolated into paths', async () => {
+    await api.getPaymentRequest('a/b?c')
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/payment-requests\/a%2Fb%3Fc$/)
   })
 })

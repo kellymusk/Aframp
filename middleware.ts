@@ -1,7 +1,30 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
+/** Name of the httpOnly session cookie written by /api/session. */
+const SESSION_COOKIE = 'aframp_session'
+
+/**
+ * Reads the session cookie and returns the parsed payload, or null if absent
+ * or malformed. This runs at the edge so we cannot call the backend; we rely
+ * on the token being written only after a successful /me verification in
+ * /api/session/route.ts (#1132), and the is_admin flag stored there.
+ */
+function getSessionFromCookie(request: NextRequest): { isAdmin: boolean } | null {
+  const raw = request.cookies.get(SESSION_COOKIE)?.value
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    return { isAdmin: parsed.isAdmin === true }
+  } catch {
+    return null
+  }
+}
+
 /**
  * Per-request CSP nonce middleware (#632).
+ *
+ * Also guards /admin/* routes at the edge: users without a valid admin session
+ * cookie are redirected to /login before any admin bundle is served (#1134).
  *
  * Generates a cryptographically random nonce for every request and embeds it
  * in the Content-Security-Policy header, replacing the broad 'unsafe-inline'
@@ -12,15 +35,38 @@ import { NextResponse, type NextRequest } from 'next/server'
  * This middleware runs on every non-static, non-API-internal route.
  */
 export function middleware(request: NextRequest) {
+  // --- Admin route guard (#1134) ---
+  if (request.nextUrl.pathname.startsWith('/admin')) {
+    const session = getSessionFromCookie(request)
+    if (!session?.isAdmin) {
+      const loginUrl = new URL('/login', request.url)
+      loginUrl.searchParams.set('next', request.nextUrl.pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+  }
   // 16 random bytes → 22-character base64url string (no padding).
   const nonceBytes = crypto.getRandomValues(new Uint8Array(16))
   const nonce = Buffer.from(nonceBytes).toString('base64url')
 
+  // Nonce-locked styles (#1176). Next.js stamps the nonce from the request CSP
+  // header onto the <style> elements it injects, and next-themes already
+  // receives it via layout.tsx. React `style={{}}` props render as inline style
+  // *attributes*, which a nonce can't cover, so they are allowed separately via
+  // `style-src-attr` while injected <style> elements stay nonce-only.
+  // Gated behind CSP_STRICT_STYLES until the build is verified to still hydrate;
+  // the default keeps the previous 'unsafe-inline' behaviour.
+  const strictStyles = process.env.CSP_STRICT_STYLES === 'true'
+  const styleDirectives = strictStyles
+    ? [`style-src 'self' 'nonce-${nonce}'`, "style-src-attr 'unsafe-inline'"]
+    : ["style-src 'self' 'unsafe-inline'"]
+
   const csp = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'`,
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https:",
+    ...styleDirectives,
+    // All images are served from our own origin (or inlined as data:/blob:);
+    // no bare `https:` so injected markup can't load beacons from arbitrary hosts.
+    "img-src 'self' data: blob:",
     "font-src 'self' data:",
     "connect-src 'self' https://api.coingecko.com https://horizon.stellar.org https://horizon-testnet.stellar.org https://*.sentry.io https://*.ingest.us.sentry.io https://vitals.vercel-insights.com",
     "frame-ancestors 'none'",
@@ -39,7 +85,10 @@ export function middleware(request: NextRequest) {
   response.headers.set('Content-Security-Policy', csp)
   response.headers.set('X-Content-Type-Options', 'nosniff')
   response.headers.set('X-Frame-Options', 'DENY')
-  response.headers.set('X-XSS-Protection', '1; mode=block')
+  response.headers.set(
+    'Strict-Transport-Security',
+    'max-age=63072000; includeSubDomains; preload'
+  )
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
 

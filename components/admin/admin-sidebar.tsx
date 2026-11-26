@@ -28,7 +28,7 @@ const LINKS = [
 
 export function AdminSidebar() {
   const pathname = usePathname()
-  const { signOut } = useSession()
+  const { signOut, isLoggingOut } = useSession()
   const router = useRouter()
 
   return (
@@ -70,11 +70,12 @@ export function AdminSidebar() {
         </Link>
         <button
           type="button"
-          onClick={() => {
-            signOut()
+          disabled={isLoggingOut}
+          onClick={async () => {
+            await signOut()
             router.replace('/login')
           }}
-          className="text-dim hover:bg-raised hover:text-bright flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors"
+          className="text-dim hover:bg-raised hover:text-bright flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60"
         >
           <LogOut className="size-4 shrink-0" strokeWidth={1.75} />
           Sign out

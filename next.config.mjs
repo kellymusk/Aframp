@@ -1,34 +1,146 @@
 import withPWAInit from 'next-pwa'
 import defaultRuntimeCaching from 'next-pwa/cache.js'
-import { withSentryConfig } from '@sentry/nextjs'
+import { withSentryConfig } from '@sentry/nextjs/config'
 import withBundleAnalyzer from '@next/bundle-analyzer'
+import dns from 'node:dns'
+import { promisify } from 'node:util'
+
+const dnsResolve4 = promisify(dns.resolve4)
 
 /**
  * Validates that NEXT_API_URL is a safe absolute HTTP(S) URL.
  * Prevents SSRF attacks if the value is ever user-controlled or misconfigured.
+ *
+ * Rejects:
+ * - Private IP ranges (10.x, 172.16-31.x, 192.168.x)
+ * - Loopback (127.x, ::1)
+ * - Link-local (169.254.x)
+ * - Broadcast/multicast (224.x+, 255.255.255.255)
+ * - Unspecified (0.0.0.0)
+ * - Resolved IPs that point to any of the above
  */
-function validateBackendUrl(url) {
-  try {
-    const parsed = new URL(url)
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      throw new Error(`Invalid protocol: ${parsed.protocol} (must be http: or https:)`)
+
+// IP ranges to block (CIDR notation)
+const BLOCKED_IP_RANGES = [
+  // Loopback
+  { cidr: '127.0.0.0/8', name: 'loopback' },
+  { cidr: '::1/128', name: 'loopback-v6' },
+  // Private: 10.0.0.0/8
+  { cidr: '10.0.0.0/8', name: 'private (10.x)' },
+  // Private: 172.16.0.0/12
+  { cidr: '172.16.0.0/12', name: 'private (172.16-31.x)' },
+  // Private: 192.168.0.0/16
+  { cidr: '192.168.0.0/16', name: 'private (192.168.x)' },
+  // Link-local: 169.254.0.0/16
+  { cidr: '169.254.0.0/16', name: 'link-local (169.254.x)' },
+  // Carrier-grade NAT: 100.64.0.0/10
+  { cidr: '100.64.0.0/10', name: 'carrier-grade NAT' },
+  // Unspecified/this network
+  { cidr: '0.0.0.0/8', name: 'unspecified' },
+  // Multicast
+  { cidr: '224.0.0.0/4', name: 'multicast' },
+  // Broadcast
+  { cidr: '255.255.255.255/32', name: 'broadcast' },
+  // Benchmarking (RFC 2544)
+  { cidr: '198.18.0.0/15', name: 'benchmark' },
+  // Documentation (RFC 5737)
+  { cidr: '192.0.2.0/24', name: 'documentation' },
+  { cidr: '198.51.100.0/24', name: 'documentation' },
+  { cidr: '203.0.113.0/24', name: 'documentation' },
+]
+
+/**
+ * Parse a CIDR pattern and check if an IP falls within it.
+ * Supports IPv4 only for simplicity.
+ */
+function isIPInRange(ip, cidr) {
+  const [range, bits] = cidr.split('/')
+  const mask = ~(2 ** (32 - parseInt(bits)) - 1)
+
+  const ipInt = ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet), 0) >>> 0
+  const rangeInt = range.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet), 0) >>> 0
+
+  return (ipInt & mask) === (rangeInt & mask)
+}
+
+/**
+ * Check if an IP address is in any blocked range.
+ * Returns the blocked range name if blocked, null otherwise.
+ */
+function isIPBlocked(ip) {
+  for (const { cidr, name } of BLOCKED_IP_RANGES) {
+    if (isIPInRange(ip, cidr)) {
+      return name
     }
-    if (!parsed.hostname) {
-      throw new Error('URL must include a hostname')
-    }
-  } catch (err) {
-    console.error(
-      `[FATAL] Invalid NEXT_API_URL: ${url}\n` +
-      `${err instanceof Error ? err.message : String(err)}\n` +
-      `Expected format: http://hostname:port or https://hostname\n` +
-      `Examples: http://127.0.0.1:3000, https://api.example.com`
-    )
-    process.exit(1)
   }
+  return null
+}
+
+/**
+ * Resolve hostname to IP addresses and check each resolved IP.
+ * Returns an array of blocked IP range names if any are blocked.
+ */
+async function checkResolvedIPs(hostname) {
+  const blockedRanges = []
+
+  try {
+    const addresses = await dnsResolve4(hostname)
+    for (const ip of addresses) {
+      const blocked = isIPBlocked(ip)
+      if (blocked) {
+        blockedRanges.push(`${ip} (${blocked})`)
+      }
+    }
+  } catch {
+    // DNS resolution failed — not necessarily an error, just skip it
+  }
+
+  return blockedRanges
+}
+
+// Export for testing
+export { isIPInRange, isIPBlocked, checkResolvedIPs }
+
+// Synchronous wrapper for build-time validation
+function validateBackendUrlSync(url) {
+  let parsed
+  try {
+    parsed = new URL(url)
+  } catch (err) {
+    throw new Error(`Invalid URL format: ${err.message}`)
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error(`Invalid protocol: ${parsed.protocol} (must be http: or https:)`)
+  }
+
+  if (!parsed.hostname) {
+    throw new Error('URL must include a hostname')
+  }
+
+  const hostname = parsed.hostname
+  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/
+
+  if (ipv4Regex.test(hostname)) {
+    const blocked = isIPBlocked(hostname)
+    if (blocked) {
+      throw new Error(
+        `Hostname ${hostname} is a ${blocked} address. ` +
+        'Private, loopback, link-local, and broadcast addresses are not allowed.'
+      )
+    }
+  }
+
+  // For hostname validation at build time, we can't do async DNS resolution
+  // so we only validate literal IPs synchronously. The async version is used
+  // for runtime configuration if needed.
+  return true
 }
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Don't fingerprint the framework/version via X-Powered-By.
+  poweredByHeader: false,
   // PWA configuration (next-pwa v2 reads options from the `pwa` key)
   pwa: {
     dest: 'public',
@@ -70,7 +182,9 @@ const nextConfig = {
   // before it reaches here (see lib/csrf.ts and docs/SECURITY_CSRF.md).
   rewrites() {
     const backendUrl = (process.env.NEXT_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '')
-    validateBackendUrl(backendUrl)
+    // Use sync version for build-time validation (validates literal IPs)
+    // Hostname DNS resolution would require async which Next.js doesn't support in rewrites()
+    validateBackendUrlSync(backendUrl)
     return [
       {
         source: '/backend/:path*',
@@ -90,7 +204,10 @@ const nextConfig = {
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'X-XSS-Protection', value: '1; mode=block' },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
         ],

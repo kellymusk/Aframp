@@ -1,5 +1,6 @@
 import {
   formatStroops,
+  formatStroopsPlain,
   isAmountMultipleOf,
   isWholeKobo,
   parseAmountToStroops,
@@ -29,6 +30,21 @@ describe('formatStroops', () => {
 
   it('adds thousands separators to the whole part', () => {
     expect(formatStroops(12_345n * STROOPS_PER_UNIT)).toBe('12,345')
+  })
+
+  it('round-trips whole-unit values through formatStroops', () => {
+    const amounts = [0n, STROOPS_PER_UNIT, 999n * STROOPS_PER_UNIT]
+
+    for (const amount of amounts) {
+      expect(parseAmountToStroops(formatStroops(amount))).toBe(amount)
+    }
+  })
+
+  it('formats large values without grouping for parseable output', () => {
+    expect(formatStroopsPlain(12_345n * STROOPS_PER_UNIT)).toBe('12345')
+    expect(parseAmountToStroops(formatStroopsPlain(12_345n * STROOPS_PER_UNIT))).toBe(
+      12_345n * STROOPS_PER_UNIT
+    )
   })
 })
 
