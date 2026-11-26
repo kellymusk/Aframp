@@ -1,4 +1,27 @@
 import * as Sentry from '@sentry/nextjs'
+import { redactSentryEvent } from './lib/sentry-redact'
+
+// Elements dropped from session replays entirely (rendered as placeholders).
+const REPLAY_BLOCK_SELECTORS = [
+  '[data-sentry-block]',
+  '[data-sensitive]',
+  '[data-balance]',
+  '[data-amount]',
+  '[data-wallet-address]',
+  '[data-kyc]',
+  '[data-testid*="balance" i]',
+  '[data-testid*="amount" i]',
+  '[data-testid*="kyc" i]',
+  '[data-testid*="wallet-address" i]',
+  'input[type="file"]',
+  'img[alt*="kyc" i]',
+  'img[alt*="passport" i]',
+  'img[alt*="id document" i]',
+  'img[alt*="selfie" i]',
+]
+
+// Elements whose user input is not tracked at all.
+const REPLAY_IGNORE_SELECTORS = ['[data-sentry-ignore]', 'input[type="password"]']
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -6,9 +29,27 @@ Sentry.init({
   // Performance: sample 10 % of traces in production, none in dev
   tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 0,
 
-  // Session replay: 10 % of sessions, 100 % when an error occurs
-  replaysSessionSampleRate: 0.1,
+  // Session replay (regulated fintech): never record random sessions, only
+  // capture a replay when an error occurs. See docs/SENTRY_REPLAY_PRIVACY.md.
+  replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 1.0,
+
+  integrations: [
+    Sentry.replayIntegration({
+      // Mask every text node and input value; nothing is unmasked by default.
+      maskAllText: true,
+      maskAllInputs: true,
+      // Media (images, video, canvas, svg) is never recorded.
+      blockAllMedia: true,
+      // Elements removed from the replay entirely (balances, amounts, wallet
+      // addresses, KYC documents). Add data-sentry-block to new sensitive UI.
+      block: REPLAY_BLOCK_SELECTORS,
+      // Elements whose input events are ignored.
+      ignore: REPLAY_IGNORE_SELECTORS,
+      // Never capture request/response bodies or headers.
+      networkDetailAllowUrls: [],
+    }),
+  ],
 
   environment: process.env.NODE_ENV,
   enabled: process.env.NODE_ENV === 'production',
@@ -28,16 +69,8 @@ Sentry.init({
     'User denied transaction signature',
   ],
 
-  beforeSend(event) {
-    // Strip sensitive wallet data from breadcrumb messages.
-    // Event.breadcrumbs is a Breadcrumb[] — the { values: [...] } shape is
-    // the envelope wire format, which never reaches beforeSend.
-    if (event.breadcrumbs) {
-      event.breadcrumbs = event.breadcrumbs.map((b) => ({
-        ...b,
-        message: b.message?.replace(/G[A-Z2-7]{55}/g, '[STELLAR_ADDR]'),
-      }))
-    }
-    return event
-  },
+  // Redacts Stellar public (G…) and secret (S…) keys, emails, amounts and
+  // sensitive keys across the event, including breadcrumbs. Rules are shared
+  // with the server and edge configs.
+  beforeSend: redactSentryEvent,
 })

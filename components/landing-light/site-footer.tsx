@@ -1,13 +1,13 @@
-import { Mail, Send, Twitter } from 'lucide-react'
+import { Mail, Send, Twitter, type LucideIcon } from 'lucide-react'
 
 import { AframpMark } from '@/components/brand/aframp-mark'
 import { footer } from '@/lib/landing-light-data'
 
-const socials = [
-  { label: 'Telegram', icon: Send },
-  { label: 'Twitter', icon: Twitter },
-  { label: 'Email', icon: Mail },
-]
+const socialIcons: Record<string, LucideIcon> = {
+  Telegram: Send,
+  Twitter: Twitter,
+  Email: Mail,
+}
 
 export function SiteFooter() {
   return (
@@ -24,31 +24,57 @@ export function SiteFooter() {
             <p className="text-charcoal/80 dark:text-white/70 mt-3 text-xs">{footer.tagline}</p>
 
             <ul className="mt-4 flex gap-4">
-              {socials.map(({ label, icon: Icon }) => (
-                <li key={label}>
-                  <button
-                    type="button"
-                    aria-label={label}
-                    className="text-charcoal/70 dark:text-white/60 hover:text-brand block"
-                  >
-                    <Icon className="size-4" />
-                  </button>
-                </li>
-              ))}
+              {footer.socials.map(({ label, href }) => {
+                const Icon = socialIcons[label]
+                return (
+                  <li key={label}>
+                    {href ? (
+                      <a
+                        href={href}
+                        aria-label={label}
+                        {...(href.startsWith('http')
+                          ? { target: '_blank', rel: 'noopener noreferrer' }
+                          : {})}
+                        className="text-charcoal/70 dark:text-white/60 hover:text-brand block"
+                      >
+                        <Icon className="size-4" />
+                      </a>
+                    ) : (
+                      <span
+                        role="img"
+                        aria-label={`${label} (coming soon)`}
+                        title="Coming soon"
+                        className="text-charcoal/40 dark:text-white/30 block cursor-not-allowed"
+                      >
+                        <Icon className="size-4" />
+                      </span>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           </div>
 
           <div>
             <p className="text-brand-deep dark:text-brand text-sm font-bold">Links</p>
             <ul className="mt-3 space-y-2">
-              {footer.links.map((l) => (
-                <li key={l}>
-                  <button
-                    type="button"
-                    className="text-charcoal/80 dark:text-white/70 hover:text-brand text-xs underline"
-                  >
-                    {l}
-                  </button>
+              {footer.links.map(({ label, href }) => (
+                <li key={label}>
+                  {href ? (
+                    <a
+                      href={href}
+                      className="text-charcoal/80 dark:text-white/70 hover:text-brand text-xs underline"
+                    >
+                      {label}
+                    </a>
+                  ) : (
+                    <span
+                      title="Coming soon"
+                      className="text-charcoal/50 dark:text-white/40 cursor-not-allowed text-xs"
+                    >
+                      {label} <span className="text-[10px] italic">(coming soon)</span>
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
