@@ -424,13 +424,23 @@ describe('api', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('/backend/api-keys')
   })
 
-  it('createApiKey posts name to /api-keys', async () => {
+  it('createApiKey posts name and scopes to /api-keys', async () => {
     fetchMock.mockResolvedValue(jsonResponse({}))
-    await api.createApiKey('tok', 'My Key')
+    await api.createApiKey('tok', 'My Key', { scopes: ['read'] })
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/backend/api-keys')
     expect(init.method).toBe('POST')
-    expect(init.body).toBe('{"name":"My Key"}')
+    expect(init.body).toBe('{"name":"My Key","scopes":["read"]}')
+  })
+
+  it('createApiKey rejects missing or empty scopes without a request', () => {
+    expect(() => api.createApiKey('tok', 'No scopes', undefined as never)).toThrow(
+      /at least one scope/
+    )
+    expect(() => api.createApiKey('tok', 'Empty scopes', { scopes: [] })).toThrow(
+      /at least one scope/
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('createApiKey sends scopes and expiry when given', async () => {

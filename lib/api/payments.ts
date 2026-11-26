@@ -103,7 +103,8 @@ export interface ApiKey {
 }
 
 export interface CreateApiKeyOptions {
-  scopes?: ApiKeyScope[]
+  /** At least one scope is required; never let the backend default to full access. */
+  scopes: ApiKeyScope[]
   /** ISO timestamp; omit or null for a key that never expires. */
   expiresAt?: string | null
 }
@@ -219,14 +220,18 @@ export function listApiKeys(token: string, signal?: AbortSignal): Promise<ApiKey
 export function createApiKey(
   token: string,
   name: string,
-  { scopes, expiresAt }: CreateApiKeyOptions = {}
+  options: CreateApiKeyOptions
 ): Promise<{ api_key: ApiKey; full_key: string }> {
+  const { scopes, expiresAt } = options ?? {}
+  if (!Array.isArray(scopes) || scopes.length === 0) {
+    throw new Error('createApiKey requires at least one scope')
+  }
   return request<{ api_key: ApiKey; full_key: string }>('/api-keys', {
     method: 'POST',
     token,
     body: {
       name,
-      ...(scopes ? { scopes } : {}),
+      scopes,
       ...(expiresAt ? { expires_at: expiresAt } : {}),
     },
   })

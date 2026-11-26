@@ -41,7 +41,8 @@ export const NIGERIA_BANKS: Bank[] = [
   { code: '057', name: 'Zenith Bank' },
 ]
 
-export const BANKS: Bank[] = NIGERIA_BANKS
+// No country-agnostic `BANKS` export: codes collide across countries (e.g. '011'
+// is First Bank of Nigeria and KCB Bank), so always look up by country/asset.
 
 export const KENYA_BANKS: Bank[] = [
   { code: 'MPS', name: 'M-PESA' },
@@ -126,4 +127,9 @@ export const BANK_ACCOUNT_RULES: Record<BankCountry, Record<string, AccountNumbe
 /** Rule for the given bank code from the asset country's bank list. */
 export function getAccountNumberRule(country: BankCountry, bankCode: string): AccountNumberRule {
   return BANK_ACCOUNT_RULES[country][bankCode] ?? ACCOUNT_NUMBER_RULES[country]
+}
+
+/** Country-scoped lookup: bank codes are only unique within a country. */
+export function findBankByCode(country: BankCountry, code: string): Bank | undefined {
+  return BANKS_BY_COUNTRY[country].find((bank) => bank.code === code)
 }
