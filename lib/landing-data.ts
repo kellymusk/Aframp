@@ -4,6 +4,9 @@
  * content can move to a CMS without touching layout.
  */
 
+import { STELLAR_ASSETS } from '@/lib/assets'
+import { STELLAR_NETWORK } from '@/lib/config/network'
+
 export const nav = [
   { label: 'Features', href: '#features' },
   { label: 'How it Works', href: '#how-it-works' },
@@ -45,23 +48,35 @@ export const partners = [
   { name: 'OPay', badge: 'O' },
 ]
 
-export const networks = [
+export type Network = {
+  name: string
+  ticker: string
+  blurb: string
+}
+
+/**
+ * The chains the app can actually settle on. `config/network.ts` models
+ * Stellar exclusively, so Stellar is the only chain the landing page may
+ * advertise. Each ticker is resolved against `assets.ts` before it is
+ * exposed, which keeps the marketing copy in step with the supported assets.
+ */
+const SUPPORTED_NETWORKS: readonly Network[] = [
   {
     name: 'Stellar',
     ticker: 'XLM',
     blurb: 'Fast, low-cost cross-border payments',
   },
-  {
-    name: 'Starknet',
-    ticker: 'STRK',
-    blurb: 'Ethereum L2 with zero-knowledge proofs',
-  },
-  {
-    name: 'Lightning Network',
-    ticker: 'BTC',
-    blurb: 'Instant Bitcoin micropayments',
-  },
 ]
+
+// `config/network.ts` normalizes `PUBLIC` to `MAINNET`, but the exported type
+// still includes it, so accept every Stellar variant the app models.
+const STELLAR_NETWORKS = ['MAINNET', 'PUBLIC', 'TESTNET', 'FUTURENET'] as const
+
+export const networks: Network[] = SUPPORTED_NETWORKS.filter(({ name, ticker }) => {
+  const networkIsSupported = name === 'Stellar' && STELLAR_NETWORKS.includes(STELLAR_NETWORK)
+  const assetIsSupported = STELLAR_ASSETS.some(({ code }) => code === ticker)
+  return networkIsSupported && assetIsSupported
+})
 
 export const steps = [
   {
