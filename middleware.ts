@@ -1,7 +1,30 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
+/** Name of the httpOnly session cookie written by /api/session. */
+const SESSION_COOKIE = 'aframp_session'
+
+/**
+ * Reads the session cookie and returns the parsed payload, or null if absent
+ * or malformed. This runs at the edge so we cannot call the backend; we rely
+ * on the token being written only after a successful /me verification in
+ * /api/session/route.ts (#1132), and the is_admin flag stored there.
+ */
+function getSessionFromCookie(request: NextRequest): { isAdmin: boolean } | null {
+  const raw = request.cookies.get(SESSION_COOKIE)?.value
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    return { isAdmin: parsed.isAdmin === true }
+  } catch {
+    return null
+  }
+}
+
 /**
  * Per-request CSP nonce middleware (#632).
+ *
+ * Also guards /admin/* routes at the edge: users without a valid admin session
+ * cookie are redirected to /login before any admin bundle is served (#1134).
  *
  * Generates a cryptographically random nonce for every request and embeds it
  * in the Content-Security-Policy header, replacing the broad 'unsafe-inline'
@@ -12,6 +35,15 @@ import { NextResponse, type NextRequest } from 'next/server'
  * This middleware runs on every non-static, non-API-internal route.
  */
 export function middleware(request: NextRequest) {
+  // --- Admin route guard (#1134) ---
+  if (request.nextUrl.pathname.startsWith('/admin')) {
+    const session = getSessionFromCookie(request)
+    if (!session?.isAdmin) {
+      const loginUrl = new URL('/login', request.url)
+      loginUrl.searchParams.set('next', request.nextUrl.pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+  }
   // 16 random bytes → 22-character base64url string (no padding).
   const nonceBytes = crypto.getRandomValues(new Uint8Array(16))
   const nonce = Buffer.from(nonceBytes).toString('base64url')

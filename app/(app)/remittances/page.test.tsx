@@ -10,6 +10,11 @@ jest.mock('@/lib/api', () => ({
   api: { listRemittances: jest.fn() },
 }))
 
+jest.mock('@/lib/config/network', () => ({
+  getTransactionExplorerUrl: (txHash: string) =>
+    `https://stellar.expert/explorer/testnet/tx/${txHash}`,
+}))
+
 const mockListRemittances = api.listRemittances as jest.Mock
 
 const transactionHash = 'transaction-hash-1'
