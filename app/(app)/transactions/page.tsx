@@ -7,26 +7,14 @@ import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { ErrorState } from '@/components/ui/error-state'
 import { EmptyStateIllustration } from '@/components/ui/empty-state-illustration'
-import { api, ApiError, type Balance, type Payment, type PaymentStatus, type Refund } from '@/lib/api'
+import { api, ApiError, type Balance, type Payment, type Refund } from '@/lib/api'
 import { exportPaymentsToCSV } from '@/lib/export'
 import { formatStroops, formatStroopsPlain } from '@/lib/money'
+import { paymentStatusLabel, paymentStatusVariant } from '@/lib/payment-status'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { getStellarTransactionUrl } from '@/lib/stellar-network'
 
 import { getStellarTransactionUrl } from '@/lib/stellar-network'
-
-const STATUS_LABEL: Record<PaymentStatus, string> = {
-  detected: 'Detected',
-  verified: 'Verifying',
-  confirmed: 'Paid',
-  failed: 'Failed',
-}
-
-function statusVariant(status: PaymentStatus) {
-  if (status === 'confirmed') return 'default' as const
-  if (status === 'failed') return 'destructive' as const
-  return 'secondary' as const
-}
 
 function matchesSearch(payment: Payment, query: string): boolean {
   const needle = query.trim().toLowerCase()
@@ -239,8 +227,8 @@ export default function TransactionsPage() {
                     {refundingId === payment.id ? 'Refunding…' : 'Refund'}
                   </Button>
                 )}
-                <Badge variant={statusVariant(payment.status)}>
-                  {STATUS_LABEL[payment.status] ?? payment.status}
+                <Badge variant={paymentStatusVariant(payment.status)}>
+                  {paymentStatusLabel(payment.status)}
                 </Badge>
               </div>
             </li>
