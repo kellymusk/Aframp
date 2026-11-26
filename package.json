@@ -16,7 +16,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check '**/*.{ts,tsx,css,json,md}'",
     "type-check": "tsc --noEmit",
-    "prepare": "husky install || true",
+    "prepare": "husky",
     "lighthouse": "lhci autorun",
     "security:audit": "npm audit --audit-level=high",
     "security:owasp": "bash scripts/owasp-scan.sh",
