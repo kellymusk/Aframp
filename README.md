@@ -128,6 +128,10 @@ Access the app at `http://localhost:3001` ✅ (run on 3001 so the backend's defa
 
 ---
 
+## 📲 PWA
+
+Aframp is installable; see [docs/PWA.md](docs/PWA.md).
+
 ## 🔧 Environment Variables
 
 Copy `.env.example` to `.env.local` and configure the following. This table
