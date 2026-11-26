@@ -1,5 +1,5 @@
 import type { Payment } from '@/lib/api'
-import { formatStroops } from '@/lib/money'
+import { formatStroopsPlain } from '@/lib/money'
 
 const CSV_HEADERS = [
   'created_at',
@@ -22,7 +22,7 @@ export function exportPaymentsToCSV(payments: Payment[]): string {
   const rows = payments.map((payment) =>
     [
       csvField(payment.created_at),
-      csvField(formatStroops(payment.amount_stroops), false),
+      csvField(formatStroopsPlain(payment.amount_stroops), false),
       csvField(payment.asset),
       csvField(payment.status),
       csvField(payment.tx_hash),

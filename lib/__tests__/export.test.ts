@@ -24,6 +24,14 @@ describe('exportPaymentsToCSV', () => {
     )
   })
 
+  it('exports large amounts without locale grouping', () => {
+    const result = exportPaymentsToCSV([
+      { ...payment, amount_stroops: 12_345n * 10_000_000n },
+    ])
+
+    expect(result).toContain('2026-09-28T12:00:00.000Z,12345,XLM,')
+  })
+
   it('escapes CSV delimiters and prevents formula execution in text fields', () => {
     const result = exportPaymentsToCSV([
       { ...payment, asset: 'XLM, "Gold"', wallet_address: '=IMPORTDATA("https://example.com")' },
