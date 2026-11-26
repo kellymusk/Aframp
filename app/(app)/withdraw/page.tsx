@@ -212,13 +212,21 @@ export default function WithdrawPage() {
 
   function submit(event: React.FormEvent) {
     event.preventDefault()
-    const problem = validateWithdrawal(stroops, config, available, bankCode, accountNumber)
+    const bankOptions = asset === 'cNGN' ? nigeriaBanks : getBankOptions(asset)
+    const problem = validateWithdrawal(
+      stroops,
+      config,
+      available,
+      bankCode,
+      accountNumber,
+      bankOptions
+    )
     if (problem) {
       setError(problem)
       return
     }
 
-    const bankName = getBankOptions(asset).find((bank) => bank.code === bankCode)?.name ?? bankCode
+    const bankName = bankOptions.find((bank) => bank.code === bankCode)?.name ?? bankCode
     setError(null)
     setConfirmation({ amount: stroops!, asset, bankCode, bankName, accountNumber })
   }

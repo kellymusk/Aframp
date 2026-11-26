@@ -66,7 +66,9 @@ export function validateWithdrawal(
   config: WithdrawalAssetConfig,
   available: bigint,
   bankCode: string,
-  accountNumber: string
+  accountNumber: string,
+  /** The bank options the form shows (the live list for NGN); defaults to the static one. */
+  banks: Bank[] = getBankOptions(config.asset)
 ): string | null {
   if (amount === null || amount <= 0n) return 'Enter an amount to cash out.'
   if (!isAmountMultipleOf(amount, config.minimumPrecisionStroops)) {
@@ -77,7 +79,7 @@ export function validateWithdrawal(
   }
   if (amount > available) return 'That is more than your available balance.'
   if (!bankCode) return 'Choose your bank.'
-  if (!getBankOptions(config.asset).some((bank) => bank.code === bankCode)) {
+  if (!banks.some((bank) => bank.code === bankCode)) {
     return `Choose a valid ${config.country} bank.`
   }
   const rule = getAccountNumberRule(config.country, bankCode)

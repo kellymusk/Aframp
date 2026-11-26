@@ -80,6 +80,14 @@ describe('validateWithdrawal', () => {
   const validAmount = 500_000_000n
   const validAccount = '0123456789'
 
+  it('accepts a bank from the list the form shows, not only the static one', () => {
+    const live = [{ code: '068', name: 'Standard Chartered Bank' }]
+    expect(validateWithdrawal(validAmount, config, available, '068', validAccount)).toBe(
+      'Choose a valid Nigeria bank.'
+    )
+    expect(validateWithdrawal(validAmount, config, available, '068', validAccount, live)).toBeNull()
+  })
+
   it.each([null, 0n, -1n])('requires a positive parsed amount (%s)', (amount) => {
     expect(validateWithdrawal(amount, config, available, '044', validAccount)).toBe(
       'Enter an amount to cash out.'
