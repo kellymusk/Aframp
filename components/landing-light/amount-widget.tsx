@@ -5,12 +5,16 @@ import { useRouter } from 'next/navigation'
 import { ChevronRight } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { getLoginPath, type PaymentIntent } from '@/lib/payment-intent'
 
-const tabs = ['Spend', 'Buy'] as const
+const directions: { label: string; intent: PaymentIntent }[] = [
+  { label: 'Spend', intent: 'spend' },
+  { label: 'Buy', intent: 'buy' },
+]
 
 export function AmountWidget() {
   const router = useRouter()
-  const [tab, setTab] = useState<(typeof tabs)[number]>('Spend')
+  const [intent, setIntent] = useState<PaymentIntent>('spend')
   const [amount, setAmount] = useState('')
 
   // Nothing to act on yet without an amount — signing in happens once
@@ -19,22 +23,21 @@ export function AmountWidget() {
 
   return (
     <div className="bg-white dark:bg-surface w-full max-w-[420px] overflow-hidden rounded-xl shadow-lg">
-      <div role="tablist" aria-label="Payment direction" className="grid grid-cols-2">
-        {tabs.map((t) => (
+      <div role="group" aria-label="Payment direction" className="grid grid-cols-2">
+        {directions.map(({ label, intent: directionIntent }) => (
           <button
-            key={t}
-            role="tab"
+            key={directionIntent}
             type="button"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
+            aria-pressed={intent === directionIntent}
+            onClick={() => setIntent(directionIntent)}
             className={cn(
               'py-3 text-sm transition-colors',
-              tab === t
+              intent === directionIntent
                 ? 'text-charcoal dark:text-white bg-white dark:bg-surface font-medium'
                 : 'text-charcoal/70 dark:text-white/60 bg-mint dark:bg-band'
             )}
           >
-            {t}
+            {label}
           </button>
         ))}
       </div>
@@ -60,9 +63,9 @@ export function AmountWidget() {
 
         <button
           type="button"
-          aria-label={`Continue to ${tab.toLowerCase()}`}
+          aria-label={`Continue to ${intent}`}
           disabled={!canContinue}
-          onClick={() => router.replace('/login')}
+          onClick={() => router.replace(getLoginPath(intent))}
           className="bg-brand-deep flex size-9 shrink-0 items-center justify-center rounded-full text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:opacity-40"
         >
           <ChevronRight className="size-4" />

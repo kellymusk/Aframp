@@ -65,6 +65,9 @@ jest.mock('@/components/ui/select', () => {
           option.props.children
         )
       )
+      if (value === '') {
+        options.unshift(React.createElement('option', { key: 'empty', value: '' }, ''))
+      }
 
       return React.createElement(
         'select',
@@ -330,7 +333,35 @@ describe('WithdrawPage', () => {
     expect(mockCreateWithdrawal).not.toHaveBeenCalled()
   })
 
-  it('submits a valid cash-out', async () => {
+  it('keeps confirmation open and blocks duplicate cash-outs while submitting', async () => {
+    const user = userEvent.setup()
+    let resolveWithdrawal!: (value: unknown) => void
+    mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
+    mockCreateWithdrawal.mockReturnValue(
+      new Promise((resolve) => {
+        resolveWithdrawal = resolve
+      })
+    )
+    render(<WithdrawPage />)
+
+    await screen.findByRole('heading', { name: 'Cash out' })
+    await user.type(screen.getByLabelText('Amount (cNGN)'), '50')
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '044' } })
+    await user.type(screen.getByLabelText('Account number'), '0123456789')
+    await user.click(screen.getByRole('button', { name: 'Cash out' }))
+    await user.click(await screen.findByRole('button', { name: 'Confirm cash out' }))
+
+    const sendingButton = await screen.findByRole('button', { name: 'Sending…' })
+    expect(sendingButton).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    expect(mockCreateWithdrawal).toHaveBeenCalledTimes(1)
+
+    resolveWithdrawal({})
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(screen.getByLabelText('Amount (cNGN)')).toHaveValue('')
+  })
+
+  it('submits a valid cash-out after confirmation', async () => {
     const user = userEvent.setup()
     mockGetBalances.mockResolvedValue([balance('cNGN', 10_000_000_000n)])
     render(<WithdrawPage />)
@@ -341,6 +372,7 @@ describe('WithdrawPage', () => {
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '044' } })
     await user.type(screen.getByLabelText('Account number'), '0123456789')
     await user.click(screen.getByRole('button', { name: 'Cash out' }))
+    await user.click(await screen.findByRole('button', { name: 'Confirm cash out' }))
 
     await waitFor(() =>
       expect(mockCreateWithdrawal).toHaveBeenCalledWith(
@@ -369,8 +401,10 @@ describe('WithdrawPage', () => {
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '044' } })
     await user.type(screen.getByLabelText('Account number'), '0123456789')
     await user.click(screen.getByRole('button', { name: 'Cash out' }))
+    await user.click(await screen.findByRole('button', { name: 'Confirm cash out' }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Bank provider unavailable')
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 })

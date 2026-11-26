@@ -1,19 +1,42 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { WifiOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { useSession } from '@/components/session-provider'
 import { isOffline } from '@/lib/api'
+import {
+  getPaymentIntent,
+  getPostAuthPath,
+  getSignupPath,
+  getVerifyPath,
+} from '@/lib/payment-intent'
 
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-dvh items-center justify-center">
+          <LoadingSpinner />
+        </main>
+      }
+    >
+      <LoginForm />
+    </Suspense>
+  )
+}
+
+function LoginForm() {
   const { session, ready, signIn } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const intent = getPaymentIntent(searchParams.get('intent'))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -21,8 +44,8 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    if (ready && session) router.replace('/charge')
-  }, [ready, session, router])
+    if (ready && session) router.replace(getPostAuthPath(intent))
+  }, [ready, session, router, intent])
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -39,9 +62,9 @@ export default function LoginPage() {
     try {
       const result = await signIn(email.trim(), password)
       if ('challenge_id' in result) {
-        router.push(`/verify?challenge_id=${result.challenge_id}&flow=login`)
+        router.push(getVerifyPath(result.challenge_id, 'login', intent))
       } else {
-        router.replace('/charge')
+        router.replace(getPostAuthPath(intent))
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Sign in failed')
@@ -96,7 +119,7 @@ export default function LoginPage() {
 
       <p className="text-muted-foreground text-center text-sm">
         New here?{' '}
-        <Link href="/signup" className="text-primary font-medium hover:underline">
+        <Link href={getSignupPath(intent)} className="text-primary font-medium hover:underline">
           Create a merchant account
         </Link>
       </p>

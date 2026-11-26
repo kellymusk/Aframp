@@ -63,6 +63,20 @@ describe('VerifyOtpPage', () => {
     expect(replace).toHaveBeenCalledWith('/charge')
   })
 
+  it('preserves a valid payment intent after verification', async () => {
+    ;(useSearchParams as jest.Mock).mockReturnValue(
+      paramsWith({ challenge_id: 'chal-1', flow: 'login', intent: 'buy' })
+    )
+    completeOtp.mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    render(<VerifyOtpPage />)
+
+    await user.type(screen.getByLabelText(/6-digit code/i), '482913')
+    await user.click(screen.getByRole('button', { name: /verify/i }))
+
+    expect(replace).toHaveBeenCalledWith('/home?intent=buy')
+  })
+
   it('lets the user retry on an incorrect code without losing the challenge', async () => {
     ;(useSearchParams as jest.Mock).mockReturnValue(paramsWith({ challenge_id: 'chal-1', flow: 'login' }))
     completeOtp.mockRejectedValue(new ApiError('incorrect code', 400, 'OTP_INVALID'))

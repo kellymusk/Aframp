@@ -3,7 +3,7 @@ import { axe } from 'jest-axe'
 import userEvent from '@testing-library/user-event'
 import SignupPage from './page'
 import { useSession } from '@/components/session-provider'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ApiError } from '@/lib/api'
 
 jest.mock('@/components/session-provider', () => ({
@@ -12,7 +12,12 @@ jest.mock('@/components/session-provider', () => ({
 
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
+  useSearchParams: jest.fn(),
 }))
+
+function paramsWith(entries: Record<string, string>) {
+  return { get: (key: string) => entries[key] ?? null }
+}
 
 describe('SignupPage', () => {
   const replace = jest.fn()
@@ -24,6 +29,7 @@ describe('SignupPage', () => {
     push.mockReset()
     signUp.mockReset()
     ;(useRouter as jest.Mock).mockReturnValue({ replace, push })
+    ;(useSearchParams as jest.Mock).mockReturnValue(paramsWith({}))
     ;(useSession as jest.Mock).mockReturnValue({
       session: null,
       ready: true,
@@ -68,6 +74,25 @@ describe('SignupPage', () => {
     expect(signUp).toHaveBeenCalledTimes(1)
     expect(push).toHaveBeenCalledWith('/verify?challenge_id=chal-456&flow=signup')
     expect(replace).not.toHaveBeenCalledWith('/charge')
+  })
+
+  it('preserves a selected intent through signup verification', async () => {
+    ;(useSearchParams as jest.Mock).mockReturnValue(paramsWith({ intent: 'spend' }))
+    const user = userEvent.setup()
+    signUp.mockResolvedValue({ challenge_id: 'chal-456', expires_in_secs: 600 })
+    render(<SignupPage />)
+
+    await user.type(screen.getByLabelText(/business name/i), 'Acme Pay')
+    await user.type(screen.getByLabelText(/email/i), 'hello@acme.com')
+    await user.type(screen.getByLabelText(/phone number/i), '08011122233')
+    await user.type(screen.getByLabelText(/password/i), 'verysecret')
+    await user.click(screen.getByRole('button', { name: /create account/i }))
+
+    expect(push).toHaveBeenCalledWith('/verify?challenge_id=chal-456&flow=signup&intent=spend')
+    expect(screen.getByRole('link', { name: /sign in/i })).toHaveAttribute(
+      'href',
+      '/login?intent=spend'
+    )
   })
 
   it('rejects passwords shorter than eight characters before calling the API', async () => {
