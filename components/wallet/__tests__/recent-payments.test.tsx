@@ -19,6 +19,12 @@ describe('latestPayments', () => {
     )
     expect(latestPayments(payments).map((p) => p.id)).toEqual(['p-6', 'p-5', 'p-4', 'p-3', 'p-2'])
   })
+
+  it('sorts a copy, leaving the caller’s array order untouched (#1159)', () => {
+    const payments = [payment('a', '2026-10-01T10:00:00Z'), payment('b', '2026-10-02T10:00:00Z')]
+    latestPayments(payments)
+    expect(payments.map((p) => p.id)).toEqual(['a', 'b'])
+  })
 })
 
 describe('RecentPayments', () => {

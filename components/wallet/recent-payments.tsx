@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 
@@ -16,8 +17,10 @@ export function latestPayments(payments: Payment[], limit = RECENT_PAYMENTS_LIMI
     .slice(0, limit)
 }
 
-export function RecentPayments({ payments }: { payments: Payment[] }) {
-  const latest = latestPayments(payments)
+function RecentPaymentsList({ payments }: { payments: Payment[] }) {
+  // Memoized on the array identity so the O(n log n) sort only re-runs when
+  // the payments themselves change, not on every render (#1159).
+  const latest = useMemo(() => latestPayments(payments), [payments])
 
   return (
     <section
@@ -68,3 +71,10 @@ export function RecentPayments({ payments }: { payments: Payment[] }) {
     </section>
   )
 }
+
+/**
+ * Memoized wrapper (#1159): with a referentially stable `payments` array —
+ * component state or a memoized parent value — the list skips both the
+ * re-sort and the reconciliation entirely.
+ */
+export const RecentPayments = memo(RecentPaymentsList)
