@@ -233,9 +233,19 @@ describe('ChargePage', () => {
   })
 
   it('decrements countdown timer and triggers refresh when countdown hits zero', async () => {
+    // A plain response: undici's Response.json() doesn't settle while fake
+    // timers are installed, which would leave the refresh hanging.
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, json: () => Promise.resolve({ stellar: { ngn: 250 } }) })
+    ) as unknown as typeof fetch
     jest.useFakeTimers()
     try {
       render(<ChargePage />)
+      // Let the initial rate load settle before the clock starts moving.
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(screen.getByText(/1 XLM ≈ ₦250/)).toBeInTheDocument()
       expect(screen.getByText(/Refresh in 30s/)).toBeInTheDocument()
 
       act(() => {
