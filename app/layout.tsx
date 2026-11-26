@@ -4,6 +4,7 @@ import { headers } from 'next/headers'
 import { Atkinson_Hyperlegible } from 'next/font/google'
 import { ThemeProvider } from '@/components/theme-provider'
 import { SessionProvider } from '@/components/session-provider'
+import { InstallPromptBanner } from '@/components/pwa/install-prompt-banner'
 import './globals.css'
 
 // The Aframp brand typeface — picked for legibility at small sizes,
@@ -15,7 +16,13 @@ const atkinson = Atkinson_Hyperlegible({
   display: 'swap',
 })
 
+// Absolute base for Open Graph/Twitter image URLs. Without it, Next.js falls
+// back to its own default (the production URL on Vercel).
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim()
+
 export const metadata: Metadata = {
+  ...(siteUrl ? { metadataBase: new URL(siteUrl) } : {}),
+  icons: { icon: '/icons/icon.svg', apple: '/icons/icon.svg' },
   title: 'Aframp — Pay, Send & Buy Crypto in Africa',
   description:
     "Buy crypto from as low as 2,000 cNGN. Pay bills, send money, and grow your business with Africa's first stablecoin payment platform.",
@@ -47,6 +54,7 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <SessionProvider>{children}</SessionProvider>
+          <InstallPromptBanner />
         </ThemeProvider>
         <script
           nonce={nonce}
