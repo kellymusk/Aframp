@@ -7,9 +7,7 @@ import { api, type PaymentStatus } from '@/lib/api'
 import { formatStroops } from '@/lib/money'
 import { useAuthenticatedSession } from '@/components/session-provider'
 import { useAdminCursorPagination } from '@/hooks/use-admin-cursor-pagination'
-
-/** Testnet today; swap for `public` when the backend points at mainnet Horizon. */
-const EXPLORER_BASE = 'https://stellar.expert/explorer/testnet/tx'
+import { getTransactionExplorerUrl } from '@/lib/config/network'
 
 const STATUS_LABEL: Record<PaymentStatus, string> = {
   detected: 'Detected',
@@ -80,7 +78,7 @@ export default function AdminTransactionsPage() {
               header: 'Tx hash',
               render: (row) => (
                 <a
-                  href={`${EXPLORER_BASE}/${row.tx_hash}`}
+                  href={getTransactionExplorerUrl(row.tx_hash)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-brand font-mono text-xs hover:underline"
