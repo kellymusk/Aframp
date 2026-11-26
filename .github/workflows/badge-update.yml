@@ -15,14 +15,15 @@ jobs:
   update-badge:
     name: Update Coverage Badge
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: github.event.workflow_run.conclusion == 'success'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: main
 
       - name: Download coverage artifact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           name: coverage-report
           path: coverage

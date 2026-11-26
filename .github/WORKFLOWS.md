@@ -288,9 +288,17 @@ Tests ────────┘
 
 1. **Keep workflows simple** - One responsibility per job
 2. **Use caching** - Speed up dependency installation
-3. **Set timeouts** - Prevent hanging workflows
+3. **Set timeouts** - Every job sets `timeout-minutes` (5 for guards/comment jobs,
+   10 for lint/security/release, 15 for test/build/preview, 20 for E2E/Lighthouse)
+   so a hung step can't burn GitHub's 6-hour default
 4. **Monitor costs** - GitHub Actions has usage limits
 5. **Document changes** - Update this file when modifying workflows
+6. **Pin actions to commit SHAs** - Every `uses:` is pinned to a full 40-char
+   commit SHA with the release tag as a trailing comment
+   (`uses: actions/checkout@<sha> # v5.1.0`). Never use `@master`/`@main` or a
+   bare tag. Dependabot (`github-actions` ecosystem in `.github/dependabot.yml`)
+   opens a weekly grouped PR that rotates the pins; review the upstream release
+   notes/diff before merging. Pin any newly added action the same way.
 
 ---
 
