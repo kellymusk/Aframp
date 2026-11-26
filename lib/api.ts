@@ -201,7 +201,7 @@ export interface PaymentRequest {
   allow_partial?: boolean
   expires_at: string
   created_at: string
-  /** null for any asset with no configured issuer — currently everything but XLM. */
+  /** null when the asset has no configured issuer, so no SEP-7 URI can be built. */
   sep7_uri: string | null
 }
 
