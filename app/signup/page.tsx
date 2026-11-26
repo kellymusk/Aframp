@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { safeSessionStorage } from '@/lib/safe-storage'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { WifiOff } from 'lucide-react'
@@ -102,7 +103,7 @@ export default function SignupPage() {
     try {
       const challenge = await signUp(email.trim(), password, name.trim(), normalizedPhone.e164)
       // #638: store challenge_id in sessionStorage instead of the URL
-      sessionStorage.setItem(CHALLENGE_SESSION_KEY, challenge.challenge_id)
+      safeSessionStorage.setItem(CHALLENGE_SESSION_KEY, challenge.challenge_id)
       router.push('/verify?flow=signup')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not create your account')
