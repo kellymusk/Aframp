@@ -29,6 +29,8 @@ function validateBackendUrl(url) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Don't fingerprint the framework/version via X-Powered-By.
+  poweredByHeader: false,
   // PWA configuration (next-pwa v2 reads options from the `pwa` key)
   pwa: {
     dest: 'public',
@@ -90,7 +92,10 @@ const nextConfig = {
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'X-XSS-Protection', value: '1; mode=block' },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
         ],
