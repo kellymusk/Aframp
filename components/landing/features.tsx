@@ -1,5 +1,6 @@
 import { Building2, CreditCard, Globe, ShieldCheck, Wallet, Zap } from 'lucide-react'
 
+import { supportedCountryCodes, supportedCountryCount } from '@/lib/landing-data'
 import { cn } from '@/lib/utils'
 
 function Chip({ children }: { children: React.ReactNode }) {
@@ -154,10 +155,10 @@ export function Features() {
         <Tile
           icon={Globe}
           title="Pan-African Reach"
-          blurb="Send money across 12 African countries with zero forex headaches."
+          blurb={`Send money across ${supportedCountryCount} African countries with zero forex headaches.`}
         >
           <div className="mt-4 flex flex-wrap gap-2">
-            {['NG', 'GH', 'KE', '+9'].map((c) => (
+            {supportedCountryCodes.map((c) => (
               <span
                 key={c}
                 className="bg-brand/15 text-brand rounded px-2 py-0.5 text-[11px] font-bold"

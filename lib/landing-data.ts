@@ -4,6 +4,34 @@
  * content can move to a CMS without touching layout.
  */
 
+import { SUPPORTED_FIAT_CURRENCIES, type FiatCurrency } from '@/types/onramp'
+
+/** ISO country code for each fiat currency we support. */
+const COUNTRY_CODE_BY_CURRENCY: Record<FiatCurrency, string> = {
+  NGN: 'NG',
+  KES: 'KE',
+  GHS: 'GH',
+  ZAR: 'ZA',
+  UGX: 'UG',
+}
+
+export const supportedCountryCodes = SUPPORTED_FIAT_CURRENCIES.map(
+  (currency) => COUNTRY_CODE_BY_CURRENCY[currency]
+)
+
+/**
+ * Number of countries Aframp supports, derived from the configured currencies
+ * so the marketing copy can't drift from what the app actually supports.
+ */
+export const supportedCountryCount = supportedCountryCodes.length
+
+export type HeroStat = {
+  value: string
+  label: string
+  /** True for marketing figures we cannot verify against platform data. */
+  illustrative?: boolean
+}
+
 export const nav = [
   { label: 'Features', href: '#features' },
   { label: 'How it Works', href: '#how-it-works' },
@@ -17,10 +45,11 @@ export const hero = {
   titleAccent: 'Crypto in Africa',
   minBuy: '2,000 cNGN',
   stats: [
-    { value: '50K+', label: 'Active Users' },
-    { value: '$2M+', label: 'Processed Daily' },
-    { value: '12', label: 'Countries' },
-  ],
+    // Illustrative marketing figures — no platform data backs them yet.
+    { value: '50K+', label: 'Active Users', illustrative: true },
+    { value: '$2M+', label: 'Processed Daily', illustrative: true },
+    { value: String(supportedCountryCount), label: 'Countries' },
+  ] as HeroStat[],
   card: {
     balanceLabel: 'cNGN Balance',
     balance: '₦2,450,000',
@@ -102,7 +131,7 @@ export const tiers: Tier[] = [
     features: [
       'Buy crypto from ₦2,000',
       'Pay bills & airtime',
-      'Send to 12 countries',
+      `Send to ${supportedCountryCount} countries`,
       'Basic analytics',
       'Email support',
     ],

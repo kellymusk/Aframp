@@ -1,4 +1,11 @@
-export type FiatCurrency = 'NGN' | 'KES' | 'GHS' | 'ZAR' | 'UGX'
+/**
+ * The fiat currencies Aframp is configured to pay out in — one per supported
+ * country. This array is the source of truth: the FiatCurrency type and any
+ * customer-facing country counts are derived from it.
+ */
+export const SUPPORTED_FIAT_CURRENCIES = ['NGN', 'KES', 'GHS', 'ZAR', 'UGX'] as const
+
+export type FiatCurrency = (typeof SUPPORTED_FIAT_CURRENCIES)[number]
 export type CryptoAsset = 'cNGN' | 'cKES' | 'cGHS' | 'USDC' | 'XLM'
 export type PaymentMethod = 'bank_transfer' | 'card' | 'mobile_money'
 export type OrderStatus =
