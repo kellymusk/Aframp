@@ -1,5 +1,5 @@
 # Test-specific Dockerfile with caching optimizations
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ RUN apk add --no-cache libc6-compat python3 make g++
 COPY package*.json ./
 RUN npm ci
 
-FROM node:22-alpine AS test
+FROM node:26-alpine AS test
 
 WORKDIR /app
 
