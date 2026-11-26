@@ -414,7 +414,9 @@ export default function WithdrawPage() {
                           ? 'default'
                           : withdrawal.status === 'failed'
                             ? 'destructive'
-                            : 'secondary'
+                            : withdrawal.status === 'processing'
+                              ? 'processing'
+                              : 'secondary'
                       }
                     >
                       {STATUS_LABEL[withdrawal.status] ?? withdrawal.status}
