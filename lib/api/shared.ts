@@ -84,10 +84,12 @@ export function stringifyWithBigInts(value: unknown): string {
 }
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
   body?: unknown
   token?: string
   signal?: AbortSignal
+  /** Sent as `Idempotency-Key` so the backend can dedupe retries of one intent. */
+  idempotencyKey?: string
 }
 
 /**
@@ -96,9 +98,44 @@ export interface RequestOptions {
  */
 const SERVER_ERROR_MESSAGE = 'Something went wrong on our end. Please try again in a moment.'
 
+function newIdempotencyKey(): string {
+  const webCrypto = globalThis.crypto
+  if (typeof webCrypto?.randomUUID === 'function') return webCrypto.randomUUID()
+  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}${Math.random().toString(16).slice(2)}`
+}
+
+/** Keys of intents whose last attempt may or may not have reached the backend. */
+const unsettledIntents = new Map<string, string>()
+
+/**
+ * Runs a money-moving request with an idempotency key tied to the user's
+ * intent (endpoint + account + payload). While an attempt ends without a
+ * definite answer (network error or 5xx) the same key is reused on retry, so the
+ * backend can dedupe; after a success or a definite rejection it is dropped.
+ */
+export async function withIdempotencyKey<T>(
+  scope: string,
+  token: string,
+  body: unknown,
+  send: (idempotencyKey: string) => Promise<T>
+): Promise<T> {
+  const intent = `${scope}|${token}|${stringifyWithBigInts(body)}`
+  const idempotencyKey = unsettledIntents.get(intent) ?? newIdempotencyKey()
+  unsettledIntents.set(intent, idempotencyKey)
+  try {
+    const result = await send(idempotencyKey)
+    unsettledIntents.delete(intent)
+    return result
+  } catch (cause) {
+    const outcomeUnknown = !(cause instanceof ApiError) || cause.status === 0 || cause.status >= 500
+    if (!outcomeUnknown) unsettledIntents.delete(intent)
+    throw cause
+  }
+}
+
 /** Exported for tests: the single fetch wrapper every `api.*` call funnels through. */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, token, signal } = options
+  const { method = 'GET', body, token, signal, idempotencyKey } = options
 
   let response: Response
   try {
@@ -108,6 +145,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       headers: {
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
       },
       body: body === undefined ? undefined : stringifyWithBigInts(body),
     })

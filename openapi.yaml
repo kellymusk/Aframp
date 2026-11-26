@@ -525,6 +525,10 @@ components:
           type: string
         memo:
           type: string
+        merchant_name:
+          type: string
+          nullable: true
+          description: Business name shown to the customer on the public payment page.
         status:
           type: string
           enum: [pending, paid, expired, cancelled]

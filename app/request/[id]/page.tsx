@@ -323,6 +323,9 @@ export default function PaymentRequestPage({ params }: { params: Promise<{ id: s
         <p className="text-muted-foreground text-xs font-medium tracking-widest uppercase">
           {request.sep7_uri ? 'Ask your customer to scan' : 'Ask your customer to pay'}
         </p>
+        {request.merchant_name && (
+          <p className="text-base font-medium">Paying {request.merchant_name}</p>
+        )}
         <h1 className="font-display text-4xl font-semibold tracking-tight tabular-nums">
           {amount}
         </h1>
